@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/mrx-org/nifti-phantoms/nifti-phantom-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/mrx-org/nifti-phantoms/refs/heads/main/nifti-phantom-v1.schema.json",
   "title": "NIfTI Phantom v1",
   "description": "Numerical MRI simulation phantom. Can contain segmented multi-tissue data as well as per-voxel data. References NIfTI files stored next to this file.",
   "type": "object",
@@ -14,7 +14,7 @@
   "properties": {
     "$schema": {
       "description": "Format discriminator and version.",
-      "const": "https://github.com/mrx-org/nifti-phantoms/nifti-phantom-v1.schema.json"
+      "const": "https://raw.githubusercontent.com/mrx-org/nifti-phantoms/refs/heads/main/nifti-phantom-v1.schema.json"
     },
     "units": {
       "description": "Units used by tissue properties. To simplify parsers, the exact units are fixed - the purpose of this field is documentation.",
