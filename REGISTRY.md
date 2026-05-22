@@ -77,3 +77,11 @@ by opening the phantom JSON, not duplicated here.
 3. Open a PR adding one entry per phantom to [`registry.json`](registry.json),
    pinning `source.doi` to the published version DOI (and recording its
    `concept_doi`).
+
+A GitHub Action validates `registry.json` against the schema on every PR. Run the
+same check locally before opening one:
+
+```sh
+pip install jsonschema
+python tools/validate_registry.py
+```
