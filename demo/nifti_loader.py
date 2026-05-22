@@ -107,6 +107,11 @@ def load_config(config: NiftiPhantom, base_dir: Path | str) -> dict[str, NumpyTi
     }
 
 
+# ===========================================================================
+# Phantom loading internals
+# ===========================================================================
+
+
 def load_tissue(
     tissue: NiftiTissue,
     base_dir: Path | str,
