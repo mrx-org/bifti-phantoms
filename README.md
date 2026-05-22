@@ -26,7 +26,3 @@ hosted on providers like [Zenodo](https://zenodo.org/).
 
 - [demo/](demo/DEMO.md) — a small Python example that loads a phantom into NumPy
   arrays and plots every tissue; a starting point for porting the format.
-
-## License
-
-See [LICENSE](LICENSE).
