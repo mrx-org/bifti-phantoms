@@ -1,8 +1,8 @@
 # NIfTI Phantom Registry
 
 [`registry.json`](registry.json) is a public, PR-editable index of NIfTI
-phantoms. It only **references** data — the phantoms themselves are hosted by a
-provider like [Zenodo](https://zenodo.org/). Anyone can publish a phantom and add
+phantoms. It only **references** data — the phantoms themselves are hosted on
+[Zenodo](https://zenodo.org/). Anyone can publish a phantom and add
 it via a pull request. Entries are validated against
 [`nifti-registry.schema.json`](nifti-registry.schema.json) (JSON Schema
 draft 2020-12). The format carries no version tag and allows extra properties, so
@@ -17,12 +17,18 @@ in **one Zenodo record**. Each published version of that record gets an immutabl
 byte-identical files. The version DOI **is** the integrity guarantee, so the
 registry stores no checksums.
 
-Every entry pins `source.doi` to one such immutable version. There is
+Every entry pins its `doi` to one such immutable version. There is
 deliberately **no concept DOI** — following the latest version is the registry's
 job, not the record's. The entry is **mutable**: when a phantom is revised (a new
 Zenodo version is published) the entry is updated in place to the new version DOI
 via a PR. So the registry always points at current data, while each `doi` it
 points at is itself frozen.
+
+A Zenodo version DOI is `10.5281/zenodo.<record_id>` — it embeds both the host
+and the record id, so the `doi` alone is enough to resolve and download the
+files. The registry therefore stores no `provider` or `url`: both are implied by
+the DOI. (Zenodo is the only host for now; another could be added later in place
+if requested.)
 
 You iterate freely (locally / in a fork), then *freeze* by publishing a Zenodo
 version. Zenodo's **"New version"** flow carries unchanged files forward without
@@ -31,17 +37,17 @@ re-uploading them, so revising the JSON does not re-upload the NIfTI.
 A record may bundle a **set** of related phantoms (e.g. one subject across field
 strengths, or a whole cohort). Record granularity is independent of registry
 granularity: the registry still lists each phantom individually, and several
-entries may share the same `source`.
+entries may share the same `doi`.
 
 ### Reproducibility
 
 Because entries are mutable, the immutable unit is the **registry itself**, which
 is versioned by git. To pin a phantom in your code, reference its `id` together
 with the **nifti-phantoms commit hash** of the registry you resolved it against —
-that commit fixes the exact `source.doi`, and therefore the exact files, forever.
+that commit fixes the exact `doi`, and therefore the exact files, forever.
 Resolve against the registry's `main` HEAD for the newest data; pin to a commit
-for a reproducible resolution. There is no need to record DOIs in your code: the
-`id` + commit is enough, and it works uniformly across providers.
+for a reproducible resolution. There is no need to record the DOI in your code:
+the `id` + commit is enough.
 
 ## Entry format
 
@@ -53,18 +59,10 @@ for a reproducible resolution. There is no need to record DOIs in your code: the
 | `description` | yes | One or two sentences. |
 | `authors` | yes | List of `{ name, orcid?, email?, affiliation? }`. |
 | `license` | yes | SPDX id, e.g. `CC-BY-4.0`, `CC0-1.0`. |
-| `source` | yes | Hosting record (see below). |
+| `doi` | yes | Immutable Zenodo **version DOI** (`10.5281/zenodo.<id>`) the entry points to. Updated in place (new PR) when the data is revised. |
 | `variants` | yes | The JSON configs in the record (≥ 1). |
 | `keywords` | no | Discovery tags (`brain`, `synthetic`, `3d`, …). |
 | `collection` | no | Label grouping phantoms that share a record. |
-
-`source` — where the data lives:
-
-| Field | Req. | Description |
-|-------|------|-------------|
-| `provider` | yes | `zenodo` (only provider defined in v1). |
-| `doi` | yes | Immutable **version DOI** the entry currently points to. Updated in place (new PR) when the data is revised. |
-| `url` | no | Convenience link, e.g. `https://doi.org/<doi>`. |
 
 `variants[]` — one per phantom JSON in the record:
 
@@ -74,10 +72,11 @@ for a reproducible resolution. There is no need to record DOIs in your code: the
 | `file` | yes | JSON filename inside the record. |
 | `B0` | no | Main field strength [T], for discovery. |
 
-Resolving a phantom: take `source` → the record version (`doi`) → its file base,
-then download `variants[].file`; the NIfTI files it references resolve from the
-same record. To follow the latest data, resolve the entry from the registry's
-`main` HEAD; to reproduce an exact resolution, resolve it at a pinned commit.
+Resolving a phantom: read the Zenodo record id from `doi` (the digits in
+`…/zenodo.<id>`), then fetch files from the record over the Zenodo API — download
+`variants[].file` and the NIfTI files it references (all live in the same
+record). To follow the latest data, resolve the entry from the registry's `main`
+HEAD; to reproduce an exact resolution, resolve it at a pinned commit.
 
 Deliberately minimal: tissue lists, resolution and channel counts are discovered
 by opening the phantom JSON, not duplicated here.
@@ -89,8 +88,8 @@ by opening the phantom JSON, not duplicated here.
 2. Upload **all files** to a single Zenodo record and publish it. To revise the
    JSON later, use Zenodo **"New version"** and keep the existing NIfTI files.
 3. Open a PR adding one entry per phantom to [`registry.json`](registry.json),
-   setting `source.doi` to the published version DOI. To revise a phantom later,
-   publish a new Zenodo version and open a PR that updates its `source.doi`.
+   setting `doi` to the published version DOI. To revise a phantom later,
+   publish a new Zenodo version and open a PR that updates its `doi`.
 
 A GitHub Action validates `registry.json` against the schema on every PR. Run the
 same check locally before opening one:

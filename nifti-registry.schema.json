@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mrx-org/nifti-phantoms/nifti-registry",
   "title": "NIfTI Phantom Registry",
-  "description": "Index of public NIfTI phantoms. Each entry points at a record hosted by a provider (e.g. Zenodo) that holds the phantom JSON and the NIfTI files it references. The registry only references data; it does not store it. Additional properties are allowed so the format can evolve in place. See REGISTRY.md.",
+  "description": "Index of public NIfTI phantoms. Each entry points at a Zenodo record (by version DOI) that holds the phantom JSON and the NIfTI files it references. The registry only references data; it does not store it. Additional properties are allowed so the format can evolve in place. See REGISTRY.md.",
   "type": "object",
   "required": [ "phantoms" ],
   "properties": {
     "phantoms": {
-      "description": "The registered phantoms. One entry per phantom; several entries may share a source record (a bundled phantom set).",
+      "description": "The registered phantoms. One entry per phantom; several entries may share a Zenodo record (a bundled phantom set).",
       "type": "array",
       "items": { "$ref": "#/$defs/phantom" }
     }
@@ -16,7 +16,7 @@
     "phantom": {
       "description": "A single registered phantom and its citable variants.",
       "type": "object",
-      "required": [ "id", "description", "authors", "license", "source", "variants" ],
+      "required": [ "id", "description", "authors", "license", "doi", "variants" ],
       "properties": {
         "id": {
           "description": "Unique registry key, conventionally the phantom name (e.g. 'subj42'). Must be unique across the registry.",
@@ -45,15 +45,16 @@
           "minLength": 1
         },
         "collection": {
-          "description": "Optional free-text label grouping phantoms that share a source record / provenance.",
+          "description": "Optional free-text label grouping phantoms that share a Zenodo record / provenance.",
           "type": "string"
         },
-        "source": {
-          "description": "Where the phantom data is hosted.",
-          "$ref": "#/$defs/source"
+        "doi": {
+          "description": "Immutable Zenodo version DOI of the exact, byte-identical record version this entry currently points to (e.g. '10.5281/zenodo.1234568'). The DOI embeds the Zenodo record id ('zenodo.<id>'), so it alone is enough to resolve and download the files; no provider or URL is stored. The entry is mutable: it is updated in place to a new version DOI when the data is revised. To pin an exact resolution, reference the phantom id at a specific nifti-phantoms commit.",
+          "type": "string",
+          "pattern": "^10\\.\\d{4,9}/zenodo\\.\\d+$"
         },
         "variants": {
-          "description": "The phantom JSON configurations inside the source record (e.g. one per field strength).",
+          "description": "The phantom JSON configurations inside the Zenodo record (e.g. one per field strength).",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/variant" }
@@ -84,27 +85,6 @@
         }
       }
     },
-    "source": {
-      "type": "object",
-      "required": [ "provider", "doi" ],
-      "properties": {
-        "provider": {
-          "description": "Hosting provider. Only 'zenodo' is defined for now.",
-          "type": "string",
-          "enum": [ "zenodo" ]
-        },
-        "doi": {
-          "description": "Immutable version DOI of the exact, byte-identical record version this entry currently points to. The entry is mutable: it is updated in place to a new version DOI when the data is revised. To pin an exact resolution, reference the phantom id at a specific nifti-phantoms commit, not a concept DOI.",
-          "type": "string",
-          "pattern": "^10\\.\\d{4,9}/.+$"
-        },
-        "url": {
-          "description": "Optional convenience link, conventionally 'https://doi.org/<doi>'.",
-          "type": "string",
-          "format": "uri"
-        }
-      }
-    },
     "variant": {
       "type": "object",
       "required": [ "name", "file" ],
@@ -115,7 +95,7 @@
           "minLength": 1
         },
         "file": {
-          "description": "Phantom JSON filename inside the source record.",
+          "description": "Phantom JSON filename inside the Zenodo record.",
           "type": "string",
           "pattern": "\\.json$"
         },

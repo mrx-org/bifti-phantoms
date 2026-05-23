@@ -9,11 +9,7 @@
       ],
       "license": "CC-BY-4.0",
       "collection": "mrx-brain-cohort",
-      "source": {
-        "provider": "zenodo",
-        "doi": "10.5281/zenodo.1234568",
-        "url": "https://doi.org/10.5281/zenodo.1234568"
-      },
+      "doi": "10.5281/zenodo.1234568",
       "variants": [
         { "name": "subj42-3T", "file": "subj42-3T.json", "B0": 3.0 },
         { "name": "subj42-7T", "file": "subj42-7T.json", "B0": 7.0 }
@@ -28,11 +24,7 @@
       ],
       "license": "CC0-1.0",
       "collection": "mrx-brain-cohort",
-      "source": {
-        "provider": "zenodo",
-        "doi": "10.5281/zenodo.2222221",
-        "url": "https://doi.org/10.5281/zenodo.2222221"
-      },
+      "doi": "10.5281/zenodo.2222221",
       "variants": [
         { "name": "shapes", "file": "shapes.json", "B0": 3.0 }
       ]
