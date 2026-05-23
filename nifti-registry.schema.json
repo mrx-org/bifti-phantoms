@@ -16,17 +16,12 @@
     "phantom": {
       "description": "A single registered phantom and its citable variants.",
       "type": "object",
-      "required": [ "id", "title", "description", "authors", "license", "source", "variants" ],
+      "required": [ "id", "description", "authors", "license", "source", "variants" ],
       "properties": {
         "id": {
           "description": "Unique registry key, conventionally the phantom name (e.g. 'subj42'). Must be unique across the registry.",
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
-        },
-        "title": {
-          "description": "Human-readable name.",
-          "type": "string",
-          "minLength": 1
         },
         "description": {
           "description": "One or two sentences describing the phantom.",
@@ -78,6 +73,11 @@
           "description": "ORCID iD, digits only (e.g. '0000-0002-1825-0097').",
           "type": "string",
           "pattern": "^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$"
+        },
+        "email": {
+          "description": "Optional contact email for the author.",
+          "type": "string",
+          "format": "email"
         },
         "affiliation": {
           "type": "string"

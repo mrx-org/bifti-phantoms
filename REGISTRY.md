@@ -50,9 +50,8 @@ for a reproducible resolution. There is no need to record DOIs in your code: the
 | Field | Req. | Description |
 |-------|------|-------------|
 | `id` | yes | Unique key, conventionally the phantom name (`subj42`). |
-| `title` | yes | Human-readable name. |
 | `description` | yes | One or two sentences. |
-| `authors` | yes | List of `{ name, orcid?, affiliation? }`. |
+| `authors` | yes | List of `{ name, orcid?, email?, affiliation? }`. |
 | `license` | yes | SPDX id, e.g. `CC-BY-4.0`, `CC0-1.0`. |
 | `source` | yes | Hosting record (see below). |
 | `variants` | yes | The JSON configs in the record (≥ 1). |

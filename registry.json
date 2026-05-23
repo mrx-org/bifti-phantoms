@@ -2,11 +2,10 @@
   "phantoms": [
     {
       "id": "subj42",
-      "title": "Subject 42 — synthetic brain phantom",
       "description": "Single-slice brain-like phantom (GM/WM/fat) with a dB0 map and an 8-channel B1+.",
       "keywords": [ "brain", "in-vivo-derived", "2d" ],
       "authors": [
-        { "name": "Doe, Jane", "orcid": "0000-0002-1825-0097", "affiliation": "Example University" }
+        { "name": "Doe, Jane", "orcid": "0000-0002-1825-0097", "email": "jane.doe@example.edu", "affiliation": "Example University" }
       ],
       "license": "CC-BY-4.0",
       "collection": "mrx-brain-cohort",
@@ -22,7 +21,6 @@
     },
     {
       "id": "shapes",
-      "title": "Geometric shapes phantom",
       "description": "Synthetic 3D phantom (disk/ring/background) loaded on its native grid.",
       "keywords": [ "synthetic", "numerical", "3d" ],
       "authors": [
