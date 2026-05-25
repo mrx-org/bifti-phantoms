@@ -31,12 +31,12 @@ ZENODO_FILE_URL = "https://zenodo.org/api/records/{record_id}/files/{filename}/c
 # ===========================================================================
 
 
-def available_phantoms() -> list[dict]:
+def available_phantoms() -> dict[str, dict]:
     """Download the latest registry.json from GitHub and return it parsed.
 
     The raw bytes are cached as ``cache/registry-<hash>.json`` (one file per
-    distinct version); the return value is the registry array as-is - a list of
-    collection objects, each with ``collection``, ``doi``, ``phantoms``, etc.
+    distinct version); the return value is the registry object as-is - a dict
+    mapping each collection name to its entry (``doi``, ``phantoms``, etc.).
     """
     raw = _http_get(REGISTRY_URL)
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -54,8 +54,7 @@ def download_phantom(collection: str, name: str) -> Path:
     download nothing. Returns the local phantom JSON path, ready for
     ``nifti_loader.load_phantom`` (the NIfTIs sit next to it).
     """
-    entry = next(c for c in available_phantoms() if c["collection"] == collection)
-    doi = entry["doi"]
+    doi = available_phantoms()[collection]["doi"]
 
     dir_ = CACHE / f"{collection}-{doi.replace('/', '_')}"
     dir_.mkdir(parents=True, exist_ok=True)
@@ -125,7 +124,7 @@ def collect_nifti_files(phantom: NiftiPhantom) -> list[str]:
 # ===========================================================================
 
 if __name__ == "__main__":
-    for collection in available_phantoms():
-        print(f"{collection['collection']}  ({collection['doi']})")
-        for phantom in collection["phantoms"]:
+    for collection_name, entry in available_phantoms().items():
+        print(f"{collection_name}  ({entry['doi']})")
+        for phantom in entry["phantoms"]:
             print(f"    {phantom}")

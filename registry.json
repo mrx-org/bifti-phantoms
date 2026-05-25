@@ -1,6 +1,5 @@
-[
-  {
-    "collection": "nifti-phantom-demo",
+{
+  "nifti-phantom-demo": {
     "description": "Demonstration data for the NIfTI phantom format: a synthetic brain-like phantom (single slice) plus geometric-shape phantoms on their native grid and resliced.",
     "keywords": [ "demo", "synthetic", "numerical", "brain", "2d", "3d" ],
     "authors": [
@@ -10,4 +9,4 @@
     "doi": "10.5281/zenodo.20384437",
     "phantoms": [ "subj42-3T.json", "shapes.json", "shapes_resliced.json" ]
   }
-]
+}

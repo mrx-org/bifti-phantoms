@@ -19,7 +19,7 @@ A shared index of public phantoms anyone can contribute to via a PR; the data is
 hosted on [Zenodo](https://zenodo.org/).
 
 - [REGISTRY.md](REGISTRY.md) — how it works and how to contribute.
-- [registry.json](registry.json) — the list of phantom collections.
+- [registry.json](registry.json) — the index of phantom collections.
 - [nifti-registry.schema.json](nifti-registry.schema.json) — JSON Schema for registry entries.
 
 ## Reference implementation

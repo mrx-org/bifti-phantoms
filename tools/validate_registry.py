@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Validate registry.json against nifti-registry.schema.json.
 
-Checks JSON Schema conformance plus collection-name uniqueness (which the schema
-cannot express). Run from anywhere in the repo:
+Checks JSON Schema conformance. Run from anywhere in the repo:
 
     python tools/validate_registry.py
 
@@ -12,7 +11,6 @@ from __future__ import annotations
 
 import json
 import sys
-from collections import Counter
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -34,22 +32,21 @@ def main() -> int:
         loc = "/".join(str(p) for p in err.path) or "(root)"
         errors.append(f"{loc}: {err.message}")
 
-    # The schema cannot express "unique by key" across array items.
-    collections = registry if isinstance(registry, list) else []
-    names = [c.get("collection") for c in collections if isinstance(c, dict)]
-    dupes = sorted(n for n, k in Counter(names).items() if n is not None and k > 1)
-    errors += [f"duplicate collection {dup!r}" for dup in dupes]
-
     if errors:
         print(f"registry.json is INVALID ({len(errors)} problem(s)):")
         for e in errors:
             print(f"  - {e}")
         return 1
 
-    n_phantoms = sum(len(c.get("phantoms", [])) for c in collections if isinstance(c, dict))
+    # The registry is an object keyed by collection name, so names are unique by
+    # construction - no extra check needed beyond the schema.
+    collections = registry if isinstance(registry, dict) else {}
+    n_phantoms = sum(
+        len(c.get("phantoms", [])) for c in collections.values() if isinstance(c, dict)
+    )
     print(
-        f"registry.json is valid: {len(names)} collection(s), "
-        f"{n_phantoms} phantom(s), all collection names unique."
+        f"registry.json is valid: {len(collections)} collection(s), "
+        f"{n_phantoms} phantom(s)."
     )
     return 0
 

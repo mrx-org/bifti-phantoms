@@ -2,20 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mrx-org/nifti-phantoms/nifti-registry",
   "title": "NIfTI Phantom Registry",
-  "description": "Index of public NIfTI phantoms: a top-level array of collections. Each collection points at one Zenodo record (by version DOI) holding one or more phantom JSON files and the NIfTI files they reference. The registry only references data; it does not store it. Collections allow additional properties so the format can evolve in place. See REGISTRY.md.",
-  "type": "array",
-  "items": { "$ref": "#/$defs/collection" },
+  "description": "Index of public NIfTI phantoms: a top-level object mapping each collection name to its entry. Each collection points at one Zenodo record (by version DOI) holding one or more phantom JSON files and the NIfTI files they reference. The registry only references data; it does not store it. Collections allow additional properties so the format can evolve in place. See REGISTRY.md.",
+  "type": "object",
+  "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
+  "additionalProperties": { "$ref": "#/$defs/collection" },
   "$defs": {
     "collection": {
-      "description": "A registered Zenodo record and the phantom files it contains. The collection name is unique across the registry and namespaces those files in references ('<collection>/<file>').",
+      "description": "A registered Zenodo record and the phantom files it contains. The object key that maps to this entry is the collection name: unique across the registry, and it namespaces those files in references ('<collection>/<file>'). Its allowed form is constrained by the registry's propertyNames pattern.",
       "type": "object",
-      "required": [ "collection", "description", "authors", "license", "doi", "phantoms" ],
+      "required": [ "description", "authors", "license", "doi", "phantoms" ],
       "properties": {
-        "collection": {
-          "description": "Unique collection name; identifies the entry and namespaces its phantom files in references (e.g. 'mrx-brain-cohort' -> 'mrx-brain-cohort/subj42-3T.json'). Must be unique across the registry.",
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
-        },
         "description": {
           "description": "One or two sentences describing the collection.",
           "type": "string",

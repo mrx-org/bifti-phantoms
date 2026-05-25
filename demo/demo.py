@@ -79,10 +79,10 @@ def choose_phantom() -> Path:
     downloaded from Zenodo and its local JSON path returned.
     """
     index: list[tuple[str, str]] = []
-    for collection in available_phantoms():
-        print(f"- {collection['collection']}")
-        for name in collection["phantoms"]:
-            index.append((collection["collection"], name))
+    for collection_name, entry in available_phantoms().items():
+        print(f"- {collection_name}")
+        for name in entry["phantoms"]:
+            index.append((collection_name, name))
             print(f"    {len(index)}. {name}")
 
     choice = int(input("Select a phantom by number: "))

@@ -27,7 +27,7 @@ So the registry always points at current data while every `doi` it holds is
 itself frozen. Zenodo's **"New version"** carries unchanged files forward, so you
 can iterate and re-publish without re-uploading the NIfTI.
 
-One entry is a **collection** mapping to exactly one record, listing every
+Each entry (keyed by collection name) maps to exactly one record, listing every
 phantom JSON in it. A record's phantoms are never split across entries, and no
 two entries share a `doi`.
 
@@ -41,11 +41,20 @@ pinned commit for a reproducible resolution.
 
 ## Entry format
 
-`registry.json` is a top-level array of collections:
+`registry.json` is a top-level object mapping each collection name to its entry:
+
+```json
+{
+  "mrx-brain-cohort": { "description": "…", "doi": "10.5281/zenodo.<id>", "phantoms": [ "subj42-3T.json" ] }
+}
+```
+
+The **object key is the collection name**: unique (object keys are), matching
+`^[A-Za-z0-9][A-Za-z0-9_.-]*$`, and it namespaces the entry's files in references
+(`<collection>/<file>`). Each entry value has these fields:
 
 | Field | Req. | Description |
 |-------|------|-------------|
-| `collection` | yes | Unique name; namespaces its files in references (`mrx-brain-cohort`). |
 | `description` | yes | One or two sentences describing the collection. |
 | `authors` | yes | List of `{ name, orcid?, email?, affiliation? }`. |
 | `license` | yes | SPDX id, e.g. `CC-BY-4.0`, `CC0-1.0`. |
@@ -64,10 +73,10 @@ JSON for those.
 1. Assemble the phantom set (NIfTI + JSON) following [SPEC.md](SPEC.md).
 2. Upload **all files** to a single Zenodo record and publish. To revise the JSON
    later, use Zenodo **"New version"** and keep the existing NIfTI files.
-3. Open a PR adding one collection entry to [`registry.json`](registry.json):
-   list every phantom JSON under `phantoms` and set `doi` to the published
-   version DOI. To revise later, publish a new version and open a PR updating the
-   `doi`.
+3. Open a PR adding one entry to [`registry.json`](registry.json) keyed by your
+   collection name: list every phantom JSON under `phantoms` and set `doi` to the
+   published version DOI. To revise later, publish a new version and open a PR
+   updating the `doi`.
 
 A GitHub Action validates `registry.json` on every PR; run the same check
 locally first:
