@@ -79,22 +79,11 @@ python tools/validate_registry.py
 
 ## Downloading data
 
-The `doi` is all you need: parse the Zenodo record id from it and pull each file
-straight from the Zenodo API.
+The `doi` is all you need: parse the Zenodo record id from it
+(`re.search(r"zenodo\.(\d+)$", doi)`) and pull each file from
+`https://zenodo.org/api/records/<record_id>/files/<filename>/content`.
 
-```python
-import re, requests
-
-def download(doi: str, filename: str) -> bytes:
-    """Download one file from the Zenodo record a version DOI points to."""
-    record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
-    url = f"https://zenodo.org/api/records/{record_id}/files/{filename}/content"
-    r = requests.get(url)
-    r.raise_for_status()
-    return r.content
-
-# from a registry entry, fetch a phantom config and the NIfTIs it references:
-doi = "10.5281/zenodo.1234568"            # entry "doi"
-config = download(doi, "subj42-3T.json")  # a name from entry "phantoms"
-nifti = download(doi, "subj42.nii.gz")    # each NIfTI that config references
-```
+[`demo/nifti_registry.py`](demo/nifti_registry.py) is a small reference
+implementation: `available_phantoms()` fetches and caches this registry, and
+`download_phantom(collection, name)` downloads a phantom's JSON plus every NIfTI
+it references into a local cache, ready to load.

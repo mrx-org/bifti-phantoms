@@ -2,9 +2,8 @@
 
 Usage::
 
-    python generate.py            # once, to create the example data
-    python demo.py                # plots data/subj42-3T.json
-    python demo.py data/shapes.json
+    python demo.py                # list the registry, pick one, download + plot
+    python demo.py data/shapes.json   # ...or plot a local phantom JSON directly
 
 Each figure shows one tissue: its density map, the relaxation/diffusion/off-
 resonance maps, and every transmit (B1+) and receive (B1-) channel. 3D volumes
@@ -21,6 +20,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from nifti_loader import load_phantom, NumpyTissue
+from nifti_registry import available_phantoms, download_phantom
 
 HERE = Path(__file__).parent
 FIGURES = HERE / "figures"
@@ -71,11 +71,31 @@ def plot_tissue(name: str, tissue: NumpyTissue) -> plt.Figure:
     return fig
 
 
+def choose_phantom() -> Path:
+    """List the registry's phantoms, ask for one by number, and download it.
+
+    Prints each collection as a bullet header with its phantoms numbered
+    continuously across the whole registry; the chosen phantom (JSON + NIfTIs) is
+    downloaded from Zenodo and its local JSON path returned.
+    """
+    index: list[tuple[str, str]] = []
+    for collection in available_phantoms():
+        print(f"- {collection['collection']}")
+        for name in collection["phantoms"]:
+            index.append((collection["collection"], name))
+            print(f"    {len(index)}. {name}")
+
+    choice = int(input("Select a phantom by number: "))
+    collection, name = index[choice - 1]
+    print(f"downloading {collection}/{name} ...")
+    return download_phantom(collection, name)
+
+
 def main() -> None:
     if len(sys.argv) > 1:
         json_path = Path(sys.argv[1])
     else:
-        json_path = HERE / "data" / "subj42-3T.json"
+        json_path = choose_phantom()
     tissues = load_phantom(json_path)
 
     FIGURES.mkdir(exist_ok=True)

@@ -12,6 +12,7 @@ code: [`nifti_phantom.py`](nifti_phantom.py) parses the JSON and
 |------|---------|
 | [`nifti_phantom.py`](nifti_phantom.py) | Parse/serialize the phantom JSON (no heavy deps). |
 | [`nifti_loader.py`](nifti_loader.py)   | Load a phantom into NumPy arrays (resolves refs, reslices, applies `func`). |
+| [`nifti_registry.py`](nifti_registry.py) | Fetch `registry.json` and download phantoms (JSON + NIfTIs) from Zenodo. |
 | [`demo.py`](demo.py)                    | Load a phantom and plot one figure per tissue. |
 | [`data/`](data/)                        | Phantom JSONs + the NIfTIs they reference. |
 | [`data/generate.py`](data/generate.py) | Regenerates the example data in `data/` (reproducible). |
@@ -21,21 +22,29 @@ code: [`nifti_phantom.py`](nifti_phantom.py) parses the JSON and
 - Python **3.10+**
 - [`numpy`](https://numpy.org/), [`nibabel`](https://nipy.org/nibabel/),
   [`scipy`](https://scipy.org/) (used by nibabel for `reslice_to` resampling),
-  and [`matplotlib`](https://matplotlib.org/) (plotting only).
+  [`matplotlib`](https://matplotlib.org/) (plotting only), and
+  [`requests`](https://requests.readthedocs.io/) (downloading from the registry).
 
 ```sh
-pip install numpy nibabel scipy matplotlib
+pip install numpy nibabel scipy matplotlib requests
 ```
 
 ## Running
 
-The example data is already in `data/`, so from this `demo/` directory just run:
+From this `demo/` directory:
 
 ```sh
-python demo.py                          # plots data/subj42-3T.json (default)
-python demo.py data/shapes.json         # ...or any other phantom JSON
+python demo.py                          # list the registry, pick one, download + plot
+python demo.py data/shapes.json         # ...or plot a local phantom JSON directly
 python demo.py data/shapes_resliced.json
 ```
+
+With no argument, `demo.py` fetches the live [`registry.json`](../registry.json),
+prints its phantoms as a numbered list, and downloads the one you pick (its JSON
+and every NIfTI it references) into `demo/cache/` via
+[`nifti_registry.py`](nifti_registry.py) before plotting. Passing a local JSON
+path skips the registry and plots that file directly (the example data is
+committed in `data/`).
 
 `demo.py` saves one PNG per tissue into `figures/` and, on a GUI backend, also
 shows them. Each figure tiles the tissue's maps — `density`, `T1`, `T2`, `T2'`,
@@ -68,4 +77,5 @@ whole format:
 > evaluates `func` with `eval` for brevity, so only load phantoms you trust (see
 > the note in [`nifti_loader.py`](nifti_loader.py)).
 
-`demo.py` writes its plots to `figures/`, which is **not** committed.
+`demo.py` writes its plots to `figures/`, and `nifti_registry.py` caches
+downloads in `cache/`; neither is committed.
