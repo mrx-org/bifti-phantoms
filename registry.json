@@ -1,45 +1,24 @@
-{
-  "phantoms": [
-    {
-      "id": "subj42",
-      "title": "Subject 42 — synthetic brain phantom",
-      "description": "Single-slice brain-like phantom (GM/WM/fat) with a dB0 map and an 8-channel B1+.",
-      "keywords": [ "brain", "in-vivo-derived", "2d" ],
-      "authors": [
-        { "name": "Doe, Jane", "orcid": "0000-0002-1825-0097", "affiliation": "Example University" }
-      ],
-      "license": "CC-BY-4.0",
-      "collection": "mrx-brain-cohort",
-      "source": {
-        "provider": "zenodo",
-        "concept_doi": "10.5281/zenodo.1234567",
-        "doi": "10.5281/zenodo.1234568",
-        "url": "https://doi.org/10.5281/zenodo.1234568"
-      },
-      "variants": [
-        { "name": "subj42-3T", "file": "subj42-3T.json", "B0": 3.0 },
-        { "name": "subj42-7T", "file": "subj42-7T.json", "B0": 7.0 }
-      ]
-    },
-    {
-      "id": "shapes",
-      "title": "Geometric shapes phantom",
-      "description": "Synthetic 3D phantom (disk/ring/background) loaded on its native grid.",
-      "keywords": [ "synthetic", "numerical", "3d" ],
-      "authors": [
-        { "name": "Doe, Jane" }
-      ],
-      "license": "CC0-1.0",
-      "collection": "mrx-brain-cohort",
-      "source": {
-        "provider": "zenodo",
-        "concept_doi": "10.5281/zenodo.2222220",
-        "doi": "10.5281/zenodo.2222221",
-        "url": "https://doi.org/10.5281/zenodo.2222221"
-      },
-      "variants": [
-        { "name": "shapes", "file": "shapes.json", "B0": 3.0 }
-      ]
-    }
-  ]
-}
+[
+  {
+    "collection": "mrx-brain-cohort",
+    "description": "Single-slice brain-like phantom (GM/WM/fat) with a dB0 map and an 8-channel B1+, provided at 3T and 7T.",
+    "keywords": [ "brain", "in-vivo-derived", "2d" ],
+    "authors": [
+      { "name": "Doe, Jane", "orcid": "0000-0002-1825-0097", "email": "jane.doe@example.edu", "affiliation": "Example University" }
+    ],
+    "license": "CC-BY-4.0",
+    "doi": "10.5281/zenodo.1234568",
+    "phantoms": [ "subj42-3T.json", "subj42-7T.json" ]
+  },
+  {
+    "collection": "shapes",
+    "description": "Synthetic 3D phantom (disk/ring/background) loaded on its native grid.",
+    "keywords": [ "synthetic", "numerical", "3d" ],
+    "authors": [
+      { "name": "Doe, Jane" }
+    ],
+    "license": "CC0-1.0",
+    "doi": "10.5281/zenodo.2222221",
+    "phantoms": [ "shapes.json" ]
+  }
+]

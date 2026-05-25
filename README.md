@@ -16,10 +16,10 @@ code, so phantom data is exchangeable and reproducible.
 ## Registry
 
 A shared index of public phantoms anyone can contribute to via a PR; the data is
-hosted on providers like [Zenodo](https://zenodo.org/).
+hosted on [Zenodo](https://zenodo.org/).
 
 - [REGISTRY.md](REGISTRY.md) — how it works and how to contribute.
-- [registry.json](registry.json) — the list of phantoms.
+- [registry.json](registry.json) — the list of phantom collections.
 - [nifti-registry.schema.json](nifti-registry.schema.json) — JSON Schema for registry entries.
 
 ## Reference implementation
