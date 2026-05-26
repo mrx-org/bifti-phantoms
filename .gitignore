@@ -5,3 +5,8 @@ demo/figures/
 
 # downloaded registry + Zenodo phantoms (demo/nifti_registry.py)
 demo/cache/
+
+# files used for writing the ESMRMB abstract
+*.seq
+*.phantom
+brainweb/
