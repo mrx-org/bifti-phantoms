@@ -8,5 +8,36 @@
     "license": "CC-BY-4.0",
     "doi": "10.5281/zenodo.20384437",
     "phantoms": [ "subj42-3T.json", "shapes.json", "shapes_resliced.json" ]
+  },
+  "brainweb-20": {
+    "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006), converted to the NIfTI phantom format. Each subject is provided as a full 3D volume (subjXX.json) and a single-slice 2D variant (subjXX-2D.json).",
+    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d" ],
+    "authors": [
+      { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
+    ],
+    "license": "LicenseRef-BrainWeb",
+    "doi": "10.5281/zenodo.20396887",
+    "phantoms": [
+      "subj04-2D.json", "subj04.json",
+      "subj05-2D.json", "subj05.json",
+      "subj06-2D.json", "subj06.json",
+      "subj18-2D.json", "subj18.json",
+      "subj20-2D.json", "subj20.json",
+      "subj38-2D.json", "subj38.json",
+      "subj41-2D.json", "subj41.json",
+      "subj42-2D.json", "subj42.json",
+      "subj43-2D.json", "subj43.json",
+      "subj44-2D.json", "subj44.json",
+      "subj45-2D.json", "subj45.json",
+      "subj46-2D.json", "subj46.json",
+      "subj47-2D.json", "subj47.json",
+      "subj48-2D.json", "subj48.json",
+      "subj49-2D.json", "subj49.json",
+      "subj50-2D.json", "subj50.json",
+      "subj51-2D.json", "subj51.json",
+      "subj52-2D.json", "subj52.json",
+      "subj53-2D.json", "subj53.json",
+      "subj54-2D.json", "subj54.json"
+    ]
   }
 }
