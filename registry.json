@@ -16,7 +16,7 @@
       { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
     ],
     "license": "LicenseRef-BrainWeb",
-    "doi": "10.5281/zenodo.20396887",
+    "doi": "10.5281/zenodo.20397799",
     "phantoms": [
       "subj04-2D.json", "subj04.json",
       "subj05-2D.json", "subj05.json",
