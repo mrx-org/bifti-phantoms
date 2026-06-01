@@ -47,8 +47,16 @@ import h5py
 from nifti_loader import load_phantom, NumpyTissue
 
 
-def tissue_spins(tissue: NumpyTissue, density_threshold: float) -> dict[str, np.ndarray]:
+def tissue_spins(tissue: NumpyTissue, density_threshold: float,
+                 spins_per_voxel: int, rng: np.random.Generator
+                 ) -> dict[str, np.ndarray]:
     """Pick the active voxels of one tissue and return per-spin arrays.
+
+    With ``spins_per_voxel > 1`` each voxel emits that many spins, jittered
+    uniformly inside the voxel box (offset in [-0.5, +0.5] in voxel indices),
+    and ρ is divided by the spin count so the voxel's total magnetisation is
+    preserved. ``spins_per_voxel == 1`` keeps the old behaviour (one spin at
+    the voxel centre).
 
     Output keys: x, y, z (meters), rho, T1, T2, T2s (seconds), dw (rad/s).
     """
@@ -58,32 +66,42 @@ def tissue_spins(tissue: NumpyTissue, density_threshold: float) -> dict[str, np.
         return {k: np.empty(0, dtype=np.float64) for k in
                 ("x", "y", "z", "rho", "T1", "T2", "T2s", "dw")}
 
+    S = spins_per_voxel
     # Voxel indices -> world coordinates via the file's 3x4 sform (mm, RAS+).
     # The affine has shape [3][4]: [R | t], so (x,y,z) = R @ (i,j,k) + t.
     affine = np.asarray(tissue.affine, dtype=np.float64)
     R, t = affine[:, :3], affine[:, 3]
     i, j, k = np.where(mask)
+    N = i.size
     voxel_idx = np.stack([i, j, k], axis=0).astype(np.float64)  # (3, N)
-    world_mm = R @ voxel_idx + t[:, None]                       # (3, N)
-    x, y, z = world_mm / 1000.0                                 # mm -> m
+    if S == 1:
+        idx = voxel_idx
+    else:
+        # Repeat each voxel S times, then jitter uniformly inside its box.
+        idx = np.broadcast_to(voxel_idx[:, :, None], (3, N, S)).copy()
+        idx += rng.uniform(-0.5, 0.5, size=(3, N, S))
+        idx = idx.reshape(3, N * S)
+    world_mm = R @ idx + t[:, None]
+    x, y, z = world_mm / 1000.0  # mm -> m
 
-    rho = tissue.density[mask].astype(np.float64)
-    # Bake the first B1+ channel into ρ. With a single uniform channel of 1.0
-    # this is a no-op (matches the spec's default).
-    b1_first = tissue.B1_tx[0][mask].astype(np.float64)
-    rho = rho * b1_first
-
-    T1 = tissue.T1[mask].astype(np.float64)
-    T2 = tissue.T2[mask].astype(np.float64)
-    T2dash = tissue.T2dash[mask].astype(np.float64)
-    dB0_hz = tissue.dB0[mask].astype(np.float64)
-
+    # Per-voxel properties, then spread each value across the voxel's S spins.
+    density_v = tissue.density[mask].astype(np.float64)
+    b1_v = tissue.B1_tx[0][mask].astype(np.float64)  # bake first B1+ into ρ
+    T1_v = tissue.T1[mask].astype(np.float64)
+    T2_v = tissue.T2[mask].astype(np.float64)
+    T2dash_v = tissue.T2dash[mask].astype(np.float64)
+    dB0_v = tissue.dB0[mask].astype(np.float64)
     # T2* = 1 / (1/T2 + 1/T2'); numpy yields 1/inf=0 and 1/0=inf which is exactly
     # the right limit, but emits warnings -- silence them just for this block.
     with np.errstate(divide="ignore", invalid="ignore"):
-        T2s = 1.0 / (1.0 / T2 + 1.0 / T2dash)
+        T2s_v = 1.0 / (1.0 / T2_v + 1.0 / T2dash_v)
 
-    dw = 2.0 * np.pi * dB0_hz  # Hz -> rad/s
+    # /S preserves total magnetisation when spreading across multiple spins.
+    rho = np.repeat(density_v * b1_v, S) / S
+    T1 = np.repeat(T1_v, S)
+    T2 = np.repeat(T2_v, S)
+    T2s = np.repeat(T2s_v, S)
+    dw = np.repeat(2.0 * np.pi * dB0_v, S)  # Hz -> rad/s
 
     return {"x": x, "y": y, "z": z,
             "rho": rho, "T1": T1, "T2": T2, "T2s": T2s, "dw": dw}
@@ -127,9 +145,10 @@ def write_koma_phantom(path: Path, name: str, spins: dict[str, np.ndarray]) -> N
         dims = [True, False, False]  # match Koma's fallback
 
     with h5py.File(path, "w") as fid:
-        # Tag: not the real KomaMRIFiles version, but read_phantom only checks
-        # that this attribute exists. Stays distinct so the source is obvious.
-        fid.attrs["Version"] = "nifti-to-koma-0.1"
+        # Koma parses this via Julia's VersionNumber (SemVer), and warns on a
+        # major-version mismatch against pkgversion(KomaMRIFiles). Major 0
+        # matches current Koma; the build metadata tags this file's source.
+        fid.attrs["Version"] = "0.1.0+nifti-to-koma"
         fid.attrs["Name"] = name
         fid.attrs["Ns"] = Ns
         fid.attrs["Dims"] = int(sum(dims))
@@ -148,16 +167,22 @@ def write_koma_phantom(path: Path, name: str, spins: dict[str, np.ndarray]) -> N
 
 
 def convert(json_path: Path, out_path: Path, name: str,
-            density_threshold: float) -> None:
+            density_threshold: float, spins_per_voxel: int,
+            seed: int | None) -> None:
+    if spins_per_voxel < 1:
+        raise ValueError("spins_per_voxel must be >= 1")
+    rng = np.random.default_rng(seed)
     tissues = load_phantom(json_path)
     warn_on_drops(tissues)
 
-    per_tissue = [tissue_spins(t, density_threshold) for t in tissues.values()]
+    per_tissue = [tissue_spins(t, density_threshold, spins_per_voxel, rng)
+                  for t in tissues.values()]
     spins = {key: np.concatenate([t[key] for t in per_tissue])
              for key in ("x", "y", "z", "rho", "T1", "T2", "T2s", "dw")}
 
     write_koma_phantom(out_path, name, spins)
-    print(f"wrote {out_path}  ({spins['x'].size} spins from {len(tissues)} tissues)")
+    print(f"wrote {out_path}  ({spins['x'].size} spins from "
+          f"{len(tissues)} tissues, {spins_per_voxel} spins/voxel)")
 
 
 def main() -> None:
@@ -169,11 +194,18 @@ def main() -> None:
                    help="phantom Name attribute (default: JSON stem)")
     p.add_argument("--density-threshold", type=float, default=1e-3,
                    help="drop voxels with density below this (default: 1e-3)")
+    p.add_argument("--spins-per-voxel", type=int, default=100,
+                   help="spins emitted per active voxel; >1 jitters spins "
+                        "uniformly inside the voxel box and divides rho by "
+                        "the count to preserve total magnetisation (default: 100)")
+    p.add_argument("--seed", type=int, default=None,
+                   help="RNG seed for the jitter (default: nondeterministic)")
     args = p.parse_args()
 
     out_path = args.out if args.out is not None else args.json.with_suffix(".phantom")
     name = args.name if args.name is not None else args.json.stem
-    convert(args.json, out_path, name, args.density_threshold)
+    convert(args.json, out_path, name, args.density_threshold,
+            args.spins_per_voxel, args.seed)
 
 
 if __name__ == "__main__":
