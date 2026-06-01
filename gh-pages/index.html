@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIfTI Phantoms</title>
+  <meta name="description" content="A universal, implementation-agnostic format for storing MRI simulation phantoms." />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>NIfTI Phantoms</h1>
+      <p class="tagline">
+        A universal, implementation-agnostic format for storing MRI simulation phantoms.
+      </p>
+      <p class="lede">
+        One JSON file defines tissues and their MR properties (T1, T2, &hellip;) and
+        references NIfTI files for per-voxel data &mdash; both widely supported and
+        easy to view, edit and version. The goal: vary experiments by editing JSON,
+        not code, so phantom data is exchangeable and reproducible.
+      </p>
+      <nav class="cta">
+        <a class="btn primary" href="https://github.com/mrx-org/bifti-phantoms">GitHub repository</a>
+        <a class="btn" href="https://github.com/mrx-org/bifti-phantoms/blob/main/SPEC.md">Specification</a>
+        <a class="btn" href="https://github.com/mrx-org/bifti-phantoms/blob/main/REGISTRY.md">Registry docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="registry">
+      <h2>Phantom registry</h2>
+      <p class="section-lede">
+        A shared index of public phantom collections, hosted on
+        <a href="https://zenodo.org/">Zenodo</a>. Each entry below is parsed from
+        <a href="https://github.com/mrx-org/bifti-phantoms/blob/main/registry.json">registry.json</a>
+        and points to a collection of phantoms in the NIfTI phantom format.
+      </p>
+      <div id="registry-list" class="registry-list" aria-live="polite">
+        <p class="muted">Loading registry&hellip;</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>
+        Source on <a href="https://github.com/mrx-org/bifti-phantoms">GitHub</a>
+        &middot; Licensed under the repository's <a href="https://github.com/mrx-org/bifti-phantoms/blob/main/LICENSE">LICENSE</a>
+        &middot; Icons by <a href="https://fontawesome.com/">Font Awesome</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)
+      </p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
