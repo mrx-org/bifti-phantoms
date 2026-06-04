@@ -68,14 +68,250 @@ function renderEntry(name, entry) {
       <div class="files-slot"></div>
     </div>
   `;
-  const phantomsSlot = el.querySelector(".phantoms-slot");
+
+  let phantomSection = null;
   if (phantoms.length > 0) {
-    phantomsSlot.appendChild(renderPhantomSection(phantoms, recordId));
+    phantomSection = renderPhantomSection(phantoms, recordId, name);
+    el.querySelector(".phantoms-slot").appendChild(phantomSection);
   }
+
   if (recordId) {
     el.querySelector(".files-slot").appendChild(renderFilesCard(recordId));
   }
+
+  let phantomsStarted = false;
+  el.addEventListener("toggle", () => {
+    if (!el.open || phantomsStarted) return;
+    phantomsStarted = true;
+    if (phantomSection) phantomSection.loadPhantoms();
+  });
+
   return el;
+}
+
+function renderPhantomSection(phantoms, recordId, collectionName) {
+  const wrap = document.createElement("div");
+  wrap.className = "phantom-table-section";
+
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "table-wrap phantom-list-wrap";
+
+  const table = document.createElement("table");
+  table.className = "phantom-table";
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = `<tr>
+    <th>File</th>
+    <th>B<sub>0</sub></th>
+    <th>Resolution</th>
+    <th>Tissues</th>
+    <th class="col-spacer"></th>
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+
+  const rows = phantoms.map((filename) => {
+    const tr = document.createElement("tr");
+
+    const filenameTd = document.createElement("td");
+    filenameTd.className = "phantom-filename";
+    const filenameCode = document.createElement("code");
+    filenameCode.textContent = filename;
+    filenameTd.appendChild(filenameCode);
+    tr.appendChild(filenameTd);
+
+    const b0Td = document.createElement("td");
+    b0Td.innerHTML = '<span class="loading-text">…</span>';
+    tr.appendChild(b0Td);
+
+    const resTd = document.createElement("td");
+    resTd.innerHTML = '<span class="loading-text">…</span>';
+    tr.appendChild(resTd);
+
+    const tissueTd = document.createElement("td");
+    tissueTd.className = "tissue-names-cell";
+    tissueTd.innerHTML = '<span class="loading-text">…</span>';
+    tr.appendChild(tissueTd);
+
+    const spacerTd = document.createElement("td");
+    spacerTd.className = "col-spacer";
+    tr.appendChild(spacerTd);
+
+    tbody.appendChild(tr);
+
+    return { filename, filenameTd, b0Td, resTd, tissueTd };
+  });
+
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  wrap.appendChild(tableWrap);
+
+  wrap.loadPhantoms = () => {
+    for (const { filename, filenameTd, b0Td, resTd, tissueTd } of rows) {
+      if (!recordId) {
+        const dash = '<span class="muted">—</span>';
+        b0Td.innerHTML = dash;
+        resTd.innerHTML = dash;
+        tissueTd.innerHTML = dash;
+        continue;
+      }
+
+      const apiUrl = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
+
+      fetch(apiUrl, { cache: "force-cache" })
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((data) => {
+          const b0 = data?.system?.B0;
+          b0Td.textContent = b0 !== undefined ? `${b0} T` : "—";
+
+          const res = data?.reslice_to?.resolution;
+          resTd.textContent = Array.isArray(res) ? res.join("×") : "native";
+
+          const tissues = data?.tissues || {};
+          const tissueNames = Object.keys(tissues);
+          tissueTd.textContent = tissueNames.length > 0 ? tissueNames.join(", ") : "—";
+
+          const btn = document.createElement("button");
+          btn.className = "filename-link";
+          btn.textContent = filename;
+          btn.title = "View tissues";
+          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, collectionName));
+          filenameTd.innerHTML = "";
+          filenameTd.appendChild(btn);
+        })
+        .catch((err) => {
+          const errHtml = `<span class="muted" title="${escape(err.message)}">!</span>`;
+          b0Td.innerHTML = errHtml;
+          resTd.innerHTML = errHtml;
+          tissueTd.innerHTML = errHtml;
+        });
+    }
+  };
+
+  return wrap;
+}
+
+function openTissueModal(tissues, rawData, filename, collectionName) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+
+  const box = document.createElement("div");
+  box.className = "modal-box";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+
+  // Left: toggle switch + label
+  const toggleWrap = document.createElement("div");
+  toggleWrap.className = "view-toggle";
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "view-toggle-btn";
+  toggleBtn.setAttribute("role", "switch");
+  toggleBtn.setAttribute("aria-checked", "false");
+  toggleBtn.setAttribute("aria-label", "Switch between table and JSON view");
+  toggleBtn.innerHTML = `<span class="view-toggle-track"><span class="view-toggle-thumb"></span></span>`;
+
+  const toggleLabel = document.createElement("span");
+  toggleLabel.className = "view-toggle-label";
+  toggleLabel.textContent = "table";
+
+  toggleWrap.appendChild(toggleBtn);
+  toggleWrap.appendChild(toggleLabel);
+
+  // Center: plain path, non-interactive
+  const titleEl = document.createElement("span");
+  titleEl.className = "modal-header-title";
+  titleEl.innerHTML = `<span class="modal-path-collection">${escape(collectionName)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
+
+  // Right: close button
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "modal-close";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.textContent = "×";
+
+  header.appendChild(toggleWrap);
+  header.appendChild(titleEl);
+  header.appendChild(closeBtn);
+
+  const body = document.createElement("div");
+  body.className = "modal-body";
+
+  const tissueNames = Object.keys(tissues);
+
+  function showTable() {
+    body.innerHTML = tissueNames.length > 0
+      ? renderTissueTable(tissues, tissueNames)
+      : `<p class="muted" style="padding:1rem">No tissues defined.</p>`;
+    toggleBtn.setAttribute("aria-checked", "false");
+    toggleLabel.textContent = "table";
+  }
+
+  function showJson() {
+    const pre = document.createElement("pre");
+    pre.className = "json-viewer";
+    pre.innerHTML = highlightJson(rawData);
+    body.innerHTML = "";
+    body.appendChild(pre);
+    toggleBtn.setAttribute("aria-checked", "true");
+    toggleLabel.textContent = "json";
+  }
+
+  let showingJson = false;
+  showTable();
+
+  toggleBtn.addEventListener("click", () => {
+    showingJson = !showingJson;
+    showingJson ? showJson() : showTable();
+  });
+
+  box.appendChild(header);
+  box.appendChild(body);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  closeBtn.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  closeBtn.focus();
+}
+
+function highlightJson(obj) {
+  const json = JSON.stringify(obj, null, 2);
+  // Walk the string, escaping non-tokens and wrapping tokens in spans.
+  const tokenRe = /("(?:[^"\\]|\\.)*")\s*:|("(?:[^"\\]|\\.)*")|(true|false|null)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+  let out = "";
+  let last = 0;
+  let m;
+  while ((m = tokenRe.exec(json)) !== null) {
+    out += escape(json.slice(last, m.index));
+    const [full, key, str, kw, num] = m;
+    if (key !== undefined) {
+      out += `<span class="json-key">${escape(key)}</span>:`;
+    } else if (str !== undefined) {
+      out += `<span class="json-str">${escape(str)}</span>`;
+    } else if (kw !== undefined) {
+      out += `<span class="json-bool">${kw}</span>`;
+    } else {
+      out += `<span class="json-num">${num}</span>`;
+    }
+    last = m.index + full.length;
+  }
+  out += escape(json.slice(last));
+  return out;
 }
 
 function renderFilesCard(recordId) {
@@ -127,8 +363,11 @@ function renderFileList(files, recordId) {
     })
     .join("");
   return `
-    <div class="table-wrap">
+    <div class="table-wrap file-list-wrap">
       <table class="file-table">
+        <thead>
+          <tr><th>File</th><th class="size">Size</th></tr>
+        </thead>
         <tbody>${rows}</tbody>
         <tfoot>
           <tr>
@@ -159,77 +398,6 @@ function renderTags(keywords) {
   return `<div class="tags">${keywords
     .map((k) => `<span class="tag">${escape(k)}</span>`)
     .join("")}</div>`;
-}
-
-function renderPhantomSection(phantoms, recordId) {
-  const wrap = document.createElement("div");
-  wrap.innerHTML = `<h4 class="phantoms-heading">Phantoms</h4>`;
-  const list = document.createElement("div");
-  list.className = "phantom-list";
-  for (const filename of phantoms) {
-    list.appendChild(renderPhantom(filename, recordId));
-  }
-  wrap.appendChild(list);
-  return wrap;
-}
-
-function renderPhantom(filename, recordId) {
-  const el = document.createElement("details");
-  el.className = "card phantom";
-  el.innerHTML = `
-    <summary class="card-summary">
-      <span class="card-title mono">${escape(filename)}</span>
-    </summary>
-    <div class="card-body">
-      <p class="muted">Open to load details&hellip;</p>
-    </div>
-  `;
-
-  if (!recordId) {
-    el.querySelector(".card-body").innerHTML =
-      `<p class="muted">No Zenodo record linked for this collection.</p>`;
-    return el;
-  }
-
-  let loaded = false;
-  el.addEventListener("toggle", () => {
-    if (!el.open || loaded) return;
-    loaded = true;
-    const body = el.querySelector(".card-body");
-    body.innerHTML = `<p class="muted">Loading&hellip;</p>`;
-    const apiUrl = `https://zenodo.org/api/records/${recordId}/files/${filename}/content`;
-    const humanUrl = `https://zenodo.org/records/${recordId}/files/${filename}`;
-    fetch(apiUrl, { cache: "force-cache" })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        body.innerHTML = renderPhantomData(data, humanUrl);
-      })
-      .catch((err) => {
-        loaded = false;
-        body.innerHTML = `
-          <p class="error">Could not load phantom (${escape(err.message)}).</p>
-          <p class="muted"><a href="${humanUrl}">Open on Zenodo</a></p>`;
-      });
-  });
-
-  return el;
-}
-
-function renderPhantomData(data, sourceUrl) {
-  const b0 = data?.system?.B0;
-  const tissues = data?.tissues || {};
-  const tissueNames = Object.keys(tissues);
-
-  return `
-    <dl class="entry-fields">
-      ${b0 !== undefined ? `<dt>B<sub>0</sub></dt><dd>${escape(b0)} T</dd>` : ""}
-      <dt>Source</dt><dd><a href="${sourceUrl}">Zenodo</a></dd>
-    </dl>
-    ${tissueNames.length > 0 ? renderTissueTable(tissues, tissueNames) : `<p class="muted">No tissues defined.</p>`}
-  `;
 }
 
 function renderTissueTable(tissues, names) {

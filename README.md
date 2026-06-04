@@ -15,6 +15,8 @@ code, so phantom data is exchangeable and reproducible.
 
 ## Registry
 
+A live view of the registry is available here: https://mrx-org.github.io/bifti-phantoms/
+
 A shared index of public phantoms anyone can contribute to via a PR; the data is
 hosted on [Zenodo](https://zenodo.org/).
 
