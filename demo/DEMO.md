@@ -1,6 +1,6 @@
 # Demo
 
-A small, self-contained example that **loads a NIfTI phantom and plots every
+A small, self-contained example that **loads a BIfTI phantom and plots every
 tissue's data**. It doubles as a reference for porting the format to your own
 code: [`nifti_phantom.py`](nifti_phantom.py) parses the JSON and
 [`nifti_loader.py`](nifti_loader.py) turns a phantom into plain NumPy arrays

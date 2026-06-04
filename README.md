@@ -1,10 +1,20 @@
-# NIfTI Phantoms
+# BIfTI Phantoms
 
 A universal, implementation-agnostic format for storing MRI simulation phantoms.
 A phantom is one **JSON** file defining tissues and their MR properties (T1, T2,
 …), referencing **NIfTI** files for per-voxel data — both widely supported and
 easy to view, edit and version. The goal: vary experiments by editing JSON, not
 code, so phantom data is exchangeable and reproducible.
+
+## The name
+
+**BIfTI** is a playful riff on **NIfTI**: where NIfTI stands for *Neuroimaging
+Informatics Technology Initiative*, BIfTI reads as *Bloch Informatics Technology
+Initiative* (after the Bloch equations of MR physics). It is just a distinct,
+unambiguous name for this phantom specification — "NIfTI" alone is a universal,
+widely-used format and far too generic to identify this project. Nothing about
+the actual data changes: BIfTI phantoms still store per-voxel data as plain
+**NIfTI** files (`.nii` / `.nii.gz`).
 
 ## Specification
 

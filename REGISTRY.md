@@ -1,6 +1,6 @@
-# NIfTI Phantom Registry
+# BIfTI Phantom Registry
 
-[`registry.json`](registry.json) is a public, PR-editable index of NIfTI
+[`registry.json`](registry.json) is a public, PR-editable index of BIfTI
 phantoms. It only **references** data — the phantoms are hosted on
 [Zenodo](https://zenodo.org/), and anyone can add one via a pull request. Entries
 are validated against [`nifti-registry.schema.json`](nifti-registry.schema.json).

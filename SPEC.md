@@ -1,6 +1,6 @@
-# NIfTI Phantom — File Format Specification
+# BIfTI Phantom — File Format Specification
 
-The **NIfTI phantom specification** describes the storage of data suitable for
+The **BIfTI phantom specification** describes the storage of data suitable for
 MR *imaging* simulations. A phantom consists of one or more **NIfTI files** for
 per-voxel data and a single **JSON file** that defines the phantom and
 references the NIfTI files.

@@ -20,7 +20,7 @@ gzip-compressed (`.nii.gz`).
 
 ## Coordinate system
 
-- NIfTI phantoms always use RAS+ in a subject-aligned coordinate system
+- BIfTI phantoms always use RAS+ in a subject-aligned coordinate system
 - NIfTIs can store two orientations at once and do not specify which one to use
 - MITK uses a LPS+ coordinate system and negates the xy affine entries on loading
 - The scanner says data is in the `SCANNER` coordinate system, but this changes with sequence settings.
