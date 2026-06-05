@@ -9,7 +9,7 @@ The specification has two parts:
 
 - **[JSON.md](JSON.md)** — the phantom JSON file: top-level structure, units,
   system parameters, tissues, and how property values reference NIfTI data.
-  Validated by [`nifti-phantom-v1.schema.json`](nifti-phantom-v1.schema.json)
+  Validated by [`bifti-phantom-v1.schema.json`](bifti-phantom-v1.schema.json)
   (JSON Schema draft 2020-12).
 - **[NIFTI.md](NIFTI.md)** — the per-voxel NIfTI files: format requirements and
   the coordinate-system conventions they must follow.

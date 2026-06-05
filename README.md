@@ -21,7 +21,7 @@ the actual data changes: BIfTI phantoms still store per-voxel data as plain
 - [SPEC.md](SPEC.md) — overview and folder layout.
 - [JSON.md](JSON.md) — the phantom JSON: structure, units, system, tissues.
 - [NIFTI.md](NIFTI.md) — the NIfTI files: format and coordinate conventions.
-- [nifti-phantom-v1.schema.json](nifti-phantom-v1.schema.json) — JSON Schema for validation.
+- [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) — JSON Schema for validation.
 
 ## Registry
 
@@ -32,7 +32,7 @@ hosted on [Zenodo](https://zenodo.org/).
 
 - [REGISTRY.md](REGISTRY.md) — how it works and how to contribute.
 - [registry.json](registry.json) — the index of phantom collections.
-- [nifti-registry.schema.json](nifti-registry.schema.json) — JSON Schema for registry entries.
+- [bifti-registry.schema.json](bifti-registry.schema.json) — JSON Schema for registry entries.
 
 ## Reference implementation
 

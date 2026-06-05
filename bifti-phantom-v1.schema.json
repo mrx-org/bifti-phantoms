@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/mrx-org/nifti-phantoms/nifti-phantom-v1",
+  "$id": "https://github.com/mrx-org/bifti-phantoms/bifti-phantom-v1",
   "title": "NIfTI Phantom v1",
   "description": "Numerical MRI simulation phantom. Can contain segmented multi-tissue data as well as per-voxel data. References NIfTI files stored next to this file.",
   "type": "object",
@@ -8,9 +8,9 @@
   "additionalProperties": false,
   "properties": {
     "$schema": {
-      "description": "Format discriminator and version. Any URI whose path ends in 'nifti-phantom-v1', optionally followed by a file extension (e.g. '.json', '.schema.json'), so files can point at the schema via any host, branch or tag.",
+      "description": "Format discriminator and version. Any URI whose path ends in 'bifti-phantom-v1', optionally followed by a file extension (e.g. '.json', '.schema.json'), so files can point at the schema via any host, branch or tag.",
       "type": "string",
-      "pattern": "nifti-phantom-v1(\\.[^/]*)?$"
+      "pattern": "(nifti|bifti)-phantom-v1(\\.[^/]*)?$"
     },
     "units": {
       "description": "Units used by tissue properties. To simplify parsers, the exact units are fixed - the purpose of this field is documentation.",

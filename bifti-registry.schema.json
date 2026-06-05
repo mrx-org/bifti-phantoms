@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/mrx-org/nifti-phantoms/nifti-registry",
+  "$id": "https://github.com/mrx-org/bifti-phantoms/bifti-registry",
   "title": "NIfTI Phantom Registry",
   "description": "Index of public NIfTI phantoms: a top-level object mapping each collection name to its entry. Each collection points at one Zenodo record (by version DOI) holding one or more phantom JSON files and the NIfTI files they reference. The registry only references data; it does not store it. Collections allow additional properties so the format can evolve in place. See REGISTRY.md.",
   "type": "object",
@@ -34,7 +34,7 @@
           "minLength": 1
         },
         "doi": {
-          "description": "Immutable Zenodo version DOI of the exact, byte-identical record version this collection currently points to (e.g. '10.5281/zenodo.1234568'). The DOI embeds the Zenodo record id ('zenodo.<id>'), so it alone is enough to resolve and download the files; no provider or URL is stored. The entry is mutable: it is updated in place to a new version DOI when the data is revised. To pin an exact resolution, reference '<collection>/<file>' at a specific nifti-phantoms commit.",
+          "description": "Immutable Zenodo version DOI of the exact, byte-identical record version this collection currently points to (e.g. '10.5281/zenodo.1234568'). The DOI embeds the Zenodo record id ('zenodo.<id>'), so it alone is enough to resolve and download the files; no provider or URL is stored.",
           "type": "string",
           "pattern": "^10\\.\\d{4,9}/zenodo\\.\\d+$"
         },

@@ -184,11 +184,11 @@ class ResliceTo:
 
 @dataclass
 class NiftiPhantom:
-    # schema has to be any URL to a file named "nifti-phantom-v1".
+    # schema has to be any URL to a file named "bifti-phantom-v1".
     # Default to the file hosted on the offical GitHub repository.
     DEFAULT_SCHEMA = (
-        "https://raw.githubusercontent.com/mrx-org/nifti-phantoms/"
-        "refs/heads/main/nifti-phantom-v1.schema.json"
+        "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/"
+        "refs/heads/main/bifti-phantom-v1.schema.json"
     )
 
     units: PhantomUnits
@@ -225,7 +225,7 @@ class NiftiPhantom:
 
         schema = config["$schema"]
         assert re.search(
-            r"nifti-phantom-v1(\.[^/]*)?$", schema
+            r"(nifti|bifti)-phantom-v1(\.[^/]*)?$", schema
         ), f"Unsupported $schema: {schema!r}"
 
         units = PhantomUnits.from_dict(config["units"])

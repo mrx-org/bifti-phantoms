@@ -5,7 +5,7 @@ The **phantom JSON file** defines a numerical MRI simulation phantom: a set of
 either a single number (spatially uniform) or a reference to a sub-volume of a
 **NIfTI** file stored next to the JSON (see [NIFTI.md](NIFTI.md)). Files are
 validated against
-[`nifti-phantom-v1.schema.json`](nifti-phantom-v1.schema.json)
+[`bifti-phantom-v1.schema.json`](bifti-phantom-v1.schema.json)
 (JSON Schema draft 2020-12). For the overall format and folder layout, see
 [SPEC.md](SPEC.md).
 
@@ -13,7 +13,7 @@ validated against
 
 ```jsonc
 {
-  "$schema": "…/nifti-phantom-v1.schema.json",
+  "$schema": "…/bifti-phantom-v1.schema.json",
   "units":   { … },     // fixed, documentation only
   "system":  { … },     // global MR system parameters
   "reslice_to": { … },  // optional resampling grid
@@ -35,10 +35,10 @@ No other top-level keys are allowed.
 
 Doubles as the **format discriminator / version tag** and as the pointer
 editors use to locate the schema. Any URI whose path ends in
-`nifti-phantom-v1`, optionally followed by an extension, is accepted — so the
+`bifti-phantom-v1`, optionally followed by an extension, is accepted — so the
 same file works whether the schema is referenced by raw URL, branch, tag, or a
 local relative path. You can use a link to the schema in this repository:
-https://raw.githubusercontent.com/mrx-org/nifti-phantoms/refs/heads/main/nifti-phantom-v1.schema.json
+https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/bifti-phantom-v1.schema.json
 
 ### `units`
 

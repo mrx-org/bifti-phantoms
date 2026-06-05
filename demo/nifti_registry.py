@@ -21,7 +21,7 @@ from nifti_phantom import NiftiPhantom, NiftiRef, NiftiMapping
 HERE = Path(__file__).parent
 CACHE = HERE / "cache"
 REGISTRY_URL = (
-    "https://raw.githubusercontent.com/mrx-org/nifti-phantoms/"
+    "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/"
     "refs/heads/main/registry.json"
 )
 # A Zenodo version DOI ("10.5281/zenodo.<id>") embeds the record id; that's all
