@@ -442,15 +442,21 @@ function renderFileList(files, recordId) {
     const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
     return `<tr>
       <td class="phantom-filename"><a href="${url}">${escape(f.key)}</a></td>
+      <td class="col-spacer"></td>
       <td>${escape(formatSize(f.size))}</td>
     </tr>`;
   }).join("");
   return `<div class="table-wrap phantom-list-wrap">
     <table class="phantom-table">
-      <thead><tr><th>File</th><th>Size</th></tr></thead>
+      <thead><tr>
+        <th>File</th>
+        <th class="col-spacer"></th>
+        <th>Size</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
         <th>${files.length} file${files.length === 1 ? "" : "s"}</th>
+        <th class="col-spacer"></th>
         <th>${escape(formatSize(total))}</th>
       </tr></tfoot>
     </table>
