@@ -78,8 +78,46 @@ function renderRegistry(container, data) {
     return;
   }
   container.innerHTML = "";
+
+  // Collect all unique tags across all entries, sorted
+  const allTags = [...new Set(
+    entries.flatMap(([, e]) => Array.isArray(e.keywords) ? e.keywords : [])
+  )].sort();
+
+  const activeTags = new Set();
+  const cards = [];
+
+  function applyFilter() {
+    for (const btn of filterBar.querySelectorAll(".tag-filter-btn")) {
+      btn.classList.toggle("active", activeTags.has(btn.dataset.tag));
+    }
+    for (const { el, keywords } of cards) {
+      el.hidden = activeTags.size > 0 && ![...activeTags].every((t) => keywords.includes(t));
+    }
+  }
+
+  const filterBar = document.createElement("div");
+  filterBar.className = "tag-filter";
+  filterBar.textContent = "Tags:"
+  for (const tag of allTags) {
+    const btn = document.createElement("button");
+    btn.className = "tag-filter-btn";
+    btn.dataset.tag = tag;
+    btn.textContent = tag;
+    btn.addEventListener("click", () => {
+      if (activeTags.has(tag)) activeTags.delete(tag);
+      else activeTags.add(tag);
+      applyFilter();
+    });
+    filterBar.appendChild(btn);
+  }
+  if (allTags.length > 0) container.appendChild(filterBar);
+
   for (const [name, entry] of entries) {
-    container.appendChild(renderEntry(name, entry));
+    const el = renderEntry(name, entry);
+    const keywords = Array.isArray(entry.keywords) ? entry.keywords : [];
+    cards.push({ el, keywords });
+    container.appendChild(el);
   }
 }
 
@@ -107,11 +145,11 @@ function renderEntry(name, entry) {
   el.innerHTML = `
     <summary class="card-summary">
       <span class="card-title">${escape(name)}</span>
+      ${renderTags(entry.keywords)}
       <span class="card-meta">${phantoms.length} phantom${phantoms.length === 1 ? "" : "s"}</span>
     </summary>
     <div class="card-body">
       ${entry.description ? `<p class="entry-desc">${escape(entry.description)}</p>` : ""}
-      ${renderTags(entry.keywords)}
       <dl class="entry-fields">
         ${authors ? `<dt>Authors</dt><dd>${escape(authors)}</dd>` : ""}
         ${entry.license ? `<dt>License</dt><dd>${escape(entry.license)}</dd>` : ""}
@@ -442,9 +480,7 @@ function formatSize(bytes) {
 
 function renderTags(keywords) {
   if (!Array.isArray(keywords) || keywords.length === 0) return "";
-  return `<div class="tags">${keywords
-    .map((k) => `<span class="tag">${escape(k)}</span>`)
-    .join("")}</div>`;
+  return `<div class="tags">${keywords.map((k) => `<span class="tag">${escape(k)}</span>`).join("")}</div>`;
 }
 
 function renderTissueTable(tissues, names) {

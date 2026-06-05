@@ -107,7 +107,8 @@ h2 {
 .card-summary {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   padding: 0.75rem 1rem;
   cursor: pointer;
   list-style: none;
@@ -150,7 +151,34 @@ h2 {
 
 .entry-desc { margin: 0.75rem 0 0.9rem; }
 
-.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.9rem; }
+/* Tag filter bar above cards */
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.tag-filter-btn {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(242, 196, 206, 0.08);
+  color: var(--fg-muted);
+  border: 1px solid rgba(242, 196, 206, 0.35);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  font-family: var(--font);
+}
+.tag-filter-btn:hover { background: rgba(242, 196, 206, 0.2); }
+.tag-filter-btn.active {
+  background: var(--accent);
+  color: #1a1a1c;
+  border-color: var(--accent);
+}
+
+/* Tag pills (used in card summary) */
+.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .tag {
   display: inline-block;
   font-size: 0.75rem;
