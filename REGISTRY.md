@@ -9,35 +9,47 @@ be migrated in place if it ever needs to change.
 
 ## Hosting model
 
-A phantom is large, static **NIfTI** files plus a small **JSON** file that is
-revised more often (new field strengths, tweaked T1/T2, …). Both live in **one
-Zenodo record**. Each published version of that record gets an immutable
-**version DOI** — the same DOI always resolves to byte-identical files, so it
-*is* the integrity guarantee and the registry stores no checksums.
+A phantom is large, static **NIfTI** files plus a small **JSON** file that
+describes it. Both live in **one Zenodo record**. Each published version of that
+record gets an immutable **version DOI** — the same DOI always resolves to
+byte-identical files, so it *is* the integrity guarantee and the registry stores
+no checksums.
 
 A Zenodo version DOI is `10.5281/zenodo.<record_id>`: it embeds the host and the
 record id, so the `doi` alone is enough to download the files. The registry
 therefore stores no `provider` or `url` — both are implied. (Zenodo is the only
 host for now; another could be added in place if needed.)
 
-There is deliberately **no concept DOI**: tracking the latest version is the
-registry's job, not the record's. Each entry is **mutable** — when a phantom is
-revised (a new Zenodo version published) its `doi` is updated in place via a PR.
-So the registry always points at current data while every `doi` it holds is
-itself frozen. Zenodo's **"New version"** carries unchanged files forward, so you
-can iterate and re-publish without re-uploading the NIfTI.
-
 Each entry (keyed by collection name) maps to exactly one record, listing every
 phantom JSON in it. A record's phantoms are never split across entries, and no
 two entries share a `doi`.
 
+### Entry immutability
+
+Once an entry is merged into `main` it is **frozen**: its `doi`, `phantoms`
+list, and all other fields must not be changed or removed. A CI check enforces
+this on every pull request.
+
+To publish a revised or extended dataset, open a PR that **adds a new entry**
+with a distinct name. Append a version, date, or descriptor — the naming scheme
+is flexible:
+
+```
+brainweb-20-v2
+brainweb-20-7T
+brainweb-20-2025-06
+```
+
+The old entry stays in the registry forever so that any existing reference to it
+continues to resolve.
+
 ### Reproducibility
 
-Because entries are mutable, the immutable unit is the **registry itself**,
-versioned by git. Pin a phantom as `<commit> <collection>/<file>` — e.g.
-`a1b2c3d mrx-brain-cohort/subj42-3T.json`. The commit fixes the collection's
-`doi`, hence the exact files, forever. Use `main` HEAD for the newest data; a
-pinned commit for a reproducible resolution.
+Because entries are immutable, a collection name on `main` always resolves to
+the same `doi` and therefore the same byte-identical files. To reference a
+specific phantom unambiguously use `<collection>/<file>` — e.g.
+`brainweb-20/subj04.json`. To additionally pin against future new collections,
+record the git commit: `a1b2c3d brainweb-20/subj04.json`.
 
 ## Entry format
 
@@ -58,7 +70,7 @@ The **object key is the collection name**: unique (object keys are), matching
 | `description` | yes | One or two sentences describing the collection. |
 | `authors` | yes | List of `{ name, orcid?, email?, affiliation? }`. |
 | `license` | yes | SPDX id, e.g. `CC-BY-4.0`, `CC0-1.0`. |
-| `doi` | yes | Immutable Zenodo version DOI (`10.5281/zenodo.<id>`); updated in place when the data is revised. |
+| `doi` | yes | Immutable Zenodo version DOI (`10.5281/zenodo.<id>`). |
 | `phantoms` | yes | JSON filenames in the record (≥ 1), e.g. `subj42-3T.json`. |
 | `keywords` | no | Discovery tags (`brain`, `synthetic`, `3d`, …). |
 
@@ -71,19 +83,21 @@ JSON for those.
 ## Contributing a collection
 
 1. Assemble the phantom set (NIfTI + JSON) following [SPEC.md](SPEC.md).
-2. Upload **all files** to a single Zenodo record and publish. To revise the JSON
-   later, use Zenodo **"New version"** and keep the existing NIfTI files.
-3. Open a PR adding one entry to [`registry.json`](registry.json) keyed by your
-   collection name: list every phantom JSON under `phantoms` and set `doi` to the
-   published version DOI. To revise later, publish a new version and open a PR
-   updating the `doi`.
+2. Upload **all files** to a single Zenodo record and publish.
+3. Open a PR that **adds one new entry** to [`registry.json`](registry.json):
+   choose a unique collection name, list every phantom JSON under `phantoms`,
+   and set `doi` to the published version DOI.
 
-A GitHub Action validates `registry.json` on every PR; run the same check
-locally first:
+**Never edit or remove an existing entry.** A CI check blocks any PR that
+modifies an already-merged collection. To publish a revised dataset, add a new
+entry with a new name (e.g. `brainweb-20-v2`).
+
+Run both checks locally before opening a PR:
 
 ```sh
 pip install jsonschema
-python tools/validate_registry.py
+python tools/validate_registry.py        # schema validation
+python tools/check_registry_immutable.py # immutability (needs origin/main)
 ```
 
 ## Downloading data

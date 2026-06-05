@@ -6,6 +6,7 @@ on:
       - registry.json
       - nifti-registry.schema.json
       - tools/validate_registry.py
+      - tools/check_registry_immutable.py
       - .github/workflows/validate-registry.yml
   push:
     branches: [ main ]
@@ -13,6 +14,7 @@ on:
       - registry.json
       - nifti-registry.schema.json
       - tools/validate_registry.py
+      - tools/check_registry_immutable.py
       - .github/workflows/validate-registry.yml
 
 jobs:
@@ -25,3 +27,11 @@ jobs:
           python-version: "3.12"
       - run: pip install jsonschema
       - run: python tools/validate_registry.py
+
+      - name: Fetch main for immutability check
+        if: github.event_name == 'pull_request'
+        run: git fetch origin main --depth=1
+
+      - name: Check registry immutability
+        if: github.event_name == 'pull_request'
+        run: python tools/check_registry_immutable.py
