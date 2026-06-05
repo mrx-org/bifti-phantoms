@@ -1,0 +1,103 @@
+.registry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.card {
+  border: 1px solid var(--c-surface);
+  border-radius: var(--radius);
+  background: var(--c-base);
+  overflow: clip;   /* clip for border-radius without blocking child scroll/sticky */
+}
+
+.card-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.card-summary::-webkit-details-marker { display: none; }
+
+.card-summary::before {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--c-dim);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.card[open] > .card-summary::before { transform: rotate(90deg); }
+
+.card-summary:hover { background: var(--c-surface); }
+
+.card-title {
+  font-weight: 600;
+  font-size: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-meta {
+  color: var(--c-dim);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.card-body {
+  padding: 0.25rem 1rem 1rem;
+  border-top: 1px solid var(--c-surface);
+}
+
+.entry-desc { margin: 0.75rem 0 0.9rem; }
+
+/* Tag filter bar + tag pills share pill base */
+.tag,
+.tag-filter-btn {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: var(--c-dim);
+  border: 1px solid var(--c-pill-border);
+}
+
+.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.tag {
+  display: inline-block;
+  background: var(--c-pill);
+}
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.tag-filter-btn {
+  background: var(--c-pill);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.tag-filter-btn:hover { background: var(--c-pill-hover); }
+.tag-filter-btn.active {
+  background: var(--c-accent);
+  color: var(--c-base);
+  border-color: var(--c-accent);
+}
+
+.entry-fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.9rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+.entry-fields dt { color: var(--c-dim); font-weight: 500; }
+.entry-fields dd { margin: 0; }
