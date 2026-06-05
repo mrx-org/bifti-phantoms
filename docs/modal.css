@@ -1,0 +1,195 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--theme-overlay);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-box {
+  background: var(--theme-bg);
+  border-radius: var(--radius);
+  width: min(90vw, 820px);
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px var(--theme-overlay);
+  display: flex;
+  flex-direction: column;
+  scrollbar-color: var(--theme-bg-raised) var(--theme-bg);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem;
+  background: var(--theme-bg-raised);
+  flex-shrink: 0;
+}
+
+/* Toggle switch (left side of modal header) */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+}
+.view-toggle-btn:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 2px; }
+
+.view-toggle-track {
+  display: block;
+  width: 28px;
+  height: 16px;
+  background: var(--theme-bg);
+  border-radius: 8px;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.view-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--theme-fg);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px var(--theme-shadow);
+  transition: transform 0.15s;
+}
+
+.view-toggle-btn[aria-checked="true"] .view-toggle-track { background: var(--theme-accent); }
+.view-toggle-btn[aria-checked="true"] .view-toggle-thumb { transform: translateX(12px); }
+
+.view-toggle-label {
+  font-size: 0.74rem;
+  color: var(--theme-fg);
+  min-width: 3.5ch;
+}
+
+/* Centered path title */
+.modal-header-title {
+  flex: 1;
+  text-align: center;
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.5rem;
+}
+
+.modal-path-collection { color: var(--theme-fg); }
+.modal-path-file { color: var(--theme-accent); font-weight: 800; }
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--theme-fg);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.modal-close:hover { color: var(--theme-muted); background: var(--theme-border); }
+
+.modal-body { overflow: auto; flex: 1; }
+.modal-body .table-wrap { border: none; border-radius: 0; }
+
+@media (max-width: 600px) {
+  .modal-box { width: 100%; max-height: 90vh; }
+}
+
+/* JSON viewer */
+.json-viewer {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  font-size: 0.81rem;
+  line-height: 1.65;
+  white-space: pre;
+  color: var(--theme-bg-raised);
+  tab-size: 2;
+}
+
+.json-key  { color: var(--theme-accent); }
+.json-str  { color: var(--theme-muted); }
+.json-num  { color: var(--theme-fg); }
+.json-bool { color: var(--theme-fg); }
+
+/* Tissue table */
+.table-wrap {
+  overflow-x: auto;
+  scrollbar-color: var(--theme-bg-raised) var(--theme-bg);
+  border-radius: var(--radius);
+  background: var(--theme-bg);
+}
+
+.tissue-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.tissue-table th,
+.tissue-table td {
+  text-align: left;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--theme-bg-raised);
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.tissue-table thead th {
+  background: var(--theme-bg);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--theme-accent);
+  position: sticky;
+  top: 0;
+}
+
+.tissue-table .glyph {
+  cursor: help;
+  position: relative;
+}
+
+.tissue-table .glyph[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--theme-fg);
+  color: var(--theme-bg);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+.tissue-table .glyph.muted { color: var(--theme-muted); }
+.tissue-table .array-cell { white-space: nowrap; }
+
+.tissue-table tbody th { font-weight: 600; background: var(--theme-bg); color: var(--theme-muted); }
+
+.tissue-table code {
+  font-size: 0.82rem;
+  background: var(--theme-bg-raised);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+}
