@@ -10,3 +10,6 @@ demo/cache/
 *.seq
 *.phantom
 brainweb/
+
+# generated files
+*.tar
