@@ -197,9 +197,9 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
   thead.innerHTML = `<tr>
     <th>Phantom</th>
     <th>B<sub>0</sub></th>
-    <th>Resolution</th>
     <th>Tissues</th>
     <th class="col-spacer"></th>
+    <th>Resolution</th>
   </tr>`;
   table.appendChild(thead);
 
@@ -219,10 +219,6 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     b0Td.innerHTML = '<span class="loading-text">…</span>';
     tr.appendChild(b0Td);
 
-    const resTd = document.createElement("td");
-    resTd.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(resTd);
-
     const tissueTd = document.createElement("td");
     tissueTd.className = "tissue-names-cell";
     tissueTd.innerHTML = '<span class="loading-text">…</span>';
@@ -231,6 +227,10 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     const spacerTd = document.createElement("td");
     spacerTd.className = "col-spacer";
     tr.appendChild(spacerTd);
+
+    const resTd = document.createElement("td");
+    resTd.innerHTML = '<span class="loading-text">…</span>';
+    tr.appendChild(resTd);
 
     tbody.appendChild(tr);
 
@@ -442,16 +442,16 @@ function renderFileList(files, recordId) {
     const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
     return `<tr>
       <td class="phantom-filename"><a href="${url}">${escape(f.key)}</a></td>
-      <td class="size">${escape(formatSize(f.size))}</td>
+      <td>${escape(formatSize(f.size))}</td>
     </tr>`;
   }).join("");
   return `<div class="table-wrap phantom-list-wrap">
     <table class="phantom-table">
-      <thead><tr><th>File</th><th class="size">Size</th></tr></thead>
+      <thead><tr><th>File</th><th>Size</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
         <th>${files.length} file${files.length === 1 ? "" : "s"}</th>
-        <th class="size">${escape(formatSize(total))}</th>
+        <th>${escape(formatSize(total))}</th>
       </tr></tfoot>
     </table>
   </div>`;
