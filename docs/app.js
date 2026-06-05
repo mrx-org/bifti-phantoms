@@ -35,17 +35,22 @@ function _extractFromTar(buffer, filename) {
   return null;
 }
 
-// Fetch a phantom JSON from a Zenodo record. Tries the direct file first; on
-// any non-2xx falls back to configs.tar (spec lookup order, REGISTRY.md).
+// Fetch a phantom JSON from a Zenodo record. Tries configs.tar first (one
+// shared download for all phantoms in the record); falls back to the direct
+// file URL only if the archive is absent or doesn't contain the entry.
 async function fetchPhantomJson(recordId, filename) {
+  const tarUrl = `https://zenodo.org/api/records/${recordId}/files/configs.tar/content`;
+  try {
+    const buf = await _fetchArchiveCached(tarUrl);
+    const text = _extractFromTar(buf, filename);
+    if (text != null) return JSON.parse(text);
+  } catch (_) {
+    // no configs.tar — fall through to direct fetch
+  }
+
   const directUrl = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
   const r = await fetch(directUrl, { cache: "force-cache" });
   if (r.ok) return r.json();
-
-  const tarUrl = `https://zenodo.org/api/records/${recordId}/files/configs.tar/content`;
-  const buf = await _fetchArchiveCached(tarUrl);
-  const text = _extractFromTar(buf, filename);
-  if (text != null) return JSON.parse(text);
 
   throw new Error(`${filename} not found in record ${recordId} or configs.tar`);
 }

@@ -122,8 +122,8 @@ success:
 
 | Step | URL |
 |------|-----|
-| 1. Direct | `…/files/<filename>/content` |
-| 2. Archive | `…/files/configs.tar/content` → extract `<filename>` |
+| 1. Archive | `…/files/configs.tar/content` → extract `<filename>` |
+| 2. Direct | `…/files/<filename>/content` |
 
 ### Convention
 
