@@ -5,7 +5,8 @@
 A universal, implementation-agnostic format for storing MRI simulation phantoms.
 A phantom is one **JSON** file defining tissues and their MR properties, referencing **NIfTI** files for per-voxel data.
 
-> [!IMPORTANT] Goals
+> [!IMPORTANT]
+> **Goals**
 > - _easy to use:_ Human readable configs, existing viewers for 3D tissue data
 > - _easy to share:_ Strict spec ensures consistent phantom structuring
 > - _easy to extend:_ General approach supports future extensions
