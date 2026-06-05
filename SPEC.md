@@ -1,13 +1,8 @@
-# BIfTI Phantom — File Format Specification
-
-The **BIfTI phantom specification** describes the storage of data suitable for
-MR *imaging* simulations. A phantom consists of one or more **NIfTI files** for
-per-voxel data and a single **JSON file** that defines the phantom and
-references the NIfTI files.
+# BIfTI Phantom - File Format Specification
 
 The specification has two parts:
 
-- **[JSON.md](JSON.md)** — the phantom JSON file: top-level structure, units,
+- **[JSON.md](JSON.md)** - the phantom JSON file: top-level structure, units,
   system parameters, tissues, and how property values reference NIfTI data.
   Validated by [`bifti-phantom-v1.schema.json`](bifti-phantom-v1.schema.json)
   (JSON Schema draft 2020-12).
@@ -38,7 +33,3 @@ map omits the property postfix. The properties are listed in
 [JSON.md](JSON.md#tissue) and the NIfTI format is described in
 [NIFTI.md](NIFTI.md). The `density` property is required for every tissue loaded
 from NIfTI (as opposed to a constant value).
-
-## Example
-
-See [`example/subj42-3T.json`](example/subj42-3T.json) for a complete phantom.

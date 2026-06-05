@@ -13,7 +13,7 @@ validated against
 
 ```jsonc
 {
-  "$schema": "…/bifti-phantom-v1.schema.json",
+  "$schema": "…/bifti-phantom-v1.schema.json",  // older nifti-... is supported as well
   "units":   { … },     // fixed, documentation only
   "system":  { … },     // global MR system parameters
   "reslice_to": { … },  // optional resampling grid
@@ -35,9 +35,7 @@ No other top-level keys are allowed.
 
 Doubles as the **format discriminator / version tag** and as the pointer
 editors use to locate the schema. Any URI whose path ends in
-`bifti-phantom-v1`, optionally followed by an extension, is accepted — so the
-same file works whether the schema is referenced by raw URL, branch, tag, or a
-local relative path. You can use a link to the schema in this repository:
+`bifti-phantom-v1` (or the older `nifti-phantom-v1`) is accepted. Recommended:
 https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/bifti-phantom-v1.schema.json
 
 ### `units`
@@ -144,5 +142,3 @@ A NIfTI reference whose voxel values are remapped:
   `x_min`, `x_max`, `x_std`, `x_mean`.
 
 ---
-
-An example can be found here: [`example/subj42-3T.json`](example/subj42-3T.json)

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mrx-org/bifti-phantoms/bifti-phantom-v1",
-  "title": "NIfTI Phantom v1",
+  "title": "BIfTI Phantom v1",
   "description": "Numerical MRI simulation phantom. Can contain segmented multi-tissue data as well as per-voxel data. References NIfTI files stored next to this file.",
   "type": "object",
   "required": [ "$schema", "units", "system", "tissues" ],
