@@ -153,9 +153,9 @@ function renderEntry(name, entry) {
       <dl class="entry-fields">
         ${authors ? `<dt>Authors</dt><dd>${escape(authors)}</dd>` : ""}
         ${entry.license ? `<dt>License</dt><dd>${escape(entry.license)}</dd>` : ""}
-        ${doiUrl ? `<dt>DOI</dt><dd><a href="${doiUrl}">${escape(entry.doi)}</a></dd>` : ""}
-      </dl>
+        </dl>
       <div class="phantoms-slot"></div>
+      ${doiUrl ? `<hr class="files-divider"><p class="files-label">Raw files: <a href="${doiUrl}">${escape(entry.doi)}</a></p>` : ""}
       <div class="files-slot"></div>
     </div>
   `;
@@ -166,15 +166,18 @@ function renderEntry(name, entry) {
     el.querySelector(".phantoms-slot").appendChild(phantomSection);
   }
 
+  let filesSection = null;
   if (recordId) {
-    el.querySelector(".files-slot").appendChild(renderFilesCard(recordId));
+    filesSection = renderFilesSection(recordId);
+    el.querySelector(".files-slot").appendChild(filesSection);
   }
 
-  let phantomsStarted = false;
+  let loaded = false;
   el.addEventListener("toggle", () => {
-    if (!el.open || phantomsStarted) return;
-    phantomsStarted = true;
+    if (!el.open || loaded) return;
+    loaded = true;
     if (phantomSection) phantomSection.loadPhantoms();
+    if (filesSection) filesSection.load();
   });
 
   return el;
@@ -192,7 +195,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
 
   const thead = document.createElement("thead");
   thead.innerHTML = `<tr>
-    <th>File</th>
+    <th>Phantom</th>
     <th>B<sub>0</sub></th>
     <th>Resolution</th>
     <th>Tissues</th>
@@ -208,7 +211,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     const filenameTd = document.createElement("td");
     filenameTd.className = "phantom-filename";
     const filenameCode = document.createElement("code");
-    filenameCode.textContent = filename;
+    filenameCode.textContent = filename.replace(/\.json$/i, "");
     filenameTd.appendChild(filenameCode);
     tr.appendChild(filenameTd);
 
@@ -262,7 +265,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
 
           const btn = document.createElement("button");
           btn.className = "filename-link";
-          btn.textContent = filename;
+          btn.textContent = filename.replace(/\.json$/i, "");
           btn.title = "View tissues";
           btn.addEventListener("click", () => openTissueModal(tissues, data, filename, collectionName));
           filenameTd.innerHTML = "";
@@ -399,70 +402,59 @@ function highlightJson(obj) {
   return out;
 }
 
-function renderFilesCard(recordId) {
-  const el = document.createElement("details");
-  el.className = "card files-card";
-  el.innerHTML = `
-    <summary class="card-summary">
-      <span class="card-title">All files on Zenodo</span>
-    </summary>
-    <div class="card-body">
-      <p class="muted">Open to load file list&hellip;</p>
-    </div>
-  `;
+function renderFilesSection(recordId) {
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `<p class="muted" style="font-size:0.85rem">Loading&hellip;</p>`;
 
-  let loaded = false;
-  el.addEventListener("toggle", () => {
-    if (!el.open || loaded) return;
-    loaded = true;
-    const body = el.querySelector(".card-body");
-    body.innerHTML = `<p class="muted">Loading&hellip;</p>`;
+  wrap.load = () => {
     fetch(`https://zenodo.org/api/records/${recordId}`, { cache: "force-cache" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((data) => {
-        body.innerHTML = renderFileList(data?.files || [], recordId);
-      })
+      .then((data) => { wrap.innerHTML = renderFileList(data?.files || [], recordId); })
       .catch((err) => {
-        loaded = false;
-        body.innerHTML = `<p class="error">Could not load file list (${escape(err.message)}).</p>`;
+        wrap.innerHTML = `<p class="error" style="font-size:0.85rem">Could not load files (${escape(err.message)}).</p>`;
       });
-  });
+  };
 
-  return el;
+  return wrap;
+}
+
+function sortZenodoFiles(files) {
+  const group = (key) => {
+    const k = key.toLowerCase();
+    if (k.endsWith(".tar")) return 0;
+    if (k.endsWith(".nii") || k.endsWith(".nii.gz") || k.endsWith(".ngz")) return 1;
+    return 2;
+  };
+  return [...files].sort((a, b) => {
+    const d = group(a.key) - group(b.key);
+    return d !== 0 ? d : a.key.localeCompare(b.key);
+  });
 }
 
 function renderFileList(files, recordId) {
   if (files.length === 0) return `<p class="muted">No files.</p>`;
+  const sorted = sortZenodoFiles(files);
   const total = files.reduce((acc, f) => acc + (f.size || 0), 0);
-  const rows = files
-    .map((f) => {
-      const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
-      return `
-        <tr>
-          <td><a href="${url}"><code>${escape(f.key)}</code></a></td>
-          <td class="size">${escape(formatSize(f.size))}</td>
-        </tr>`;
-    })
-    .join("");
-  return `
-    <div class="table-wrap file-list-wrap">
-      <table class="file-table">
-        <thead>
-          <tr><th>File</th><th class="size">Size</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-          <tr>
-            <th>${files.length} file${files.length === 1 ? "" : "s"}</th>
-            <th class="size">${escape(formatSize(total))}</th>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  `;
+  const rows = sorted.map((f) => {
+    const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
+    return `<tr>
+      <td class="phantom-filename"><a href="${url}">${escape(f.key)}</a></td>
+      <td class="size">${escape(formatSize(f.size))}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="table-wrap phantom-list-wrap">
+    <table class="phantom-table">
+      <thead><tr><th>File</th><th class="size">Size</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <th>${files.length} file${files.length === 1 ? "" : "s"}</th>
+        <th class="size">${escape(formatSize(total))}</th>
+      </tr></tfoot>
+    </table>
+  </div>`;
 }
 
 function formatSize(bytes) {

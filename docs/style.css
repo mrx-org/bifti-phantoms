@@ -9,6 +9,7 @@
   --radius: 8px;
   --max-width: 880px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* --font-mono: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; */
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -244,6 +245,46 @@ h2 {
 .phantom-table tbody tr:last-child td { border-bottom: none; }
 
 /* .phantom-table tbody tr:nth-child(even) { background: var(--bg-alt); } */
+
+.phantom-table td.size,
+.phantom-table tfoot th.size {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.phantom-table thead th.size { text-align: right; }
+
+.phantom-table tfoot th {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--bg-alt);
+  padding: 0.28rem 0.55rem;
+  font-weight: 600;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.files-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.75rem 0 0.5rem;
+}
+
+.files-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+}
+
+.files-slot { margin-top: 0; }
 
 .phantom-table .col-spacer {
   width: 100%;
