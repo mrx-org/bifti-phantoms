@@ -2,12 +2,6 @@ name: Validate registry
 
 on:
   pull_request:
-    paths:
-      - registry.json
-      - bifti-registry.schema.json
-      - tools/validate_registry.py
-      - tools/check_registry_immutable.py
-      - .github/workflows/validate-registry.yml
   push:
     branches: [ main ]
     paths:
