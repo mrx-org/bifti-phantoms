@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - registry.json
-      - nifti-registry.schema.json
+      - bifti-registry.schema.json
       - tools/validate_registry.py
       - tools/check_registry_immutable.py
       - .github/workflows/validate-registry.yml
@@ -12,7 +12,7 @@ on:
     branches: [ main ]
     paths:
       - registry.json
-      - nifti-registry.schema.json
+      - bifti-registry.schema.json
       - tools/validate_registry.py
       - tools/check_registry_immutable.py
       - .github/workflows/validate-registry.yml

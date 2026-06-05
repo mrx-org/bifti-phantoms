@@ -3,7 +3,7 @@
 [`registry.json`](registry.json) is a public, PR-editable index of BIfTI
 phantoms. It only **references** data — the phantoms are hosted on
 [Zenodo](https://zenodo.org/), and anyone can add one via a pull request. Entries
-are validated against [`nifti-registry.schema.json`](nifti-registry.schema.json).
+are validated against [`bifti-registry.schema.json`](bifti-registry.schema.json).
 The format carries no version tag and entries allow extra properties, so it can
 be migrated in place if it ever needs to change.
 

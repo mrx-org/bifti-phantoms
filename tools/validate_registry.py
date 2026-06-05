@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate registry.json against nifti-registry.schema.json.
+"""Validate registry.json against bifti-registry.schema.json.
 
 Checks JSON Schema conformance. Run from anywhere in the repo:
 
@@ -16,7 +16,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHEMA = ROOT / "nifti-registry.schema.json"
+SCHEMA = ROOT / "bifti-registry.schema.json"
 REGISTRY = ROOT / "registry.json"
 
 
