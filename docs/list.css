@@ -3,9 +3,9 @@
 .data-list-wrap {
   max-height: 22rem;
   overflow-y: auto;
-  scrollbar-color: var(--theme-bg-raised) var(--theme-bg);
+  scrollbar-color: var(--c-surface) var(--c-base);
   border-radius: var(--radius);
-  box-shadow: 0 2px 8px var(--theme-shadow);
+  box-shadow: 0 2px 8px var(--c-shadow);
 }
 
 .data-list {
@@ -17,11 +17,11 @@
 .data-list thead th {
   text-align: left;
   padding: 0.28rem 0.55rem;
-  background: var(--theme-bg-raised);
+  background: var(--c-surface);
   font-weight: 600;
   font-size: 0.78rem;
-  color: var(--theme-muted);
-  border-bottom: 1px solid var(--theme-border);
+  color: var(--c-dim);
+  border-bottom: 1px solid var(--c-surface);
   white-space: nowrap;
   position: sticky;
   top: 0;
@@ -33,7 +33,7 @@
 .data-list td {
   text-align: left;
   padding: 0.15rem 0.55rem;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--c-surface);
   white-space: nowrap;
   vertical-align: middle;
 }
@@ -44,19 +44,19 @@
 .data-list tfoot th.size {
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--theme-muted);
+  color: var(--c-dim);
 }
 
 .data-list tfoot th {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  background: var(--theme-bg-raised);
+  background: var(--c-surface);
   padding: 0.28rem 0.55rem;
   font-weight: 600;
   font-size: 0.78rem;
-  color: var(--theme-muted);
-  border-top: 1px solid var(--theme-border);
+  color: var(--c-dim);
+  border-top: 1px solid var(--c-surface);
   border-bottom: none;
   white-space: nowrap;
   text-align: left;
@@ -64,18 +64,18 @@
 
 .data-list .col-spacer { width: 100%; padding: 0; }
 .data-list .col-name { font-size: 0.82rem; }
-.data-list .col-muted { color: var(--theme-muted); font-size: 0.82rem; }
+.data-list .col-muted { color: var(--c-dim); font-size: 0.82rem; }
 
 .files-divider {
   border: none;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--c-surface);
   margin: 0.75rem 0 0.5rem;
 }
 
 .files-label {
   margin: 0 0 0.5rem;
   font-size: 0.82rem;
-  color: var(--theme-muted);
+  color: var(--c-dim);
 }
 
 .files-slot { margin-top: 0; }
@@ -84,20 +84,20 @@
   background: none;
   border: none;
   padding: 0;
-  color: var(--theme-accent);
+  color: var(--c-accent);
   cursor: pointer;
   font-size: 0.82rem;
   text-decoration: none;
   text-align: left;
 }
 .filename-link:hover {
-  color: var(--theme-accent-hover);
+  color: var(--c-accent-hi);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .loading-text {
-  color: var(--theme-muted);
+  color: var(--c-dim);
   opacity: 0.3;
   font-size: 0.82rem;
 }

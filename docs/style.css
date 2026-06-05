@@ -1,19 +1,15 @@
 :root {
-  --theme-bg: #2c2b30;
-  --theme-bg-raised: #4f4f51;
-  --theme-fg: #d6d6d6;
-  --theme-muted: #f2c4ce;
-  --theme-accent: #f58f7c;
-  --theme-accent-hover: #f9b3a5;
-  --theme-border: #4f4f51;
-  --theme-dark: #1a1a1c;
-  --theme-white: #fff;
-  --theme-overlay: rgba(0, 0, 0, 0.5);
-  --theme-shadow: rgba(0, 0, 0, 0.4);
-  --theme-muted-08: rgba(242, 196, 206, 0.08);
-  --theme-muted-10: rgba(242, 196, 206, 0.1);
-  --theme-muted-20: rgba(242, 196, 206, 0.2);
-  --theme-muted-35: rgba(242, 196, 206, 0.35);
+  --c-base:        #0d1b2a;
+  --c-surface:     #1e3a4a;
+  --c-text:        #c8dde8;
+  --c-dim:         #5c8fa6;
+  --c-accent:      #52b788;
+  --c-accent-hi:   #74c99a;
+  --c-overlay:     rgba(0, 0, 0, 0.65);
+  --c-shadow:      rgba(0, 0, 0, 0.5);
+  --c-pill:        rgba(92, 143, 166, 0.12);
+  --c-pill-hover:  rgba(92, 143, 166, 0.22);
+  --c-pill-border: rgba(92, 143, 166, 0.40);
   --radius: 8px;
 }
 
@@ -28,15 +24,15 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--theme-bg);
-  color: var(--theme-fg);
+  background: var(--c-base);
+  color: var(--c-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--theme-accent); text-decoration: none; }
-a:hover { color: var(--theme-accent-hover); text-decoration: underline; }
+a { color: var(--c-accent); text-decoration: none; }
+a:hover { color: var(--c-accent-hi); text-decoration: underline; }
 
 .container {
   width: 100%;
@@ -52,23 +48,23 @@ h1 {
 }
 
 .page-intro { margin-bottom: 1.75rem; }
-.page-intro p { margin: 0.4rem 0 0; color: var(--theme-muted); font-size: 0.95rem; }
-.page-intro a { color: var(--theme-accent); }
+.page-intro p { margin: 0.4rem 0 0; color: var(--c-dim); font-size: 0.95rem; }
+.page-intro a { color: var(--c-accent); }
 
 main { flex: 1; padding: 2.5rem 0 3rem; padding-bottom: calc(3rem + 3.5rem); }
 
-.muted { color: var(--theme-muted); }
-.error { color: var(--theme-accent); }
+.muted { color: var(--c-dim); }
+.error { color: var(--c-accent); }
 
 footer {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  background: var(--c-base);
+  border-top: 1px solid var(--c-surface);
   padding: 1rem 0;
-  color: var(--theme-muted);
+  color: var(--c-dim);
   font-size: 0.9rem;
   z-index: 100;
 }

@@ -5,9 +5,9 @@
 }
 
 .card {
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--c-surface);
   border-radius: var(--radius);
-  background: var(--theme-bg);
+  background: var(--c-base);
   overflow: clip;   /* clip for border-radius without blocking child scroll/sticky */
 }
 
@@ -28,7 +28,7 @@
   display: inline-block;
   width: 0;
   height: 0;
-  border-left: 5px solid var(--theme-muted);
+  border-left: 5px solid var(--c-dim);
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   transition: transform 0.15s ease;
@@ -36,7 +36,7 @@
 }
 .card[open] > .card-summary::before { transform: rotate(90deg); }
 
-.card-summary:hover { background: var(--theme-bg-raised); }
+.card-summary:hover { background: var(--c-surface); }
 
 .card-title {
   font-weight: 600;
@@ -46,14 +46,14 @@
 }
 
 .card-meta {
-  color: var(--theme-muted);
+  color: var(--c-dim);
   font-size: 0.85rem;
   flex-shrink: 0;
 }
 
 .card-body {
   padding: 0.25rem 1rem 1rem;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--c-surface);
 }
 
 .entry-desc { margin: 0.75rem 0 0.9rem; }
@@ -64,14 +64,14 @@
   font-size: 0.75rem;
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
-  color: var(--theme-muted);
-  border: 1px solid var(--theme-muted-35);
+  color: var(--c-dim);
+  border: 1px solid var(--c-pill-border);
 }
 
 .tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .tag {
   display: inline-block;
-  background: var(--theme-muted-10);
+  background: var(--c-pill);
 }
 
 .tag-filter {
@@ -81,15 +81,15 @@
   margin-bottom: 0.75rem;
 }
 .tag-filter-btn {
-  background: var(--theme-muted-08);
+  background: var(--c-pill);
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-.tag-filter-btn:hover { background: var(--theme-muted-20); }
+.tag-filter-btn:hover { background: var(--c-pill-hover); }
 .tag-filter-btn.active {
-  background: var(--theme-accent);
-  color: var(--theme-dark);
-  border-color: var(--theme-accent);
+  background: var(--c-accent);
+  color: var(--c-base);
+  border-color: var(--c-accent);
 }
 
 .entry-fields {
@@ -99,5 +99,5 @@
   margin: 0 0 1rem;
   font-size: 0.9rem;
 }
-.entry-fields dt { color: var(--theme-muted); font-weight: 500; }
+.entry-fields dt { color: var(--c-dim); font-weight: 500; }
 .entry-fields dd { margin: 0; }
