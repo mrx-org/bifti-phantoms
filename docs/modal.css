@@ -161,12 +161,16 @@
   top: 0;
 }
 
-.tissue-table .glyph {
+.cell-missing { color: var(--c-dim); }
+
+.cell-ref {
   cursor: help;
   position: relative;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
 }
 
-.tissue-table .glyph[data-tooltip]:hover::after {
+.cell-ref[data-tooltip]:hover::after {
   content: attr(data-tooltip);
   position: absolute;
   bottom: calc(100% + 4px);
@@ -181,7 +185,6 @@
   pointer-events: none;
   z-index: 10;
 }
-.tissue-table .glyph.muted { color: var(--c-dim); }
 
 .tissue-table tbody th { font-weight: 600; background: var(--c-base); color: var(--c-dim); }
 

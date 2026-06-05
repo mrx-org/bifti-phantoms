@@ -124,12 +124,6 @@ function renderRegistry(container, data) {
 const TISSUE_PROPERTIES = ["T1", "T2", "T2'", "ADC", "dB0", "B1+", "B1-"];
 const ARRAY_PROPERTIES = new Set(["B1+", "B1-"]);
 
-const GLYPHS = {
-  missing: '<i class="fa-solid fa-ban"></i>',
-  number: '<i class="fa-solid fa-pen"></i>',
-  file: '<i class="fa-regular fa-file"></i>',
-  mapping: '<i class="fa-solid fa-calculator"></i>',
-};
 
 function renderEntry(name, entry) {
   const phantoms = Array.isArray(entry.phantoms) ? entry.phantoms : [];
@@ -493,7 +487,7 @@ function renderTissueTable(tissues, names) {
     .map((name) => {
       const t = tissues[name];
       const cells = TISSUE_PROPERTIES.map((p) => {
-        return `<td>${formatCell(t?.[p], ARRAY_PROPERTIES.has(p))}</td>`;
+        return `<td>${renderCell(t?.[p], ARRAY_PROPERTIES.has(p))}</td>`;
       }).join("");
       return `<tr><th scope="row">${escape(name)}</th>${cells}</tr>`;
     })
@@ -501,33 +495,34 @@ function renderTissueTable(tissues, names) {
   return `<div class="table-wrap"><table class="tissue-table">${head}<tbody>${rows}</tbody></table></div>`;
 }
 
-function formatCell(val, isArrayProp) {
+function renderCell(val, isArrayProp) {
+  if (val == null) return '<span class="cell-missing">-</span>';
   if (isArrayProp) {
-    if (val === undefined) return missingGlyph();
     const arr = Array.isArray(val) ? val : [val];
-    return `<span class="array-cell">${arr.map(formatGlyph).join(", ")}</span>`;
+    return arr.length === 1 ? renderVal(arr[0]) : renderArray(arr);
   }
-  if (val === undefined) return missingGlyph();
-  return formatGlyph(val);
+  return renderVal(val);
 }
 
-function formatGlyph(val) {
-  if (val === undefined || val === null) return missingGlyph();
-  if (typeof val === "number") {
-    return `<span class="glyph" data-tooltip="${escape(val)}">${GLYPHS.number}</span>`;
-  }
-  if (typeof val === "string") {
-    return `<span class="glyph" data-tooltip="${escape(val)}">${GLYPHS.file}</span>`;
-  }
+function renderVal(val) {
+  if (val == null) return '<span class="cell-missing">-</span>';
+  if (typeof val === "number") return escape(String(val));
+  if (typeof val === "string") return escape(val);
   if (typeof val === "object" && val.file) {
-    const title = `${val.file}${val.func ? "  →  " + val.func : ""}`;
-    return `<span class="glyph" data-tooltip="${escape(title)}">${GLYPHS.mapping}</span>`;
+    const tip = val.func ? `${val.file} → ${val.func}` : val.file;
+    return `<span class="cell-ref" data-tooltip="${escape(tip)}">mapped</span>`;
   }
-  return `<span class="glyph" data-tooltip="${escape(JSON.stringify(val))}">?</span>`;
+  return escape(JSON.stringify(val));
 }
 
-function missingGlyph() {
-  return `<span class="glyph muted" data-tooltip="missing">${GLYPHS.missing}</span>`;
+function renderArray(arr) {
+  return arr.map((v, i) => {
+    if (typeof v === "number") return escape(String(v));
+    const label = `c${i + 1}`;
+    const tip = typeof v === "string" ? v
+      : (v && v.file ? (v.func ? `${v.file} → ${v.func}` : v.file) : JSON.stringify(v));
+    return `<span class="cell-ref" data-tooltip="${escape(tip)}">${label}</span>`;
+  }).join(", ");
 }
 
 function parseZenodoRecordId(doi) {
