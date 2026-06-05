@@ -96,3 +96,38 @@ The `doi` is all you need: parse the Zenodo record id from it
 implementation: `available_phantoms()` fetches and caches this registry, and
 `download_phantom(collection, name)` downloads a phantom's JSON plus every NIfTI
 it references into a local cache, ready to load.
+
+## Config archives
+
+Zenodo records are limited to 100 files. When a collection contains many JSON
+config variants (different field strengths, resolutions, slice positions, …), the
+configs can be bundled into a single uncompressed TAR file named **`configs.tar`**
+stored at the root of the same Zenodo record. NIfTI files are always uploaded
+individually — only JSON configs go in the archive.
+
+Archive layout: JSON files are stored **flat** (no subdirectory nesting).
+
+```
+configs.tar
+├── subj04-3T.json
+├── subj04-7T.json
+├── subj04-2D-3T.json
+…
+```
+
+### Lookup order
+
+Every loader resolves a phantom JSON in exactly this order, stopping at the first
+success:
+
+| Step | URL |
+|------|-----|
+| 1. Direct | `…/files/<filename>/content` |
+| 2. Archive | `…/files/configs.tar/content` → extract `<filename>` |
+
+### Convention
+
+> **A record MUST contain either only direct JSON files or a single
+> `configs.tar` — not a mix of both.** Loaders implement the two-step
+> fallback for robustness; users must never rely on it to paper over a
+> mixed layout.

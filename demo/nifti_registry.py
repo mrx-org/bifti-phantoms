@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
+import tarfile
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 
@@ -59,7 +62,8 @@ def download_phantom(collection: str, name: str) -> Path:
     dir_ = CACHE / f"{collection}-{doi.replace('/', '_')}"
     dir_.mkdir(parents=True, exist_ok=True)
 
-    json_path = _download_to(dir_, doi, name)
+    record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
+    json_path = _download_json(dir_, record_id, name)
     phantom = NiftiPhantom.load(json_path)
     for filename in collect_nifti_files(phantom):
         _download_to(dir_, doi, filename)
@@ -88,6 +92,39 @@ def _download_to(dir_: Path, doi: str, filename: str) -> Path:
         record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
         url = ZENODO_FILE_URL.format(record_id=record_id, filename=filename)
         dest.write_bytes(_http_get(url))
+    return dest
+
+
+def _download_json(dir_: Path, record_id: str, name: str) -> Path:
+    """Resolve a phantom JSON following the spec lookup order (REGISTRY.md).
+
+    1. Try fetching ``name`` directly from the Zenodo record.
+    2. Fall back to downloading ``configs.tar`` and extracting ``name`` from it.
+
+    ``configs.tar`` is cached to ``dir_/configs.tar`` so multiple calls for
+    phantoms in the same collection only download the archive once.
+    """
+    dest = dir_ / name
+    if dest.exists():
+        return dest
+
+    # 1. Direct
+    try:
+        url = ZENODO_FILE_URL.format(record_id=record_id, filename=quote(name, safe=""))
+        dest.write_bytes(_http_get(url))
+        return dest
+    except Exception:
+        pass
+
+    # 2. configs.tar
+    archive = dir_ / "configs.tar"
+    if not archive.exists():
+        url = ZENODO_FILE_URL.format(record_id=record_id, filename="configs.tar")
+        archive.write_bytes(_http_get(url))
+
+    with tarfile.open(fileobj=io.BytesIO(archive.read_bytes()), mode="r:") as tf:
+        member = tf.getmember(name)  # raises KeyError if absent
+        dest.write_bytes(tf.extractfile(member).read())  # type: ignore[union-attr]
     return dest
 
 

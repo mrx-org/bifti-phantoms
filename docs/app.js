@@ -2,6 +2,54 @@ const REGISTRY_URL =
   "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/main/registry.json";
 const REPO_URL = "https://github.com/mrx-org/bifti-phantoms";
 
+// One shared Promise<ArrayBuffer> per archive URL so a collection with many
+// phantoms only triggers one configs.tar download regardless of concurrency.
+const _archiveCache = new Map();
+function _fetchArchiveCached(url) {
+  if (!_archiveCache.has(url)) {
+    _archiveCache.set(
+      url,
+      fetch(url, { cache: "force-cache" }).then((r) =>
+        r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))
+      )
+    );
+  }
+  return _archiveCache.get(url);
+}
+
+// Walk a TAR ArrayBuffer (512-byte blocks) and return the text content of
+// `filename`, or null if the entry is not found.
+function _extractFromTar(buffer, filename) {
+  const view = new Uint8Array(buffer);
+  const dec = new TextDecoder();
+  let offset = 0;
+  while (offset + 512 <= view.length) {
+    const name = dec.decode(view.subarray(offset, offset + 100)).replace(/\0/g, "");
+    if (!name) break; // end-of-archive null block
+    const size = parseInt(dec.decode(view.subarray(offset + 124, offset + 136)).trim(), 8);
+    if (name === filename) {
+      return dec.decode(view.subarray(offset + 512, offset + 512 + size));
+    }
+    offset += 512 + Math.ceil(size / 512) * 512;
+  }
+  return null;
+}
+
+// Fetch a phantom JSON from a Zenodo record. Tries the direct file first; on
+// any non-2xx falls back to configs.tar (spec lookup order, REGISTRY.md).
+async function fetchPhantomJson(recordId, filename) {
+  const directUrl = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
+  const r = await fetch(directUrl, { cache: "force-cache" });
+  if (r.ok) return r.json();
+
+  const tarUrl = `https://zenodo.org/api/records/${recordId}/files/configs.tar/content`;
+  const buf = await _fetchArchiveCached(tarUrl);
+  const text = _extractFromTar(buf, filename);
+  if (text != null) return JSON.parse(text);
+
+  throw new Error(`${filename} not found in record ${recordId} or configs.tar`);
+}
+
 async function loadRegistry() {
   const container = document.getElementById("registry-list");
   try {
@@ -157,13 +205,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
         continue;
       }
 
-      const apiUrl = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
-
-      fetch(apiUrl, { cache: "force-cache" })
-        .then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
+      fetchPhantomJson(recordId, filename)
         .then((data) => {
           const b0 = data?.system?.B0;
           b0Td.textContent = b0 !== undefined ? `${b0} T` : "—";
