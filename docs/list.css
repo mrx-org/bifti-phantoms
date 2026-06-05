@@ -1,17 +1,20 @@
-.phantom-table-section { margin-top: 0.25rem; }
+.list-section { margin-top: 0.25rem; }
 
-.phantom-list-wrap {
+.data-list-wrap {
   max-height: 22rem;
   overflow-y: auto;
+  scrollbar-color: var(--theme-bg-raised) var(--theme-bg);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--theme-shadow);
 }
 
-.phantom-table {
+.data-list {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.85rem;
 }
 
-.phantom-table thead th {
+.data-list thead th {
   text-align: left;
   padding: 0.28rem 0.55rem;
   background: var(--theme-bg-raised);
@@ -25,9 +28,9 @@
   z-index: 1;
 }
 
-.phantom-table thead th.size { text-align: right; }
+.data-list thead th.size { text-align: right; }
 
-.phantom-table td {
+.data-list td {
   text-align: left;
   padding: 0.15rem 0.55rem;
   border-bottom: 1px solid var(--theme-border);
@@ -35,17 +38,16 @@
   vertical-align: middle;
 }
 
-.phantom-table tbody tr:last-child td { border-bottom: none; }
+.data-list tbody tr:last-child td { border-bottom: none; }
 
-.phantom-table td.size,
-.phantom-table tfoot th.size {
+.data-list td.size,
+.data-list tfoot th.size {
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--theme-muted);
-  white-space: nowrap;
 }
 
-.phantom-table tfoot th {
+.data-list tfoot th {
   position: sticky;
   bottom: 0;
   z-index: 1;
@@ -60,9 +62,9 @@
   text-align: left;
 }
 
-.phantom-table .col-spacer { width: 100%; padding: 0; }
-.phantom-table .phantom-filename { font-size: 0.82rem; }
-.phantom-table .tissue-names-cell { color: var(--theme-muted); font-size: 0.82rem; }
+.data-list .col-spacer { width: 100%; padding: 0; }
+.data-list .col-name { font-size: 0.82rem; }
+.data-list .col-muted { color: var(--theme-muted); font-size: 0.82rem; }
 
 .files-divider {
   border: none;

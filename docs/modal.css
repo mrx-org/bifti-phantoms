@@ -108,7 +108,7 @@
 .modal-close:hover { color: var(--theme-muted); background: var(--theme-border); }
 
 .modal-body { overflow: auto; flex: 1; }
-.modal-body .table-wrap { border: none; border-radius: 0; }
+.modal-body .table-wrap { border-radius: 0; }
 
 @media (max-width: 600px) {
   .modal-box { width: 100%; max-height: 90vh; }
@@ -156,7 +156,6 @@
 .tissue-table thead th {
   background: var(--theme-bg);
   font-weight: 600;
-  font-size: 0.85rem;
   color: var(--theme-accent);
   position: sticky;
   top: 0;
@@ -183,7 +182,6 @@
   z-index: 10;
 }
 .tissue-table .glyph.muted { color: var(--theme-muted); }
-.tissue-table .array-cell { white-space: nowrap; }
 
 .tissue-table tbody th { font-weight: 600; background: var(--theme-bg); color: var(--theme-muted); }
 

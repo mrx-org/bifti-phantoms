@@ -58,21 +58,30 @@
 
 .entry-desc { margin: 0.75rem 0 0.9rem; }
 
-/* Tag filter bar above cards */
+/* Tag filter bar + tag pills share pill base */
+.tag,
+.tag-filter-btn {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  color: var(--theme-muted);
+  border: 1px solid var(--theme-muted-35);
+}
+
+.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.tag {
+  display: inline-block;
+  background: var(--theme-muted-10);
+}
+
 .tag-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.75rem;
 }
-
 .tag-filter-btn {
-  font-size: 0.75rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
   background: var(--theme-muted-08);
-  color: var(--theme-muted);
-  border: 1px solid var(--theme-muted-35);
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
@@ -81,18 +90,6 @@
   background: var(--theme-accent);
   color: var(--theme-dark);
   border-color: var(--theme-accent);
-}
-
-/* Tag pills (used in card summary) */
-.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.tag {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--theme-muted-10);
-  color: var(--theme-muted);
-  border: 1px solid var(--theme-muted-35);
 }
 
 .entry-fields {

@@ -185,13 +185,13 @@ function renderEntry(name, entry) {
 
 function renderPhantomSection(phantoms, recordId, collectionName) {
   const wrap = document.createElement("div");
-  wrap.className = "phantom-table-section";
+  wrap.className = "list-section";
 
   const tableWrap = document.createElement("div");
-  tableWrap.className = "table-wrap phantom-list-wrap";
+  tableWrap.className = "data-list-wrap";
 
   const table = document.createElement("table");
-  table.className = "phantom-table";
+  table.className = "data-list";
 
   const thead = document.createElement("thead");
   thead.innerHTML = `<tr>
@@ -209,7 +209,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     const tr = document.createElement("tr");
 
     const filenameTd = document.createElement("td");
-    filenameTd.className = "phantom-filename";
+    filenameTd.className = "col-name";
     const filenameCode = document.createElement("code");
     filenameCode.textContent = filename.replace(/\.json$/i, "");
     filenameTd.appendChild(filenameCode);
@@ -220,7 +220,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     tr.appendChild(b0Td);
 
     const tissueTd = document.createElement("td");
-    tissueTd.className = "tissue-names-cell";
+    tissueTd.className = "col-muted";
     tissueTd.innerHTML = '<span class="loading-text">…</span>';
     tr.appendChild(tissueTd);
 
@@ -441,13 +441,13 @@ function renderFileList(files, recordId) {
   const rows = sorted.map((f) => {
     const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
     return `<tr>
-      <td class="phantom-filename"><a href="${url}">${escape(f.key)}</a></td>
+      <td class="col-name"><a href="${url}">${escape(f.key)}</a></td>
       <td class="col-spacer"></td>
       <td>${escape(formatSize(f.size))}</td>
     </tr>`;
   }).join("");
-  return `<div class="table-wrap phantom-list-wrap">
-    <table class="phantom-table">
+  return `<div class="data-list-wrap">
+    <table class="data-list">
       <thead><tr>
         <th>File</th>
         <th class="col-spacer"></th>
