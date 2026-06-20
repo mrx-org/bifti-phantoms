@@ -8,6 +8,7 @@ demo/cache/
 
 # files used for writing the ESMRMB abstract
 *.seq
+!demo/data/tse.seq
 *.phantom
 brainweb/
 
