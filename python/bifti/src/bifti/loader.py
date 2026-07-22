@@ -14,7 +14,7 @@ import nibabel
 from nibabel.processing import resample_from_to
 
 
-from nifti_phantom import (
+from .phantom import (
     NiftiPhantom,
     NiftiTissue,
     NiftiRef,

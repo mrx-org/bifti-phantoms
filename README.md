@@ -33,6 +33,15 @@ This registry exists for the purpose of making sharing easy and experiments repr
 
 ## Reference implementation
 
+```bash
+# Load bifti phantoms from rust
+cargo add --git https://github.com/mrx-org/bifti-phantoms bifti
+# Load bifti phantoms from Python
+pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=python/bifti"
+# Using the uv package manager:
+uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
+```
+
 [demo/](demo/DEMO.md) — a small Python example that loads a phantom into NumPy
 arrays and plots every tissue; a starting point for porting the format. Run
 `python demo.py` (no args) to list the registry's phantoms and download + plot

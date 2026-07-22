@@ -1,0 +1,18 @@
+[project]
+name = "bifti"
+version = "1.0.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "J-Endres", email = "jonathan.endres01@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "nibabel>=5.4.2",
+    "numpy>=2.5.1",
+    "requests>=2.34.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.4,<0.10.0"]
+build-backend = "uv_build"

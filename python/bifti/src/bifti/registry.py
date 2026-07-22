@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import requests
 
-from nifti_phantom import NiftiPhantom, NiftiRef, NiftiMapping
+from .phantom import NiftiPhantom, NiftiRef, NiftiMapping
 
 HERE = Path(__file__).parent
 CACHE = HERE / "cache"
@@ -62,7 +62,7 @@ def download_phantom(collection: str, name: str) -> Path:
     dir_ = CACHE / f"{collection}-{doi.replace('/', '_')}"
     dir_.mkdir(parents=True, exist_ok=True)
 
-    record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
+    record_id = _zenodo_record_id(doi)
     json_path = _download_json(dir_, record_id, name)
     phantom = NiftiPhantom.load(json_path)
     for filename in collect_nifti_files(phantom):
@@ -73,6 +73,14 @@ def download_phantom(collection: str, name: str) -> Path:
 # ===========================================================================
 # Internals
 # ===========================================================================
+
+
+def _zenodo_record_id(doi: str) -> str:
+    """Extract the record id from a Zenodo version DOI ("10.5281/zenodo.<id>")."""
+    m = re.search(r"zenodo\.(\d+)$", doi)
+    if not m:
+        raise ValueError(f"Not a Zenodo DOI: {doi!r}")
+    return m.group(1)
 
 
 def _http_get(url: str) -> bytes:
@@ -89,7 +97,7 @@ def _download_to(dir_: Path, doi: str, filename: str) -> Path:
     """
     dest = dir_ / filename
     if not dest.exists():
-        record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
+        record_id = _zenodo_record_id(doi)
         url = ZENODO_FILE_URL.format(record_id=record_id, filename=filename)
         dest.write_bytes(_http_get(url))
     return dest
@@ -124,7 +132,10 @@ def _download_json(dir_: Path, record_id: str, name: str) -> Path:
 
     with tarfile.open(fileobj=io.BytesIO(archive.read_bytes()), mode="r:") as tf:
         member = tf.getmember(name)  # raises KeyError if absent
-        dest.write_bytes(tf.extractfile(member).read())  # type: ignore[union-attr]
+        extracted = tf.extractfile(member)
+        if extracted is None:
+            raise ValueError(f"{name!r} is not a regular file in configs.tar")
+        dest.write_bytes(extracted.read())
     return dest
 
 
