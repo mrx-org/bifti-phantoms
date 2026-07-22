@@ -19,8 +19,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from nifti_loader import load_phantom, NumpyTissue
-from nifti_registry import available_phantoms, download_phantom
+from bifti import NumpyTissue, available_phantoms, download_phantom, load_phantom
 
 HERE = Path(__file__).parent
 FIGURES = HERE / "figures"

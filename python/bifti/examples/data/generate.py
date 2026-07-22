@@ -18,15 +18,12 @@ Outputs:
   different resolution, so loading actually resamples the 3D volumes.
 """
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import nibabel
 
-# This script lives in demo/data/; the spec data model lives one level up.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from nifti_phantom import (  # noqa: E402
+from bifti import (
     NiftiPhantom,
     PhantomUnits,
     PhantomSystem,

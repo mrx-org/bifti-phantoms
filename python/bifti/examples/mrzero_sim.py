@@ -1,8 +1,8 @@
 """Simulate a Pulseq sequence on a NIfTI phantom with MR-zero.
 
-Loads a phantom JSON via the standalone reference loader (``nifti_loader.py``),
-which already honours the spec's ``reslice_to`` field — sidestepping MR-zero's
-current lack of in-package ``reslice_to`` support (see PR
+Loads a phantom JSON via ``bifti.load_phantom``, which already honours the
+spec's ``reslice_to`` field — sidestepping MR-zero's current lack of
+in-package ``reslice_to`` support (see PR
 https://github.com/MRsources/MRzero-Core/pull/172).
 
 Pipeline:
@@ -19,8 +19,7 @@ Usage::
     python mrzero_sim.py brainweb/subj04-2D.json demo/data/tse.seq \\
         --fov 0.256 0.256 1 --res 128 128 1
 
-Dependencies: ``MRzeroCore``, ``torch``, ``numpy``, ``nibabel``, ``scipy``,
-``matplotlib`` (plus the sibling ``nifti_loader.py`` / ``nifti_phantom.py``).
+Dependencies: ``MRzeroCore``, ``torch``, ``matplotlib`` (plus ``bifti`` itself).
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ import torch
 import matplotlib.pyplot as plt
 import MRzeroCore as mr0
 
-from nifti_loader import load_phantom, NumpyTissue
+from bifti import NumpyTissue, load_phantom
 
 
 def to_voxel_grid(t: NumpyTissue) -> mr0.VoxelGridPhantom:

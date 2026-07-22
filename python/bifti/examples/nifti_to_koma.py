@@ -44,7 +44,7 @@ from pathlib import Path
 import numpy as np
 import h5py
 
-from nifti_loader import load_phantom, NumpyTissue
+from bifti import NumpyTissue, load_phantom
 
 
 def tissue_spins(tissue: NumpyTissue, density_threshold: float,

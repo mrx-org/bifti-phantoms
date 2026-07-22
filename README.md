@@ -42,7 +42,4 @@ pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=pyth
 uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
 ```
 
-[demo/](demo/DEMO.md) — a small Python example that loads a phantom into NumPy
-arrays and plots every tissue; a starting point for porting the format. Run
-`python demo.py` (no args) to list the registry's phantoms and download + plot
-a chosen one. WIP: code and documentation will be improved in the future.
+For more information, read the README of the [Python `bifti` package](python/bifti/README.md) or [Rust `bifti` crate](rust/bifti/README.md).
