@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import requests
 
-from .phantom import NiftiPhantom, NiftiRef, NiftiMapping
+from .phantom import BiftiPhantom, NiftiRef, NiftiMapping
 
 HERE = Path(__file__).parent
 CACHE = HERE / "cache"
@@ -64,7 +64,7 @@ def download_phantom(collection: str, name: str) -> Path:
 
     record_id = _zenodo_record_id(doi)
     json_path = _download_json(dir_, record_id, name)
-    phantom = NiftiPhantom.load(json_path)
+    phantom = BiftiPhantom.load(json_path)
     for filename in collect_nifti_files(phantom):
         _download_to(dir_, doi, filename)
     return json_path
@@ -148,7 +148,7 @@ def _ref_file(prop) -> str | None:
     return None  # a plain number references no file
 
 
-def collect_nifti_files(phantom: NiftiPhantom) -> list[str]:
+def collect_nifti_files(phantom: BiftiPhantom) -> list[str]:
     """Every distinct NIfTI filename referenced across all of a phantom's tissues."""
     files: list[str] = []
     seen: set[str] = set()

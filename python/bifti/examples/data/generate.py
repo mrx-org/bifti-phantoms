@@ -24,10 +24,10 @@ import numpy as np
 import nibabel
 
 from bifti import (
-    NiftiPhantom,
+    BiftiPhantom,
     PhantomUnits,
     PhantomSystem,
-    NiftiTissue,
+    BiftiTissue,
     ResliceTo,
 )
 
@@ -129,7 +129,7 @@ def make_shapes(rng: np.random.Generator) -> None:
 
     # Build the phantom JSON through the spec data model (also exercises writing).
     tissues = {
-        "disk": NiftiTissue.from_dict(
+        "disk": BiftiTissue.from_dict(
             {
                 "density": "shapes_density.nii.gz[0]",
                 "T1": 1.0,
@@ -140,7 +140,7 @@ def make_shapes(rng: np.random.Generator) -> None:
                 "B1+": ["shapes_B1.nii.gz[0]", "shapes_B1.nii.gz[1]"],
             }
         ),
-        "ring": NiftiTissue.from_dict(
+        "ring": BiftiTissue.from_dict(
             {
                 "density": "shapes_density.nii.gz[1]",
                 "T1": 0.6,
@@ -148,12 +148,12 @@ def make_shapes(rng: np.random.Generator) -> None:
                 "dB0": {"file": "shapes_dB0.nii.gz[0]", "func": "x * 0.5 + 10"},
             }
         ),
-        "background": NiftiTissue.from_dict(
+        "background": BiftiTissue.from_dict(
             {"density": "shapes_density.nii.gz[2]", "T1": 4.0, "T2": 2.0}
         ),
     }
     units, system = PhantomUnits.default(), PhantomSystem(42.5764, 3.0)
-    NiftiPhantom(units, system, tissues).save(DATA / "shapes.json")
+    BiftiPhantom(units, system, tissues).save(DATA / "shapes.json")
     print("  wrote shapes.json")
 
     # Same data, but resliced onto a finer 60x48x4 grid (same FOV) - so loading
@@ -162,7 +162,7 @@ def make_shapes(rng: np.random.Generator) -> None:
         affine=[[2, 0, 0, -60], [0, 2, 0, -48], [0, 0, 5, -10]],
         resolution=[60, 48, 4],
     )
-    NiftiPhantom(units, system, tissues, reslice_to).save(DATA / "shapes_resliced.json")
+    BiftiPhantom(units, system, tissues, reslice_to).save(DATA / "shapes_resliced.json")
     print("  wrote shapes_resliced.json")
 
 

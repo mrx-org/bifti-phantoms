@@ -1,8 +1,8 @@
 from .phantom import (
     NiftiMapping,
-    NiftiPhantom,
+    BiftiPhantom,
     NiftiRef,
-    NiftiTissue,
+    BiftiTissue,
     PhantomSystem,
     PhantomUnits,
     ResliceTo,
@@ -25,9 +25,9 @@ from .registry import (
 
 __all__ = [
     "NiftiMapping",
-    "NiftiPhantom",
+    "BiftiPhantom",
     "NiftiRef",
-    "NiftiTissue",
+    "BiftiTissue",
     "PhantomSystem",
     "PhantomUnits",
     "ResliceTo",

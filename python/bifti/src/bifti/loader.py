@@ -15,8 +15,8 @@ from nibabel.processing import resample_from_to
 
 
 from .phantom import (
-    NiftiPhantom,
-    NiftiTissue,
+    BiftiPhantom,
+    BiftiTissue,
     NiftiRef,
     NiftiMapping,
     ResliceTo,
@@ -66,11 +66,11 @@ def load_phantom(path: Path | str) -> dict[str, NumpyTissue]:
     folder convention in ``../SPEC.md``.
     """
     path = Path(path)
-    config = NiftiPhantom.load(path)
+    config = BiftiPhantom.load(path)
     return load_config(config, base_dir=path.parent)
 
 
-def load_config(config: NiftiPhantom, base_dir: Path | str) -> dict[str, NumpyTissue]:
+def load_config(config: BiftiPhantom, base_dir: Path | str) -> dict[str, NumpyTissue]:
     """Load all tissues of an already-parsed config from ``base_dir``.
 
     Useful if you want to tweak the config in memory before loading the data.
@@ -88,7 +88,7 @@ def load_config(config: NiftiPhantom, base_dir: Path | str) -> dict[str, NumpyTi
 
 
 def load_tissue(
-    tissue: NiftiTissue,
+    tissue: BiftiTissue,
     base_dir: Path | str,
     reslice_to: ResliceTo | None = None,
 ) -> NumpyTissue:

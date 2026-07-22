@@ -98,7 +98,7 @@ class NiftiMapping:
 
 
 @dataclass
-class NiftiTissue:
+class BiftiTissue:
     density: NiftiRef
     T1: float | NiftiRef | NiftiMapping
     T2: float | NiftiRef | NiftiMapping
@@ -183,7 +183,7 @@ class ResliceTo:
 
 
 @dataclass
-class NiftiPhantom:
+class BiftiPhantom:
     # schema has to be any URL to a file named "bifti-phantom-v1".
     # Default to the file hosted on the offical GitHub repository.
     DEFAULT_SCHEMA = (
@@ -193,7 +193,7 @@ class NiftiPhantom:
 
     units: PhantomUnits
     system: PhantomSystem
-    tissues: dict[str, NiftiTissue]
+    tissues: dict[str, BiftiTissue]
     reslice_to: ResliceTo | None = None
     schema: str = DEFAULT_SCHEMA
 
@@ -235,7 +235,7 @@ class NiftiPhantom:
         else:
             reslice_to = None
         tissues = {
-            name: NiftiTissue.from_dict(tissue)
+            name: BiftiTissue.from_dict(tissue)
             for name, tissue in config["tissues"].items()
         }
 
