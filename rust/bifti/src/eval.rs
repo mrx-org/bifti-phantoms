@@ -6,6 +6,7 @@ use std::str::FromStr;
 ///
 /// All variables are scalars, `x` is the current element of the data array that
 /// is mapped while the other constants are pre-computed from the `data` array.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(func)))]
 pub fn eval_mapping_func(mut volume: Volume, func: &str) -> Result<Volume, crate::Error> {
     let data: Vec<f64> = match volume.data {
         crate::loader::VolumeData::Float64(items) => items,

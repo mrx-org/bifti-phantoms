@@ -11,6 +11,10 @@ pub struct Phantom {
 }
 
 impl Phantom {
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(path = %path.as_ref().display()))
+    )]
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, crate::Error> {
         let path = path.as_ref().canonicalize()?;
         let config = BiftiPhantom::load(&path)?;
@@ -18,6 +22,7 @@ impl Phantom {
         Self::load_from_config(config, base_dir)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn load_from_config<P: AsRef<Path>>(
         config: BiftiPhantom,
         base_dir: P,
@@ -113,6 +118,10 @@ impl Volume {
         })
     }
 
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(file = %nifti_ref.file_name.display()))
+    )]
     fn load_nifti_ref(
         base_dir: &Path,
         nifti_ref: &NiftiRef,
@@ -191,6 +200,7 @@ impl Volume {
 }
 
 impl Tissue {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn load(
         tissue: &BiftiTissue,
         base_dir: &Path,

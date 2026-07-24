@@ -1,7 +1,23 @@
 use bifti::{Phantom, Registry};
 use rand::seq::IndexedRandom;
+use tracing_chrome::ChromeLayerBuilder;
+use tracing_subscriber::{EnvFilter, prelude::*};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // console: human-readable span timings. chrome file: open in
+    // https://ui.perfetto.dev for a timeline view of the same spans.
+    // only bifti's own spans - deps like ureq/rustls trace their internals too.
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("bifti=debug,warn"));
+    let (chrome_layer, _chrome_guard) = ChromeLayerBuilder::new().file("trace.json").build();
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE),
+        )
+        .with(chrome_layer)
+        .init();
+
     let registry = Registry::load()?;
     let mut rng = rand::rng();
 

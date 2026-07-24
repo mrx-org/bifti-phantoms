@@ -32,6 +32,7 @@ impl Deref for Registry {
 
 impl Registry {
     /// Download the latest registry.json from GitHub and return it parsed.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn load() -> Result<Self, crate::Error> {
         let bytes = http_get(REGISTRY_URL)?;
         Ok(serde_json::from_slice(&bytes)?)
@@ -40,6 +41,10 @@ impl Registry {
     /// Download a phantom's JSON and every NIfTI it references into
     /// `cache_dir`. Returns the path to the .json of the downloaded phantom.
     /// Re-running this does nothing as phantoms are immutable and cached.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, fields(collection, name))
+    )]
     pub fn load_registry_phantom(
         &self,
         collection: &str,
@@ -102,6 +107,7 @@ fn zenodo_record_id(doi: &str) -> Result<&str, crate::Error> {
         .ok_or_else(|| crate::Error::InvalidDoi(doi.to_owned()))
 }
 
+#[cfg_attr(feature = "tracing", tracing::instrument)]
 fn http_get(url: &str) -> Result<Vec<u8>, crate::Error> {
     let mut res = ureq::get(url).call()?;
     let mut buf = Vec::new();
@@ -111,6 +117,7 @@ fn http_get(url: &str) -> Result<Vec<u8>, crate::Error> {
 
 /// Download `filename` from the Zenodo record `doi` into `dir`. A no-op if
 /// the file is already cached (the DOI guarantees identical bytes).
+#[cfg_attr(feature = "tracing", tracing::instrument(skip(doi)))]
 fn download_to(dir: &Path, doi: &str, filename: &str) -> Result<PathBuf, crate::Error> {
     let dest = dir.join(filename);
     if !dest.exists() {
@@ -127,6 +134,7 @@ fn download_to(dir: &Path, doi: &str, filename: &str) -> Result<PathBuf, crate::
 /// try fetching `name` directly from the Zenodo record, else fall back to
 /// downloading `configs.tar` and extracting `name` from it. `configs.tar` is
 /// cached to `dir/configs.tar` so multiple calls only download it once.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip(dir)))]
 fn download_json(
     dir: &Path,
     collection: &str,
