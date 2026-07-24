@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     io::Read,
+    ops::Deref,
     path::{Path, PathBuf},
     sync::LazyLock,
 };
@@ -21,6 +22,13 @@ static ZENODO_ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"zenodo\.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Registry(HashMap<String, Collection>);
+
+impl Deref for Registry {
+    type Target = HashMap<String, Collection>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Registry {
     /// Download the latest registry.json from GitHub and return it parsed.
@@ -39,7 +47,6 @@ impl Registry {
         cache_dir: &Path,
     ) -> Result<PathBuf, crate::Error> {
         let doi = &self
-            .0
             .get(collection)
             .ok_or_else(|| crate::Error::CollectionLookupError(collection.to_owned()))?
             .doi;
