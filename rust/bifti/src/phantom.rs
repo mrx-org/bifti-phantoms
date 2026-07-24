@@ -3,7 +3,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 pub const DEFAULT_SCHEMA: &str = "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/bifti-phantom-v1.schema.json";
@@ -264,6 +264,31 @@ pub struct BiftiPhantom {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reslice_to: Option<ResliceTo>,
     pub tissues: HashMap<String, BiftiTissue>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("file error: {0}")]
+    FileError(#[from] std::io::Error),
+    #[error("json error: {0}")]
+    JsonError(#[from] serde_json::Error),
+}
+
+impl BiftiPhantom {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        Ok(serde_json::from_reader(std::io::BufReader::new(
+            std::fs::File::open(path)?,
+        ))?)
+    }
+
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+        // If there is a directory specified, try to create it first
+        if let Some(dir) = path.as_ref().parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        serde_json::to_writer(std::io::BufWriter::new(std::fs::File::create(path)?), self)?;
+        Ok(())
+    }
 }
 
 impl Default for BiftiPhantom {
