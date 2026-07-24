@@ -8,8 +8,10 @@ use std::sync::LazyLock;
 
 pub const DEFAULT_SCHEMA: &str = "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/bifti-phantom-v1.schema.json";
 
+// Matches both the `$schema` URL (using hyphens, e.g. "nifti-phantom-v1.schema.json")
+// and the legacy plain `file_type` value (using underscores, e.g. "nifti_phantom_v1").
 static SCHEMA_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(nifti|bifti)-phantom-v1(\.[^/]*)?$").unwrap());
+    LazyLock::new(|| Regex::new(r"(nifti|bifti)[-_]phantom[-_]v1(\.[^/]*)?$").unwrap());
 
 static NIFTI_REF_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(?P<file>.+?)\[(?P<idx>\d+)\]$").unwrap());
@@ -257,7 +259,11 @@ fn default_schema() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiftiPhantom {
-    #[serde(rename = "$schema", deserialize_with = "deserialize_schema")]
+    #[serde(
+        rename = "$schema",
+        alias = "file_type",
+        deserialize_with = "deserialize_schema"
+    )]
     pub schema: String,
     pub units: PhantomUnits,
     pub system: PhantomSystem,
