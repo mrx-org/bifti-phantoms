@@ -15,6 +15,7 @@ Pipeline:
 
 Usage::
 
+    python mrzero_sim.py                         # demo/data/subj42-3T.json + data/tse.seq
     python mrzero_sim.py PHANTOM.json SEQ.seq
     python mrzero_sim.py brainweb/subj04-2D.json demo/data/tse.seq \\
         --fov 0.256 0.256 1 --res 128 128 1
@@ -34,6 +35,10 @@ import matplotlib.pyplot as plt
 import MRzeroCore as mr0
 
 from nifti_loader import load_phantom, NumpyTissue
+
+HERE = Path(__file__).parent
+DEFAULT_PHANTOM = HERE / "data" / "subj42-3T.json"
+DEFAULT_SEQ = HERE / "data" / "tse.seq"
 
 
 def to_voxel_grid(t: NumpyTissue) -> mr0.VoxelGridPhantom:
@@ -102,8 +107,10 @@ def build_simdata(phantom_json: Path, combine: bool = False) -> mr0.SimData:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("phantom", type=Path, help="path to the phantom JSON")
-    p.add_argument("seq", type=Path, help="path to the .seq file")
+    p.add_argument("phantom", nargs="?", type=Path, default=None,
+                   help=f"path to the phantom JSON (default: {DEFAULT_PHANTOM.name})")
+    p.add_argument("seq", nargs="?", type=Path, default=None,
+                   help="path to the .seq file (default: data/tse.seq)")
     p.add_argument("--fov", nargs=3, type=float, metavar=("FX", "FY", "FZ"),
                    default=None,
                    help="recon FOV in meters (default: auto from k-space)")
@@ -119,6 +126,18 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=None,
                    help="if given, save the figure to this path")
     args = p.parse_args()
+    smoke_test = args.phantom is None and args.seq is None
+    if args.phantom is None:
+        args.phantom = DEFAULT_PHANTOM
+    if args.seq is None:
+        args.seq = DEFAULT_SEQ
+
+    if smoke_test:
+        args.combine = True
+        if args.fov is None:
+            args.fov = (0.256, 0.256, 0.02)
+        if args.res is None:
+            args.res = (128, 128, 1)
 
     print(f"loading phantom: {args.phantom}")
     data = build_simdata(args.phantom, combine=args.combine)
