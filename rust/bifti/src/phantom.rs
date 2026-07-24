@@ -4,7 +4,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 pub struct PhantomUnits {
     pub gyro: String,
     #[serde(rename = "B0")]
@@ -42,7 +42,7 @@ impl Default for PhantomUnits {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 pub struct PhantomSystem {
     pub gyro: f64,
     #[serde(rename = "B0")]
@@ -65,15 +65,15 @@ pub struct NiftiRef {
     pub tissue_index: usize,
 }
 
-impl fmt::Display for NiftiRef {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}[{}]", self.file_name.display(), self.tissue_index)
-    }
-}
-
 impl From<NiftiRef> for String {
     fn from(r: NiftiRef) -> String {
         r.to_string()
+    }
+}
+
+impl fmt::Display for NiftiRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}[{}]", self.file_name.display(), self.tissue_index)
     }
 }
 
@@ -106,7 +106,6 @@ impl TryFrom<String> for NiftiRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct NiftiMapping {
     pub file: NiftiRef,
     pub func: String,
@@ -139,7 +138,6 @@ impl From<NiftiMapping> for TissueProperty {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct NiftiTissueProperties {
     #[serde(rename = "T1")]
     pub t1: TissueProperty,
@@ -164,7 +162,7 @@ impl Default for NiftiTissueProperties {
             t2: TissueProperty::Value(f64::INFINITY),
             t2dash: TissueProperty::Value(f64::INFINITY),
             adc: TissueProperty::Value(0.0),
-            db0: TissueProperty::Value(1.0),
+            db0: TissueProperty::Value(0.0),
             b1_tx: vec![TissueProperty::Value(1.0)],
             b1_rx: vec![TissueProperty::Value(1.0)],
         }
@@ -172,20 +170,26 @@ impl Default for NiftiTissueProperties {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NiftiTissue {
+pub struct BiftiTissue {
     pub density: NiftiRef,
     #[serde(default, flatten)]
     pub properties: NiftiTissueProperties,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResliceTo {
+    pub affine: [[f64; 4]; 3],
+    pub resolution: [usize; 3]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
-pub struct NiftiPhantom {
-    pub file_type: NiftiFileVersion,
+pub struct BiftiPhantom {
     pub units: PhantomUnits,
     pub system: PhantomSystem,
-    pub tissues: HashMap<String, NiftiTissue>,
+    pub tissues: HashMap<String, BiftiTissue>,
+    pub reslice_to: Option<ResliceTo>,
+    pub file_type: NiftiFileVersion,
 }
 
 /// This enum should always only contain this one field - for future file versions,

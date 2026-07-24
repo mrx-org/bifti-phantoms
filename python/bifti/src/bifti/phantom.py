@@ -58,6 +58,13 @@ class PhantomSystem:
     B0: float
 
     @classmethod
+    def default(cls):
+        return cls(
+            gyro=42.5764,
+            B0=3.0
+        )
+
+    @classmethod
     def from_dict(cls, config: dict[str, float]):
         return cls(gyro=config["gyro"], B0=config["B0"])
 
