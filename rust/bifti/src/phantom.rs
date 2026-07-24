@@ -1,10 +1,20 @@
+use regex::Regex;
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
+pub const DEFAULT_SCHEMA: &str = "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/bifti-phantom-v1.schema.json";
+
+static SCHEMA_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(nifti|bifti)-phantom-v1(\.[^/]*)?$").unwrap());
+
+static NIFTI_REF_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?P<file>.+?)\[(?P<idx>\d+)\]$").unwrap());
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PhantomUnits {
     pub gyro: String,
     #[serde(rename = "B0")]
@@ -38,6 +48,56 @@ impl Default for PhantomUnits {
             b1_tx: "rel".to_string(),
             b1_rx: "rel".to_string(),
         }
+    }
+}
+
+// Only the default units are supported for now, mirroring the Python
+// implementation's `assert default.to_dict() == config`.
+impl<'de> Deserialize<'de> for PhantomUnits {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            gyro: String,
+            #[serde(rename = "B0")]
+            b0: String,
+            #[serde(rename = "T1")]
+            t1: String,
+            #[serde(rename = "T2")]
+            t2: String,
+            #[serde(rename = "T2'")]
+            t2dash: String,
+            #[serde(rename = "ADC")]
+            adc: String,
+            #[serde(rename = "dB0")]
+            db0: String,
+            #[serde(rename = "B1+")]
+            b1_tx: String,
+            #[serde(rename = "B1-")]
+            b1_rx: String,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        let units = PhantomUnits {
+            gyro: raw.gyro,
+            b0: raw.b0,
+            t1: raw.t1,
+            t2: raw.t2,
+            t2dash: raw.t2dash,
+            adc: raw.adc,
+            db0: raw.db0,
+            b1_tx: raw.b1_tx,
+            b1_rx: raw.b1_rx,
+        };
+
+        if units != PhantomUnits::default() {
+            return Err(D::Error::custom(format!(
+                "Only default units are supported for now, got {units:?}"
+            )));
+        }
+        Ok(units)
     }
 }
 
@@ -81,22 +141,12 @@ impl TryFrom<String> for NiftiRef {
     type Error = String;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        // Find the last '[' to split filename and index
-        let bracket_pos = s
-            .rfind('[')
-            .ok_or_else(|| format!("Invalid NiftiRef format, missing '[': {}", s))?;
-        let close_bracket = s
-            .rfind(']')
-            .ok_or_else(|| format!("Invalid NiftiRef format, missing ']': {}", s))?;
+        let caps = NIFTI_REF_REGEX
+            .captures(&s)
+            .ok_or_else(|| format!("Invalid file_ref: {s}"))?;
 
-        if close_bracket != s.len() - 1 {
-            return Err(format!("Invalid NiftiRef format, ']' not at end: {}", s));
-        }
-
-        let file_name = PathBuf::from(&s[..bracket_pos]);
-        let tissue_index = s[bracket_pos + 1..close_bracket]
-            .parse()
-            .map_err(|e| format!("Invalid tissue index: {}", e))?;
+        let file_name = PathBuf::from(&caps["file"]);
+        let tissue_index = caps["idx"].parse().expect("regex should only allow ints");
 
         Ok(Self {
             file_name,
@@ -137,25 +187,40 @@ impl From<NiftiMapping> for TissueProperty {
     }
 }
 
+fn is_default_relaxation(prop: &TissueProperty) -> bool {
+    matches!(prop, TissueProperty::Value(v) if *v == f64::INFINITY)
+}
+
+fn is_default_zero(prop: &TissueProperty) -> bool {
+    matches!(prop, TissueProperty::Value(v) if *v == 0.0)
+}
+
+// serde's skip_serializing_if requires a fn(&Vec<T>) -> bool, not fn(&[T]) -> bool
+#[allow(clippy::ptr_arg)]
+fn is_default_b1_channels(channels: &Vec<TissueProperty>) -> bool {
+    matches!(channels.as_slice(), [TissueProperty::Value(v)] if *v == 1.0)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NiftiTissueProperties {
-    #[serde(rename = "T1")]
+#[serde(default)]
+pub struct TissueProperties {
+    #[serde(rename = "T1", skip_serializing_if = "is_default_relaxation")]
     pub t1: TissueProperty,
-    #[serde(rename = "T2")]
+    #[serde(rename = "T2", skip_serializing_if = "is_default_relaxation")]
     pub t2: TissueProperty,
-    #[serde(rename = "T2'")]
+    #[serde(rename = "T2'", skip_serializing_if = "is_default_relaxation")]
     pub t2dash: TissueProperty,
-    #[serde(rename = "ADC")]
+    #[serde(rename = "ADC", skip_serializing_if = "is_default_zero")]
     pub adc: TissueProperty,
-    #[serde(rename = "dB0")]
+    #[serde(rename = "dB0", skip_serializing_if = "is_default_zero")]
     pub db0: TissueProperty,
-    #[serde(rename = "B1+")]
+    #[serde(rename = "B1+", skip_serializing_if = "is_default_b1_channels")]
     pub b1_tx: Vec<TissueProperty>,
-    #[serde(rename = "B1-")]
+    #[serde(rename = "B1-", skip_serializing_if = "is_default_b1_channels")]
     pub b1_rx: Vec<TissueProperty>,
 }
 
-impl Default for NiftiTissueProperties {
+impl Default for TissueProperties {
     fn default() -> Self {
         Self {
             t1: TissueProperty::Value(f64::INFINITY),
@@ -169,34 +234,57 @@ impl Default for NiftiTissueProperties {
     }
 }
 
+// density has no sensible default (the schema requires it), so it can't live
+// in a struct with a single container-level #[serde(default)] alongside the
+// properties below. Keep it as a sibling field and flatten the defaultable
+// properties into their own struct instead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiftiTissue {
     pub density: NiftiRef,
-    #[serde(default, flatten)]
-    pub properties: NiftiTissueProperties,
+    #[serde(flatten)]
+    pub properties: TissueProperties,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResliceTo {
     pub affine: [[f64; 4]; 3],
-    pub resolution: [usize; 3]
+    pub resolution: [usize; 3],
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
+fn default_schema() -> String {
+    DEFAULT_SCHEMA.to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BiftiPhantom {
+    #[serde(rename = "$schema", deserialize_with = "deserialize_schema")]
+    pub schema: String,
     pub units: PhantomUnits,
     pub system: PhantomSystem,
-    pub tissues: HashMap<String, BiftiTissue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reslice_to: Option<ResliceTo>,
-    pub file_type: NiftiFileVersion,
+    pub tissues: HashMap<String, BiftiTissue>,
 }
 
-/// This enum should always only contain this one field - for future file versions,
-/// use a new rust file that has e.g. a NiftiPhantomV2 in here
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum NiftiFileVersion {
-    #[default]
-    NiftiPhantomV1,
+impl Default for BiftiPhantom {
+    fn default() -> Self {
+        Self {
+            schema: default_schema(),
+            units: PhantomUnits::default(),
+            system: PhantomSystem::default(),
+            reslice_to: None,
+            tissues: HashMap::new(),
+        }
+    }
+}
+
+fn deserialize_schema<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let schema = String::deserialize(deserializer)?;
+    if !SCHEMA_REGEX.is_match(&schema) {
+        return Err(D::Error::custom(format!("Unsupported $schema: {schema:?}")));
+    }
+    Ok(schema)
 }
