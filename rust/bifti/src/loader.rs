@@ -74,8 +74,43 @@ impl Volume {
         }
     }
 
+    /// Resample this volume onto the grid described by `reslice_to`, using
+    /// trilinear interpolation. Voxels that map outside of the source volume
+    /// are set to 0.
     fn reslice(self, reslice_to: ResliceTo) -> Result<Self, crate::Error> {
-        todo!()
+        let input: Vec<f64> = match &self.data {
+            VolumeData::Float32(data) => data.iter().map(|&x| x as f64).collect(),
+            VolumeData::Float64(data) => data.clone(),
+            VolumeData::Complex32(_) | VolumeData::Complex64(_) => {
+                return Err(crate::Error::UnsupportedDataType(
+                    "reslicing complex-valued data is not supported".to_string(),
+                ));
+            }
+        };
+
+        let inv_input_affine = invert_affine(self.affine);
+        let res = reslice_to.resolution;
+        let mut resampled = vec![0.0f64; res[0] * res[1] * res[2]];
+
+        for ix in 0..res[0] {
+            for iy in 0..res[1] {
+                for iz in 0..res[2] {
+                    // map the target voxel index into world-space via the
+                    // target's affine, then back into (continuous) source
+                    // volume indices via the source's inverse affine
+                    let world = apply_affine([ix as f64, iy as f64, iz as f64], reslice_to.affine);
+                    let index = apply_affine(world, inv_input_affine);
+                    resampled[ix * res[1] * res[2] + iy * res[2] + iz] =
+                        trilinear_interp(&input, self.shape, index);
+                }
+            }
+        }
+
+        Ok(Self {
+            affine: reslice_to.affine,
+            shape: res,
+            data: VolumeData::Float64(resampled),
+        })
     }
 
     fn load_nifti_ref(
@@ -185,4 +220,90 @@ impl Tissue {
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }
+}
+
+// ===========================================================================
+// Affine helpers
+// ===========================================================================
+
+fn apply_affine(vec: [f64; 3], affine: [[f64; 4]; 3]) -> [f64; 3] {
+    [
+        affine[0][0] * vec[0] + affine[0][1] * vec[1] + affine[0][2] * vec[2] + affine[0][3],
+        affine[1][0] * vec[0] + affine[1][1] * vec[1] + affine[1][2] * vec[2] + affine[1][3],
+        affine[2][0] * vec[0] + affine[2][1] * vec[1] + affine[2][2] * vec[2] + affine[2][3],
+    ]
+}
+
+fn invert_affine(a: [[f64; 4]; 3]) -> [[f64; 4]; 3] {
+    let inv_det = 1.0
+        / (a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+            - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+            + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]));
+
+    let r = [
+        [
+            (a[1][1] * a[2][2] - a[1][2] * a[2][1]) * inv_det,
+            (a[0][2] * a[2][1] - a[0][1] * a[2][2]) * inv_det,
+            (a[0][1] * a[1][2] - a[0][2] * a[1][1]) * inv_det,
+        ],
+        [
+            (a[1][2] * a[2][0] - a[1][0] * a[2][2]) * inv_det,
+            (a[0][0] * a[2][2] - a[0][2] * a[2][0]) * inv_det,
+            (a[0][2] * a[1][0] - a[0][0] * a[1][2]) * inv_det,
+        ],
+        [
+            (a[1][0] * a[2][1] - a[1][1] * a[2][0]) * inv_det,
+            (a[0][1] * a[2][0] - a[0][0] * a[2][1]) * inv_det,
+            (a[0][0] * a[1][1] - a[0][1] * a[1][0]) * inv_det,
+        ],
+    ];
+
+    // inverse 3x4 matrix of the input - offset is mapped to the new system
+    [
+        [
+            r[0][0],
+            r[0][1],
+            r[0][2],
+            -(r[0][0] * a[0][3] + r[0][1] * a[1][3] + r[0][2] * a[2][3]),
+        ],
+        [
+            r[1][0],
+            r[1][1],
+            r[1][2],
+            -(r[1][0] * a[0][3] + r[1][1] * a[1][3] + r[1][2] * a[2][3]),
+        ],
+        [
+            r[2][0],
+            r[2][1],
+            r[2][2],
+            -(r[2][0] * a[0][3] + r[2][1] * a[1][3] + r[2][2] * a[2][3]),
+        ],
+    ]
+}
+
+fn trilinear_interp(data: &[f64], [nx, ny, nz]: [usize; 3], [x, y, z]: [f64; 3]) -> f64 {
+    let x0 = x.floor() as i64;
+    let y0 = y.floor() as i64;
+    let z0 = z.floor() as i64;
+    let fx = x - x.floor();
+    let fy = y - y.floor();
+    let fz = z - z.floor();
+    let (inx, iny, inz) = (nx as i64, ny as i64, nz as i64);
+
+    let get = |xi: i64, yi: i64, zi: i64| -> f64 {
+        if xi < 0 || xi >= inx || yi < 0 || yi >= iny || zi < 0 || zi >= inz {
+            return 0.0;
+        }
+        data[xi as usize * ny * nz + yi as usize * nz + zi as usize]
+    };
+
+    let c00 = get(x0, y0, z0) * (1.0 - fz) + get(x0, y0, z0 + 1) * fz;
+    let c01 = get(x0, y0 + 1, z0) * (1.0 - fz) + get(x0, y0 + 1, z0 + 1) * fz;
+    let c10 = get(x0 + 1, y0, z0) * (1.0 - fz) + get(x0 + 1, y0, z0 + 1) * fz;
+    let c11 = get(x0 + 1, y0 + 1, z0) * (1.0 - fz) + get(x0 + 1, y0 + 1, z0 + 1) * fz;
+
+    let c0 = c00 * (1.0 - fy) + c01 * fy;
+    let c1 = c10 * (1.0 - fy) + c11 * fy;
+
+    c0 * (1.0 - fx) + c1 * fx
 }
