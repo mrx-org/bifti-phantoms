@@ -1,54 +1,27 @@
 use std::str::FromStr;
 
-use crate::nifti_phantom::PhantomError;
-use toolapi::{
-    MessageFn,
-    value::{structured::Volume, typed::TypedList},
-};
-
 /// Parses an expression `func` and applies it to all elements in `data`.
 /// - Avaliable operators: + - * / ( )
 /// - Available variables: x, x_min, x_max, x_mean, x_std
 ///
 /// All variables are scalars, `x` is the current element of the data array that
 /// is mapped while the other constants are pre-computed from the `data` array.
-pub fn eval_mapping_func(
-    mut volume: Volume,
-    func: &str,
-    send_msg: &mut MessageFn,
-) -> Result<Volume, PhantomError> {
-    if volume.data.is_empty() {
-        send_msg("🧮 Data is empty, skipping mapping".to_string())?;
-        return Ok(volume);
-    }
-
+pub fn eval_mapping_func(mut volume: Volume, func: &str) -> Result<Volume, crate::Error> {
     let data: Vec<f64> = match volume.data {
-        TypedList::Float(floats) => floats,
-        _ => {
-            send_msg("🧮 Can currently only map `Float` NIfTIs".to_string())?;
-            return Err(PhantomError::MappingFunction {
-                func: func.to_string(),
-                err: "Tried to map non-`Float` array".to_string(),
-            });
-        }
+        crate::loader::VolumeData::Float64(items) => items,
+        _ => return Err(crate::Error::MappingNonF64Data)
     };
 
-    send_msg(format!("🧮 Parsing mapping function `{func}`"))?;
     let ast: Expr = func.parse()?;
-    send_msg("🧮 Computing min, max, mean, std".to_string())?;
     let input = Input::new(&data);
-    send_msg(format!("🧮 Applying mapping {ast:?}"))?;
     let output = ast.eval(&input);
 
-    let Array::Vector(output) = output else {
-        return Err(PhantomError::MappingFunction {
-            func: func.to_string(),
-            err: "Mapping function produced an scalar (didn't contain the input `x`)".to_string(),
-        });
+    let output = match output {
+        Array::Scalar(value) => vec![value],
+        Array::Vector(items) => items,
     };
 
-    send_msg("🧮 Finished mapping".to_string())?;
-    volume.data = TypedList::Float(output);
+    volume.data = VolumeData::Float64(output);
     Ok(volume)
 }
 
@@ -64,12 +37,12 @@ enum Expr {
 }
 
 impl FromStr for Expr {
-    type Err = PhantomError;
+    type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        expr.parse(s).map_err(|e| PhantomError::MappingFunction {
+        expr.parse(s).map_err(|e| crate::Error::EvalError {
             func: s.to_string(),
-            err: e.to_string(),
+            error: e.to_string(),
         })
     }
 }
@@ -200,6 +173,8 @@ use winnow::{
     prelude::*,
     token::{literal, one_of},
 };
+
+use crate::{Volume, loader::VolumeData};
 
 fn parens(i: &mut &str) -> winnow::Result<Expr> {
     delimited("(", expr, ")")
