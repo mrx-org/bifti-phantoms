@@ -20,7 +20,7 @@ pub enum Error {
     #[error("index error: tried to index {index} in 4D NIfTI, but data has shape {shape:?}")]
     IndexError{index: usize, shape: Vec<u16> },
     #[error("type error: nifti has unsupported type {0}")]
-    UnsupportedDataType(String)
+    UnsupportedDataType(String),
     #[error("mapping error: mapping functions currently only support f64 data")]
     MappingNonF64Data,
     #[error("eval error: failed to parse '{func}': {error}")]

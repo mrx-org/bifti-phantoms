@@ -101,7 +101,7 @@ impl<'de> Deserialize<'de> for PhantomUnits {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PhantomSystem {
     pub gyro: f64,
@@ -245,7 +245,7 @@ pub struct BiftiTissue {
     pub properties: TissueProperties,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ResliceTo {
     pub affine: [[f64; 4]; 3],
     pub resolution: [usize; 3],
@@ -266,22 +266,14 @@ pub struct BiftiPhantom {
     pub tissues: HashMap<String, BiftiTissue>,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("file error: {0}")]
-    FileError(#[from] std::io::Error),
-    #[error("json error: {0}")]
-    JsonError(#[from] serde_json::Error),
-}
-
 impl BiftiPhantom {
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, crate::Error> {
         Ok(serde_json::from_reader(std::io::BufReader::new(
             std::fs::File::open(path)?,
         ))?)
     }
 
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), crate::Error> {
         // If there is a directory specified, try to create it first
         if let Some(dir) = path.as_ref().parent() {
             std::fs::create_dir_all(dir)?;
