@@ -3,7 +3,7 @@ mod loader;
 mod phantom;
 mod registry;
 
-pub use loader::{Phantom, Tissue, Volume};
+pub use loader::{Phantom, Tissue, Volume, VolumeData};
 pub use phantom::{
     BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, PhantomSystem, PhantomUnits, ResliceTo,
 };

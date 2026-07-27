@@ -58,8 +58,8 @@ pub struct Volume {
 pub enum VolumeData {
     Float32(Vec<f32>),
     Float64(Vec<f64>),
-    Complex32(Complex<f32>),
-    Complex64(Complex<f64>),
+    Complex32(Vec<Complex<f32>>),
+    Complex64(Vec<Complex<f64>>),
 }
 
 // ===========================================================================
@@ -83,6 +83,24 @@ impl Volume {
     /// trilinear interpolation. Voxels that map outside of the source volume
     /// are set to 0.
     fn reslice(self, reslice_to: ResliceTo) -> Result<Self, crate::Error> {
+        // Treat single-voxel volumes as constant and homogeneous
+        if self.shape == [1, 1, 1] {
+            let voxel_count =
+                reslice_to.resolution[0] * reslice_to.resolution[1] * reslice_to.resolution[2];
+            let data = match self.data {
+                VolumeData::Float32(data) => VolumeData::Float32(vec![data[0]; voxel_count]),
+                VolumeData::Float64(data) => VolumeData::Float64(vec![data[0]; voxel_count]),
+                VolumeData::Complex32(data) => VolumeData::Complex32(vec![data[0]; voxel_count]),
+                VolumeData::Complex64(data) => VolumeData::Complex64(vec![data[0]; voxel_count]),
+            };
+
+            return Ok(Self {
+                affine: reslice_to.affine,
+                shape: reslice_to.resolution,
+                data,
+            });
+        }
+
         let input: Vec<f64> = match &self.data {
             VolumeData::Float32(data) => data.iter().map(|&x| x as f64).collect(),
             VolumeData::Float64(data) => data.clone(),
