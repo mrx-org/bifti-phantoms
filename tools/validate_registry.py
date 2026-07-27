@@ -41,14 +41,42 @@ def main() -> int:
     # The registry is an object keyed by collection name, so names are unique by
     # construction - no extra check needed beyond the schema.
     collections = registry if isinstance(registry, dict) else {}
-    n_phantoms = sum(
-        len(c.get("phantoms", [])) for c in collections.values() if isinstance(c, dict)
-    )
+
+    n_phantoms = 0
+    dup_errors = []
+    for collection_name, c in collections.items():
+        if not isinstance(c, dict):
+            continue
+        files = flatten_phantoms(c.get("phantoms", []))
+        n_phantoms += len(files)
+        seen = set()
+        for f in files:
+            if f in seen:
+                dup_errors.append(f"'{collection_name}': '{f}' appears more than once")
+            seen.add(f)
+
+    if dup_errors:
+        print(f"registry.json is INVALID ({len(dup_errors)} problem(s)):")
+        for e in dup_errors:
+            print(f"  - {e}")
+        return 1
+
     print(
         f"registry.json is valid: {len(collections)} collection(s), "
         f"{n_phantoms} phantom(s)."
     )
     return 0
+
+
+def flatten_phantoms(phantoms: list) -> list[str]:
+    """Every phantom filename in a (possibly nested) phantoms list, depth-first."""
+    files: list[str] = []
+    for entry in phantoms:
+        if isinstance(entry, str):
+            files.append(entry)
+        elif isinstance(entry, dict):
+            files.extend(flatten_phantoms(entry.get("phantoms", [])))
+    return files
 
 
 if __name__ == "__main__":

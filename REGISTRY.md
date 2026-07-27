@@ -80,6 +80,34 @@ the NIfTI files it needs from the same record; names should be self-describing
 lists, resolution and channel counts are not duplicated here — open the phantom
 JSON for those.
 
+### Grouping phantoms
+
+A `phantoms[]` entry is normally a plain filename string, but for collections
+with many configuration axes (field strength, resolution, orientation, …) a
+flat list quickly becomes unreadable. An entry may instead be a **group**
+object that nests further entries:
+
+```json
+{
+  "group": "3T",
+  "description": "Properties for 3T main field strength",
+  "default": "subj04-3T-05mm.json",
+  "phantoms": [
+    "subj04-3T-05mm.json", "subj05-3T-05mm.json",
+    { "group": "coronal", "phantoms": [ "subj04-3T-05mm-cor.json", "subj05-3T-05mm-cor.json" ] }
+  ]
+}
+```
+
+Filenames and groups can be freely mixed within the same `phantoms[]` array,
+and groups nest to any depth. `description` and `default` (a representative
+filename from somewhere inside the group, for callers that just want one
+example) are both optional; only `group` and `phantoms` are required. A group
+is purely organizational — it carries no file of its own, so addressing is
+unaffected: every filename, no matter how deeply nested, is still referenced
+as `<collection>/<filename>`. This is fully backwards compatible — an entry
+that never uses groups is just a flat array of strings, as before.
+
 ## Contributing a collection
 
 1. Assemble the phantom set (NIfTI + JSON) following [SPEC.md](SPEC.md).
