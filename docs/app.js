@@ -1,5 +1,5 @@
 const REGISTRY_URL =
-  "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/main/registry.json";
+  "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/grouped-phantoms/registry.json";
 const REPO_URL = "https://github.com/mrx-org/bifti-phantoms";
 
 // One shared Promise<ArrayBuffer> per archive URL so a collection with many
@@ -72,7 +72,8 @@ async function loadRegistry() {
 }
 
 function renderRegistry(container, data) {
-  const entries = Object.entries(data);
+  // Reverse of registry.json's order, so the newest-added collections show first.
+  const entries = Object.entries(data).reverse();
   if (entries.length === 0) {
     container.innerHTML = `<p class="muted">No entries yet.</p>`;
     return;
@@ -127,6 +128,7 @@ const ARRAY_PROPERTIES = new Set(["B1+", "B1-"]);
 
 function renderEntry(name, entry) {
   const phantoms = Array.isArray(entry.phantoms) ? entry.phantoms : [];
+  const phantomCount = countPhantoms(phantoms);
   const authors = (entry.authors || [])
     .map((a) => a.name)
     .filter(Boolean)
@@ -140,7 +142,7 @@ function renderEntry(name, entry) {
     <summary class="card-summary">
       <span class="card-title">${escape(name)}</span>
       ${renderTags(entry.keywords)}
-      <span class="card-meta">${phantoms.length} phantom${phantoms.length === 1 ? "" : "s"}</span>
+      <span class="card-meta">${phantomCount} phantom${phantomCount === 1 ? "" : "s"}</span>
     </summary>
     <div class="card-body">
       ${entry.description ? `<p class="entry-desc">${escape(entry.description)}</p>` : ""}
@@ -149,7 +151,7 @@ function renderEntry(name, entry) {
         ${entry.license ? `<dt>License</dt><dd>${escape(entry.license)}</dd>` : ""}
         </dl>
       <div class="phantoms-slot"></div>
-      ${doiUrl ? `<hr class="files-divider"><p class="files-label">Raw files: <a href="${doiUrl}">${escape(entry.doi)}</a></p>` : ""}
+      ${doiUrl ? `<hr class="files-divider">` : ""}
       <div class="files-slot"></div>
     </div>
   `;
@@ -160,10 +162,10 @@ function renderEntry(name, entry) {
     el.querySelector(".phantoms-slot").appendChild(phantomSection);
   }
 
-  let filesSection = null;
-  if (recordId) {
-    filesSection = renderFilesSection(recordId);
-    el.querySelector(".files-slot").appendChild(filesSection);
+  let filesSummary = null;
+  if (doiUrl) {
+    filesSummary = renderFilesSummary(doiUrl, entry.doi, recordId);
+    el.querySelector(".files-slot").appendChild(filesSummary);
   }
 
   let loaded = false;
@@ -171,16 +173,99 @@ function renderEntry(name, entry) {
     if (!el.open || loaded) return;
     loaded = true;
     if (phantomSection) phantomSection.loadPhantoms();
-    if (filesSection) filesSection.load();
+    if (filesSummary) filesSummary.load();
   });
 
   return el;
 }
 
+// Top-level entry point: wraps a (possibly nested) phantoms array in a
+// '.list-section' and forwards lazy-loading to the tree it renders.
 function renderPhantomSection(phantoms, recordId, collectionName) {
   const wrap = document.createElement("div");
   wrap.className = "list-section";
+  const tree = renderPhantomTree(phantoms, recordId, collectionName);
+  wrap.appendChild(tree);
+  wrap.loadPhantoms = tree.loadPhantoms;
+  return wrap;
+}
 
+// Renders one level of a (possibly nested) phantoms array: leaf filenames
+// become rows in a table; group objects become nested accordions (see
+// renderPhantomGroup) that lazily render their own subtree on first expand.
+// `pathLabel` is the breadcrumb (collection + group names so far) shown in
+// each phantom's tissue modal header.
+function renderPhantomTree(entries, recordId, pathLabel) {
+  const container = document.createElement("div");
+  container.className = "phantom-tree";
+
+  const files = entries.filter((e) => typeof e === "string");
+  const groups = entries.filter((e) => e && typeof e === "object");
+
+  let table = null;
+  if (files.length > 0) {
+    table = renderPhantomTable(files, recordId, pathLabel);
+    container.appendChild(table);
+  }
+  for (const group of groups) {
+    container.appendChild(renderPhantomGroup(group, recordId, pathLabel));
+  }
+
+  // Only the leaf table has anything to fetch at this level - nested groups
+  // load themselves lazily when expanded (see renderPhantomGroup).
+  container.loadPhantoms = () => { if (table) table.loadPhantoms(); };
+
+  return container;
+}
+
+// A named group of phantom entries, rendered as a nested collapsible card
+// that drills into its own subtree. Lazily loads phantom metadata (B0,
+// resolution, tissues) for its subtree only the first time it's expanded -
+// important since a deep tree can otherwise trigger hundreds of Zenodo
+// fetches on page load.
+function renderPhantomGroup(group, recordId, pathLabel) {
+  const groupPhantoms = Array.isArray(group.phantoms) ? group.phantoms : [];
+  const count = countPhantoms(groupPhantoms);
+  const childPathLabel = `${pathLabel}/${group.group}`;
+
+  const details = document.createElement("details");
+  details.className = "card group";
+  details.innerHTML = `
+    <summary class="card-summary">
+      <span class="card-title">${escape(group.group)}</span>
+      ${group.default ? `<span class="tag group-default-tag">default: ${escape(group.default)}</span>` : ""}
+      <span class="card-meta">${count} phantom${count === 1 ? "" : "s"}</span>
+    </summary>
+    <div class="card-body">
+      ${group.description ? `<p class="entry-desc">${escape(group.description)}</p>` : ""}
+      <div class="group-content-slot"></div>
+    </div>
+  `;
+
+  const tree = renderPhantomTree(groupPhantoms, recordId, childPathLabel);
+  details.querySelector(".group-content-slot").appendChild(tree);
+
+  let loaded = false;
+  details.addEventListener("toggle", () => {
+    if (!details.open || loaded) return;
+    loaded = true;
+    tree.loadPhantoms();
+  });
+
+  return details;
+}
+
+// Every leaf filename under a (possibly nested) phantoms array.
+function countPhantoms(entries) {
+  let n = 0;
+  for (const e of entries) {
+    if (typeof e === "string") n++;
+    else if (e && typeof e === "object") n += countPhantoms(e.phantoms || []);
+  }
+  return n;
+}
+
+function renderPhantomTable(phantoms, recordId, pathLabel) {
   const tableWrap = document.createElement("div");
   tableWrap.className = "data-list-wrap";
 
@@ -233,9 +318,8 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
 
   table.appendChild(tbody);
   tableWrap.appendChild(table);
-  wrap.appendChild(tableWrap);
 
-  wrap.loadPhantoms = () => {
+  tableWrap.loadPhantoms = () => {
     for (const { filename, filenameTd, b0Td, resTd, tissueTd } of rows) {
       if (!recordId) {
         const dash = '<span class="muted">—</span>';
@@ -261,7 +345,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
           btn.className = "filename-link";
           btn.textContent = filename.replace(/\.json$/i, "");
           btn.title = "View tissues";
-          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, collectionName));
+          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, pathLabel));
           filenameTd.innerHTML = "";
           filenameTd.appendChild(btn);
         })
@@ -274,10 +358,10 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     }
   };
 
-  return wrap;
+  return tableWrap;
 }
 
-function openTissueModal(tissues, rawData, filename, collectionName) {
+function openTissueModal(tissues, rawData, filename, pathLabel) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.setAttribute("role", "dialog");
@@ -310,7 +394,7 @@ function openTissueModal(tissues, rawData, filename, collectionName) {
   // Center: plain path, non-interactive
   const titleEl = document.createElement("span");
   titleEl.className = "modal-header-title";
-  titleEl.innerHTML = `<span class="modal-path-collection">${escape(collectionName)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
+  titleEl.innerHTML = `<span class="modal-path-collection">${escape(pathLabel)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
 
   // Right: close button
   const closeBtn = document.createElement("button");
@@ -396,65 +480,29 @@ function highlightJson(obj) {
   return out;
 }
 
-function renderFilesSection(recordId) {
-  const wrap = document.createElement("div");
-  wrap.innerHTML = `<p class="muted" style="font-size:0.85rem">Loading&hellip;</p>`;
+// Just the doi link plus the record's total download size - no per-file listing.
+function renderFilesSummary(doiUrl, doi, recordId) {
+  const el = document.createElement("p");
+  el.className = "files-label";
+  el.innerHTML = `Raw files: <a href="${doiUrl}">${escape(doi)}</a>`;
 
-  wrap.load = () => {
+  el.load = () => {
+    if (!recordId) return;
     fetch(`https://zenodo.org/api/records/${recordId}`, { cache: "force-cache" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((data) => { wrap.innerHTML = renderFileList(data?.files || [], recordId); })
-      .catch((err) => {
-        wrap.innerHTML = `<p class="error" style="font-size:0.85rem">Could not load files (${escape(err.message)}).</p>`;
+      .then((data) => {
+        const total = (data?.files || []).reduce((acc, f) => acc + (f.size || 0), 0);
+        el.innerHTML = `Raw files: <a href="${doiUrl}">${escape(doi)}</a> - ${escape(formatSize(total))}`;
+      })
+      .catch(() => {
+        // leave the doi link without a size on failure
       });
   };
 
-  return wrap;
-}
-
-function sortZenodoFiles(files) {
-  const group = (key) => {
-    const k = key.toLowerCase();
-    if (k.endsWith(".tar")) return 0;
-    if (k.endsWith(".nii") || k.endsWith(".nii.gz") || k.endsWith(".ngz")) return 1;
-    return 2;
-  };
-  return [...files].sort((a, b) => {
-    const d = group(a.key) - group(b.key);
-    return d !== 0 ? d : a.key.localeCompare(b.key);
-  });
-}
-
-function renderFileList(files, recordId) {
-  if (files.length === 0) return `<p class="muted">No files.</p>`;
-  const sorted = sortZenodoFiles(files);
-  const total = files.reduce((acc, f) => acc + (f.size || 0), 0);
-  const rows = sorted.map((f) => {
-    const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
-    return `<tr>
-      <td class="col-name"><a href="${url}">${escape(f.key)}</a></td>
-      <td class="col-spacer"></td>
-      <td>${escape(formatSize(f.size))}</td>
-    </tr>`;
-  }).join("");
-  return `<div class="data-list-wrap">
-    <table class="data-list">
-      <thead><tr>
-        <th>File</th>
-        <th class="col-spacer"></th>
-        <th>Size</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr>
-        <th>${files.length} file${files.length === 1 ? "" : "s"}</th>
-        <th class="col-spacer"></th>
-        <th>${escape(formatSize(total))}</th>
-      </tr></tfoot>
-    </table>
-  </div>`;
+  return el;
 }
 
 function formatSize(bytes) {

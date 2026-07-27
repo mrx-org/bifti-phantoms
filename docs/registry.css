@@ -101,3 +101,24 @@
 }
 .entry-fields dt { color: var(--c-dim); font-weight: 500; }
 .entry-fields dd { margin: 0; }
+
+/* Nested phantom groups: reuse .card/.card-summary/.card-body, but smaller
+   and indented with a left accent so nesting depth reads visually. */
+.phantom-tree { display: flex; flex-direction: column; gap: 0.5rem; }
+.phantom-tree .phantom-tree { margin-top: 0.5rem; }
+
+.card.group {
+  margin-left: 0.75rem;
+  border-left: 2px solid var(--c-accent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.card.group > .card-summary { padding: 0.5rem 0.75rem; }
+.card.group > .card-body { padding: 0.25rem 0.75rem 0.75rem; }
+.card.group .card-title { font-weight: 500; font-size: 0.9rem; }
+
+.group-default-tag {
+  background: var(--c-accent);
+  color: var(--c-base);
+  border-color: var(--c-accent);
+}
