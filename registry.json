@@ -171,6 +171,355 @@
       "subj54-7T-2mm-cor.json", "subj54-7T-2mm-sag.json", "subj54-7T-2mm-tra.json", "subj54-7T-2mm.json"
     ]
   },
+  "brainweb-20-v3": {
+    "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, in three resolutions (0.5/1/2 mm) each as a full 3D volume and single-slice transversal/coronal/sagittal variants, organized as nested groups (field strength > resolution > orientation).",
+    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution" ],
+    "authors": [
+      { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
+    ],
+    "license": "LicenseRef-BrainWeb",
+    "doi": "10.5281/zenodo.20553009",
+    "phantoms": [
+      {
+        "group": "3T",
+        "description": "Properties for 3T main field strength",
+        "default": "subj04-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "0.5 mm",
+            "description": "0.5 mm isotropic resolution",
+            "default": "subj04-3T-05mm.json",
+            "phantoms": [
+              "subj04-3T-05mm.json", "subj05-3T-05mm.json", "subj06-3T-05mm.json", "subj18-3T-05mm.json",
+              "subj20-3T-05mm.json", "subj38-3T-05mm.json", "subj41-3T-05mm.json", "subj42-3T-05mm.json",
+              "subj43-3T-05mm.json", "subj44-3T-05mm.json", "subj45-3T-05mm.json", "subj46-3T-05mm.json",
+              "subj47-3T-05mm.json", "subj48-3T-05mm.json", "subj49-3T-05mm.json", "subj50-3T-05mm.json",
+              "subj51-3T-05mm.json", "subj52-3T-05mm.json", "subj53-3T-05mm.json", "subj54-3T-05mm.json",
+              {
+                "group": "coronal",
+                "description": "Coronal 2D views",
+                "default": "subj04-3T-05mm-cor.json",
+                "phantoms": [
+                  "subj04-3T-05mm-cor.json", "subj05-3T-05mm-cor.json", "subj06-3T-05mm-cor.json",
+                  "subj18-3T-05mm-cor.json", "subj20-3T-05mm-cor.json", "subj38-3T-05mm-cor.json",
+                  "subj41-3T-05mm-cor.json", "subj42-3T-05mm-cor.json", "subj43-3T-05mm-cor.json",
+                  "subj44-3T-05mm-cor.json", "subj45-3T-05mm-cor.json", "subj46-3T-05mm-cor.json",
+                  "subj47-3T-05mm-cor.json", "subj48-3T-05mm-cor.json", "subj49-3T-05mm-cor.json",
+                  "subj50-3T-05mm-cor.json", "subj51-3T-05mm-cor.json", "subj52-3T-05mm-cor.json",
+                  "subj53-3T-05mm-cor.json", "subj54-3T-05mm-cor.json"
+                ]
+              },
+              {
+                "group": "sagittal",
+                "description": "Sagittal 2D views",
+                "default": "subj04-3T-05mm-sag.json",
+                "phantoms": [
+                  "subj04-3T-05mm-sag.json", "subj05-3T-05mm-sag.json", "subj06-3T-05mm-sag.json",
+                  "subj18-3T-05mm-sag.json", "subj20-3T-05mm-sag.json", "subj38-3T-05mm-sag.json",
+                  "subj41-3T-05mm-sag.json", "subj42-3T-05mm-sag.json", "subj43-3T-05mm-sag.json",
+                  "subj44-3T-05mm-sag.json", "subj45-3T-05mm-sag.json", "subj46-3T-05mm-sag.json",
+                  "subj47-3T-05mm-sag.json", "subj48-3T-05mm-sag.json", "subj49-3T-05mm-sag.json",
+                  "subj50-3T-05mm-sag.json", "subj51-3T-05mm-sag.json", "subj52-3T-05mm-sag.json",
+                  "subj53-3T-05mm-sag.json", "subj54-3T-05mm-sag.json"
+                ]
+              },
+              {
+                "group": "transversal",
+                "description": "Transversal 2D views",
+                "default": "subj04-3T-05mm-tra.json",
+                "phantoms": [
+                  "subj04-3T-05mm-tra.json", "subj05-3T-05mm-tra.json", "subj06-3T-05mm-tra.json",
+                  "subj18-3T-05mm-tra.json", "subj20-3T-05mm-tra.json", "subj38-3T-05mm-tra.json",
+                  "subj41-3T-05mm-tra.json", "subj42-3T-05mm-tra.json", "subj43-3T-05mm-tra.json",
+                  "subj44-3T-05mm-tra.json", "subj45-3T-05mm-tra.json", "subj46-3T-05mm-tra.json",
+                  "subj47-3T-05mm-tra.json", "subj48-3T-05mm-tra.json", "subj49-3T-05mm-tra.json",
+                  "subj50-3T-05mm-tra.json", "subj51-3T-05mm-tra.json", "subj52-3T-05mm-tra.json",
+                  "subj53-3T-05mm-tra.json", "subj54-3T-05mm-tra.json"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "1 mm",
+            "description": "1 mm isotropic resolution",
+            "default": "subj04-3T-1mm.json",
+            "phantoms": [
+              "subj04-3T-1mm.json", "subj05-3T-1mm.json", "subj06-3T-1mm.json", "subj18-3T-1mm.json",
+              "subj20-3T-1mm.json", "subj38-3T-1mm.json", "subj41-3T-1mm.json", "subj42-3T-1mm.json",
+              "subj43-3T-1mm.json", "subj44-3T-1mm.json", "subj45-3T-1mm.json", "subj46-3T-1mm.json",
+              "subj47-3T-1mm.json", "subj48-3T-1mm.json", "subj49-3T-1mm.json", "subj50-3T-1mm.json",
+              "subj51-3T-1mm.json", "subj52-3T-1mm.json", "subj53-3T-1mm.json", "subj54-3T-1mm.json",
+              {
+                "group": "coronal",
+                "description": "Coronal 2D views",
+                "default": "subj04-3T-1mm-cor.json",
+                "phantoms": [
+                  "subj04-3T-1mm-cor.json", "subj05-3T-1mm-cor.json", "subj06-3T-1mm-cor.json",
+                  "subj18-3T-1mm-cor.json", "subj20-3T-1mm-cor.json", "subj38-3T-1mm-cor.json",
+                  "subj41-3T-1mm-cor.json", "subj42-3T-1mm-cor.json", "subj43-3T-1mm-cor.json",
+                  "subj44-3T-1mm-cor.json", "subj45-3T-1mm-cor.json", "subj46-3T-1mm-cor.json",
+                  "subj47-3T-1mm-cor.json", "subj48-3T-1mm-cor.json", "subj49-3T-1mm-cor.json",
+                  "subj50-3T-1mm-cor.json", "subj51-3T-1mm-cor.json", "subj52-3T-1mm-cor.json",
+                  "subj53-3T-1mm-cor.json", "subj54-3T-1mm-cor.json"
+                ]
+              },
+              {
+                "group": "sagittal",
+                "description": "Sagittal 2D views",
+                "default": "subj04-3T-1mm-sag.json",
+                "phantoms": [
+                  "subj04-3T-1mm-sag.json", "subj05-3T-1mm-sag.json", "subj06-3T-1mm-sag.json",
+                  "subj18-3T-1mm-sag.json", "subj20-3T-1mm-sag.json", "subj38-3T-1mm-sag.json",
+                  "subj41-3T-1mm-sag.json", "subj42-3T-1mm-sag.json", "subj43-3T-1mm-sag.json",
+                  "subj44-3T-1mm-sag.json", "subj45-3T-1mm-sag.json", "subj46-3T-1mm-sag.json",
+                  "subj47-3T-1mm-sag.json", "subj48-3T-1mm-sag.json", "subj49-3T-1mm-sag.json",
+                  "subj50-3T-1mm-sag.json", "subj51-3T-1mm-sag.json", "subj52-3T-1mm-sag.json",
+                  "subj53-3T-1mm-sag.json", "subj54-3T-1mm-sag.json"
+                ]
+              },
+              {
+                "group": "transversal",
+                "description": "Transversal 2D views",
+                "default": "subj04-3T-1mm-tra.json",
+                "phantoms": [
+                  "subj04-3T-1mm-tra.json", "subj05-3T-1mm-tra.json", "subj06-3T-1mm-tra.json",
+                  "subj18-3T-1mm-tra.json", "subj20-3T-1mm-tra.json", "subj38-3T-1mm-tra.json",
+                  "subj41-3T-1mm-tra.json", "subj42-3T-1mm-tra.json", "subj43-3T-1mm-tra.json",
+                  "subj44-3T-1mm-tra.json", "subj45-3T-1mm-tra.json", "subj46-3T-1mm-tra.json",
+                  "subj47-3T-1mm-tra.json", "subj48-3T-1mm-tra.json", "subj49-3T-1mm-tra.json",
+                  "subj50-3T-1mm-tra.json", "subj51-3T-1mm-tra.json", "subj52-3T-1mm-tra.json",
+                  "subj53-3T-1mm-tra.json", "subj54-3T-1mm-tra.json"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "2 mm",
+            "description": "2 mm isotropic resolution",
+            "default": "subj04-3T-2mm.json",
+            "phantoms": [
+              "subj04-3T-2mm.json", "subj05-3T-2mm.json", "subj06-3T-2mm.json", "subj18-3T-2mm.json",
+              "subj20-3T-2mm.json", "subj38-3T-2mm.json", "subj41-3T-2mm.json", "subj42-3T-2mm.json",
+              "subj43-3T-2mm.json", "subj44-3T-2mm.json", "subj45-3T-2mm.json", "subj46-3T-2mm.json",
+              "subj47-3T-2mm.json", "subj48-3T-2mm.json", "subj49-3T-2mm.json", "subj50-3T-2mm.json",
+              "subj51-3T-2mm.json", "subj52-3T-2mm.json", "subj53-3T-2mm.json", "subj54-3T-2mm.json",
+              {
+                "group": "coronal",
+                "description": "Coronal 2D views",
+                "default": "subj04-3T-2mm-cor.json",
+                "phantoms": [
+                  "subj04-3T-2mm-cor.json", "subj05-3T-2mm-cor.json", "subj06-3T-2mm-cor.json",
+                  "subj18-3T-2mm-cor.json", "subj20-3T-2mm-cor.json", "subj38-3T-2mm-cor.json",
+                  "subj41-3T-2mm-cor.json", "subj42-3T-2mm-cor.json", "subj43-3T-2mm-cor.json",
+                  "subj44-3T-2mm-cor.json", "subj45-3T-2mm-cor.json", "subj46-3T-2mm-cor.json",
+                  "subj47-3T-2mm-cor.json", "subj48-3T-2mm-cor.json", "subj49-3T-2mm-cor.json",
+                  "subj50-3T-2mm-cor.json", "subj51-3T-2mm-cor.json", "subj52-3T-2mm-cor.json",
+                  "subj53-3T-2mm-cor.json", "subj54-3T-2mm-cor.json"
+                ]
+              },
+              {
+                "group": "sagittal",
+                "description": "Sagittal 2D views",
+                "default": "subj04-3T-2mm-sag.json",
+                "phantoms": [
+                  "subj04-3T-2mm-sag.json", "subj05-3T-2mm-sag.json", "subj06-3T-2mm-sag.json",
+                  "subj18-3T-2mm-sag.json", "subj20-3T-2mm-sag.json", "subj38-3T-2mm-sag.json",
+                  "subj41-3T-2mm-sag.json", "subj42-3T-2mm-sag.json", "subj43-3T-2mm-sag.json",
+                  "subj44-3T-2mm-sag.json", "subj45-3T-2mm-sag.json", "subj46-3T-2mm-sag.json",
+                  "subj47-3T-2mm-sag.json", "subj48-3T-2mm-sag.json", "subj49-3T-2mm-sag.json",
+                  "subj50-3T-2mm-sag.json", "subj51-3T-2mm-sag.json", "subj52-3T-2mm-sag.json",
+                  "subj53-3T-2mm-sag.json", "subj54-3T-2mm-sag.json"
+                ]
+              },
+              {
+                "group": "transversal",
+                "description": "Transversal 2D views",
+                "default": "subj04-3T-2mm-tra.json",
+                "phantoms": [
+                  "subj04-3T-2mm-tra.json", "subj05-3T-2mm-tra.json", "subj06-3T-2mm-tra.json",
+                  "subj18-3T-2mm-tra.json", "subj20-3T-2mm-tra.json", "subj38-3T-2mm-tra.json",
+                  "subj41-3T-2mm-tra.json", "subj42-3T-2mm-tra.json", "subj43-3T-2mm-tra.json",
+                  "subj44-3T-2mm-tra.json", "subj45-3T-2mm-tra.json", "subj46-3T-2mm-tra.json",
+                  "subj47-3T-2mm-tra.json", "subj48-3T-2mm-tra.json", "subj49-3T-2mm-tra.json",
+                  "subj50-3T-2mm-tra.json", "subj51-3T-2mm-tra.json", "subj52-3T-2mm-tra.json",
+                  "subj53-3T-2mm-tra.json", "subj54-3T-2mm-tra.json"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "group": "7T",
+        "description": "Properties for 7T main field strength",
+        "default": "subj04-7T-05mm.json",
+        "phantoms": [
+          {
+            "group": "0.5 mm",
+            "description": "0.5 mm isotropic resolution",
+            "default": "subj04-7T-05mm.json",
+            "phantoms": [
+              "subj04-7T-05mm.json", "subj05-7T-05mm.json", "subj06-7T-05mm.json", "subj18-7T-05mm.json",
+              "subj20-7T-05mm.json", "subj38-7T-05mm.json", "subj41-7T-05mm.json", "subj42-7T-05mm.json",
+              "subj43-7T-05mm.json", "subj44-7T-05mm.json", "subj45-7T-05mm.json", "subj46-7T-05mm.json",
+              "subj47-7T-05mm.json", "subj48-7T-05mm.json", "subj49-7T-05mm.json", "subj50-7T-05mm.json",
+              "subj51-7T-05mm.json", "subj52-7T-05mm.json", "subj53-7T-05mm.json", "subj54-7T-05mm.json",
+              {
+                "group": "coronal",
+                "description": "Coronal 2D views",
+                "default": "subj04-7T-05mm-cor.json",
+                "phantoms": [
+                  "subj04-7T-05mm-cor.json", "subj05-7T-05mm-cor.json", "subj06-7T-05mm-cor.json",
+                  "subj18-7T-05mm-cor.json", "subj20-7T-05mm-cor.json", "subj38-7T-05mm-cor.json",
+                  "subj41-7T-05mm-cor.json", "subj42-7T-05mm-cor.json", "subj43-7T-05mm-cor.json",
+                  "subj44-7T-05mm-cor.json", "subj45-7T-05mm-cor.json", "subj46-7T-05mm-cor.json",
+                  "subj47-7T-05mm-cor.json", "subj48-7T-05mm-cor.json", "subj49-7T-05mm-cor.json",
+                  "subj50-7T-05mm-cor.json", "subj51-7T-05mm-cor.json", "subj52-7T-05mm-cor.json",
+                  "subj53-7T-05mm-cor.json", "subj54-7T-05mm-cor.json"
+                ]
+              },
+              {
+                "group": "sagittal",
+                "description": "Sagittal 2D views",
+                "default": "subj04-7T-05mm-sag.json",
+                "phantoms": [
+                  "subj04-7T-05mm-sag.json", "subj05-7T-05mm-sag.json", "subj06-7T-05mm-sag.json",
+                  "subj18-7T-05mm-sag.json", "subj20-7T-05mm-sag.json", "subj38-7T-05mm-sag.json",
+                  "subj41-7T-05mm-sag.json", "subj42-7T-05mm-sag.json", "subj43-7T-05mm-sag.json",
+                  "subj44-7T-05mm-sag.json", "subj45-7T-05mm-sag.json", "subj46-7T-05mm-sag.json",
+                  "subj47-7T-05mm-sag.json", "subj48-7T-05mm-sag.json", "subj49-7T-05mm-sag.json",
+                  "subj50-7T-05mm-sag.json", "subj51-7T-05mm-sag.json", "subj52-7T-05mm-sag.json",
+                  "subj53-7T-05mm-sag.json", "subj54-7T-05mm-sag.json"
+                ]
+              },
+              {
+                "group": "transversal",
+                "description": "Transversal 2D views",
+                "default": "subj04-7T-05mm-tra.json",
+                "phantoms": [
+                  "subj04-7T-05mm-tra.json", "subj05-7T-05mm-tra.json", "subj06-7T-05mm-tra.json",
+                  "subj18-7T-05mm-tra.json", "subj20-7T-05mm-tra.json", "subj38-7T-05mm-tra.json",
+                  "subj41-7T-05mm-tra.json", "subj42-7T-05mm-tra.json", "subj43-7T-05mm-tra.json",
+                  "subj44-7T-05mm-tra.json", "subj45-7T-05mm-tra.json", "subj46-7T-05mm-tra.json",
+                  "subj47-7T-05mm-tra.json", "subj48-7T-05mm-tra.json", "subj49-7T-05mm-tra.json",
+                  "subj50-7T-05mm-tra.json", "subj51-7T-05mm-tra.json", "subj52-7T-05mm-tra.json",
+                  "subj53-7T-05mm-tra.json", "subj54-7T-05mm-tra.json"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "1 mm",
+            "description": "1 mm isotropic resolution",
+            "default": "subj04-7T-1mm.json",
+            "phantoms": [
+              "subj04-7T-1mm.json", "subj05-7T-1mm.json", "subj06-7T-1mm.json", "subj18-7T-1mm.json",
+              "subj20-7T-1mm.json", "subj38-7T-1mm.json", "subj41-7T-1mm.json", "subj42-7T-1mm.json",
+              "subj43-7T-1mm.json", "subj44-7T-1mm.json", "subj45-7T-1mm.json", "subj46-7T-1mm.json",
+              "subj47-7T-1mm.json", "subj48-7T-1mm.json", "subj49-7T-1mm.json", "subj50-7T-1mm.json",
+              "subj51-7T-1mm.json", "subj52-7T-1mm.json", "subj53-7T-1mm.json", "subj54-7T-1mm.json",
+              {
+                "group": "coronal",
+                "description": "Coronal 2D views",
+                "default": "subj04-7T-1mm-cor.json",
+                "phantoms": [
+                  "subj04-7T-1mm-cor.json", "subj05-7T-1mm-cor.json", "subj06-7T-1mm-cor.json",
+                  "subj18-7T-1mm-cor.json", "subj20-7T-1mm-cor.json", "subj38-7T-1mm-cor.json",
+                  "subj41-7T-1mm-cor.json", "subj42-7T-1mm-cor.json", "subj43-7T-1mm-cor.json",
+                  "subj44-7T-1mm-cor.json", "subj45-7T-1mm-cor.json", "subj46-7T-1mm-cor.json",
+                  "subj47-7T-1mm-cor.json", "subj48-7T-1mm-cor.json", "subj49-7T-1mm-cor.json",
+                  "subj50-7T-1mm-cor.json", "subj51-7T-1mm-cor.json", "subj52-7T-1mm-cor.json",
+                  "subj53-7T-1mm-cor.json", "subj54-7T-1mm-cor.json"
+                ]
+              },
+              {
+                "group": "sagittal",
+                "description": "Sagittal 2D views",
+                "default": "subj04-7T-1mm-sag.json",
+                "phantoms": [
+                  "subj04-7T-1mm-sag.json", "subj05-7T-1mm-sag.json", "subj06-7T-1mm-sag.json",
+                  "subj18-7T-1mm-sag.json", "subj20-7T-1mm-sag.json", "subj38-7T-1mm-sag.json",
+                  "subj41-7T-1mm-sag.json", "subj42-7T-1mm-sag.json", "subj43-7T-1mm-sag.json",
+                  "subj44-7T-1mm-sag.json", "subj45-7T-1mm-sag.json", "subj46-7T-1mm-sag.json",
+                  "subj47-7T-1mm-sag.json", "subj48-7T-1mm-sag.json", "subj49-7T-1mm-sag.json",
+                  "subj50-7T-1mm-sag.json", "subj51-7T-1mm-sag.json", "subj52-7T-1mm-sag.json",
+                  "subj53-7T-1mm-sag.json", "subj54-7T-1mm-sag.json"
+                ]
+              },
+              {
+                "group": "transversal",
+                "description": "Transversal 2D views",
+                "default": "subj04-7T-1mm-tra.json",
+                "phantoms": [
+                  "subj04-7T-1mm-tra.json", "subj05-7T-1mm-tra.json", "subj06-7T-1mm-tra.json",
+                  "subj18-7T-1mm-tra.json", "subj20-7T-1mm-tra.json", "subj38-7T-1mm-tra.json",
+                  "subj41-7T-1mm-tra.json", "subj42-7T-1mm-tra.json", "subj43-7T-1mm-tra.json",
+                  "subj44-7T-1mm-tra.json", "subj45-7T-1mm-tra.json", "subj46-7T-1mm-tra.json",
+                  "subj47-7T-1mm-tra.json", "subj48-7T-1mm-tra.json", "subj49-7T-1mm-tra.json",
+                  "subj50-7T-1mm-tra.json", "subj51-7T-1mm-tra.json", "subj52-7T-1mm-tra.json",
+                  "subj53-7T-1mm-tra.json", "subj54-7T-1mm-tra.json"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "2 mm",
+            "description": "2 mm isotropic resolution",
+            "default": "subj04-7T-2mm.json",
+            "phantoms": [
+              "subj04-7T-2mm.json", "subj05-7T-2mm.json", "subj06-7T-2mm.json", "subj18-7T-2mm.json",
+              "subj20-7T-2mm.json", "subj38-7T-2mm.json", "subj41-7T-2mm.json", "subj42-7T-2mm.json",
+              "subj43-7T-2mm.json", "subj44-7T-2mm.json", "subj45-7T-2mm.json", "subj46-7T-2mm.json",
+              "subj47-7T-2mm.json", "subj48-7T-2mm.json", "subj49-7T-2mm.json", "subj50-7T-2mm.json",
+              "subj51-7T-2mm.json", "subj52-7T-2mm.json", "subj53-7T-2mm.json", "subj54-7T-2mm.json",
+              {
+                "group": "coronal",
+                "description": "Coronal 2D views",
+                "default": "subj04-7T-2mm-cor.json",
+                "phantoms": [
+                  "subj04-7T-2mm-cor.json", "subj05-7T-2mm-cor.json", "subj06-7T-2mm-cor.json",
+                  "subj18-7T-2mm-cor.json", "subj20-7T-2mm-cor.json", "subj38-7T-2mm-cor.json",
+                  "subj41-7T-2mm-cor.json", "subj42-7T-2mm-cor.json", "subj43-7T-2mm-cor.json",
+                  "subj44-7T-2mm-cor.json", "subj45-7T-2mm-cor.json", "subj46-7T-2mm-cor.json",
+                  "subj47-7T-2mm-cor.json", "subj48-7T-2mm-cor.json", "subj49-7T-2mm-cor.json",
+                  "subj50-7T-2mm-cor.json", "subj51-7T-2mm-cor.json", "subj52-7T-2mm-cor.json",
+                  "subj53-7T-2mm-cor.json", "subj54-7T-2mm-cor.json"
+                ]
+              },
+              {
+                "group": "sagittal",
+                "description": "Sagittal 2D views",
+                "default": "subj04-7T-2mm-sag.json",
+                "phantoms": [
+                  "subj04-7T-2mm-sag.json", "subj05-7T-2mm-sag.json", "subj06-7T-2mm-sag.json",
+                  "subj18-7T-2mm-sag.json", "subj20-7T-2mm-sag.json", "subj38-7T-2mm-sag.json",
+                  "subj41-7T-2mm-sag.json", "subj42-7T-2mm-sag.json", "subj43-7T-2mm-sag.json",
+                  "subj44-7T-2mm-sag.json", "subj45-7T-2mm-sag.json", "subj46-7T-2mm-sag.json",
+                  "subj47-7T-2mm-sag.json", "subj48-7T-2mm-sag.json", "subj49-7T-2mm-sag.json",
+                  "subj50-7T-2mm-sag.json", "subj51-7T-2mm-sag.json", "subj52-7T-2mm-sag.json",
+                  "subj53-7T-2mm-sag.json", "subj54-7T-2mm-sag.json"
+                ]
+              },
+              {
+                "group": "transversal",
+                "description": "Transversal 2D views",
+                "default": "subj04-7T-2mm-tra.json",
+                "phantoms": [
+                  "subj04-7T-2mm-tra.json", "subj05-7T-2mm-tra.json", "subj06-7T-2mm-tra.json",
+                  "subj18-7T-2mm-tra.json", "subj20-7T-2mm-tra.json", "subj38-7T-2mm-tra.json",
+                  "subj41-7T-2mm-tra.json", "subj42-7T-2mm-tra.json", "subj43-7T-2mm-tra.json",
+                  "subj44-7T-2mm-tra.json", "subj45-7T-2mm-tra.json", "subj46-7T-2mm-tra.json",
+                  "subj47-7T-2mm-tra.json", "subj48-7T-2mm-tra.json", "subj49-7T-2mm-tra.json",
+                  "subj50-7T-2mm-tra.json", "subj51-7T-2mm-tra.json", "subj52-7T-2mm-tra.json",
+                  "subj53-7T-2mm-tra.json", "subj54-7T-2mm-tra.json"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "breast-phantom": {
     "description": "Breast digital twin phantom for 3T and 7T field strengths, both multi-slice and single slice.",
     "keywords": [ "breast", "phantom", "3T", "7T", "2d", "3d" ],
