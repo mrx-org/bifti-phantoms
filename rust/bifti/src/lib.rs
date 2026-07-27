@@ -7,7 +7,7 @@ pub use loader::{Phantom, Tissue, Volume, VolumeData};
 pub use phantom::{
     BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, PhantomSystem, PhantomUnits, ResliceTo,
 };
-pub use registry::Registry;
+pub use registry::{Collection, PhantomEntry, PhantomGroup, Registry};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
