@@ -35,24 +35,220 @@ function _extractFromTar(buffer, filename) {
   return null;
 }
 
-// Fetch a phantom JSON from a Zenodo record. Tries configs.tar first (one
-// shared download for all phantoms in the record); falls back to the direct
-// file URL only if the archive is absent or doesn't contain the entry.
-async function fetchPhantomJson(recordId, filename) {
+// Fetch a phantom JSON's raw text from a Zenodo record. Tries configs.tar
+// first (one shared download for all phantoms in the record); falls back to
+// the direct file URL only if the archive is absent or doesn't contain the
+// entry. Raw text (not just the parsed object) is what a zip download needs
+// to embed the file byte-for-byte.
+async function fetchPhantomText(recordId, filename) {
   const tarUrl = `https://zenodo.org/api/records/${recordId}/files/configs.tar/content`;
   try {
     const buf = await _fetchArchiveCached(tarUrl);
     const text = _extractFromTar(buf, filename);
-    if (text != null) return JSON.parse(text);
+    if (text != null) return text;
   } catch (_) {
     // no configs.tar — fall through to direct fetch
   }
 
   const directUrl = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
   const r = await fetch(directUrl, { cache: "force-cache" });
-  if (r.ok) return r.json();
+  if (r.ok) return r.text();
 
   throw new Error(`${filename} not found in record ${recordId} or configs.tar`);
+}
+
+async function fetchPhantomJson(recordId, filename) {
+  return JSON.parse(await fetchPhantomText(recordId, filename));
+}
+
+// ===========================================================================
+// Phantom zip download: fetch a phantom JSON + every NIfTI it references and
+// bundle them client-side into a "<name>.zip" the browser downloads.
+// ===========================================================================
+
+// A NIfTI reference is "<filename>[<index>]" (a plain string) or
+// { file: "<filename>[<index>]", func: "..." } (a transformed reference).
+// Mirrors collect_nifti_files in python/bifti/src/bifti/registry.py and
+// rust/bifti/src/registry.rs.
+function _niftiFilenameFromRef(ref) {
+  const m = /^(.*)\[\d+\]$/.exec(ref);
+  return m ? m[1] : ref;
+}
+
+function _refFile(prop) {
+  if (prop == null || typeof prop === "number") return null;
+  if (typeof prop === "string") return _niftiFilenameFromRef(prop);
+  if (typeof prop === "object" && typeof prop.file === "string") return _niftiFilenameFromRef(prop.file);
+  return null;
+}
+
+// Every distinct NIfTI filename referenced across all of a phantom's tissues.
+function collectNiftiFiles(phantom) {
+  const files = [];
+  const seen = new Set();
+  const add = (name) => { if (name && !seen.has(name)) { seen.add(name); files.push(name); } };
+
+  for (const tissue of Object.values(phantom?.tissues || {})) {
+    add(_refFile(tissue.density));
+    for (const key of ["T1", "T2", "T2'", "ADC", "dB0"]) add(_refFile(tissue[key]));
+    for (const key of ["B1+", "B1-"]) {
+      for (const channel of tissue[key] || []) add(_refFile(channel));
+    }
+  }
+  return files;
+}
+
+const _CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function _crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) crc = _CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+// Build an uncompressed (store-method) ZIP from [{ name, data: Uint8Array }].
+// No compression library needed - ZIP allows raw stored entries, so this is
+// just the local/central-directory bookkeeping plus a CRC-32 per entry.
+function buildZip(files) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const { name, data } of files) {
+    const nameBytes = encoder.encode(name);
+    const crc = _crc32(data);
+
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true); // version needed
+    local.setUint16(6, 0, true); // flags
+    local.setUint16(8, 0, true); // method: store
+    local.setUint16(10, 0, true); // mod time
+    local.setUint16(12, 0, true); // mod date
+    local.setUint32(14, crc, true);
+    local.setUint32(18, data.length, true); // compressed size
+    local.setUint32(22, data.length, true); // uncompressed size
+    local.setUint16(26, nameBytes.length, true);
+    local.setUint16(28, 0, true); // extra length
+    localParts.push(new Uint8Array(local.buffer), nameBytes, data);
+
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true); // version made by
+    central.setUint16(6, 20, true); // version needed
+    central.setUint16(8, 0, true); // flags
+    central.setUint16(10, 0, true); // method
+    central.setUint16(12, 0, true); // mod time
+    central.setUint16(14, 0, true); // mod date
+    central.setUint32(16, crc, true);
+    central.setUint32(20, data.length, true);
+    central.setUint32(24, data.length, true);
+    central.setUint16(28, nameBytes.length, true);
+    central.setUint16(30, 0, true); // extra length
+    central.setUint16(32, 0, true); // comment length
+    central.setUint16(34, 0, true); // disk number start
+    central.setUint16(36, 0, true); // internal attrs
+    central.setUint32(38, 0, true); // external attrs
+    central.setUint32(42, offset, true); // offset of local header
+    centralParts.push(new Uint8Array(central.buffer), nameBytes);
+
+    offset += 30 + nameBytes.length + data.length;
+  }
+
+  const centralStart = offset;
+  const centralSize = centralParts.reduce((acc, p) => acc + p.length, 0);
+
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(4, 0, true); // disk number
+  end.setUint16(6, 0, true); // disk where central directory starts
+  end.setUint16(8, files.length, true);
+  end.setUint16(10, files.length, true);
+  end.setUint32(12, centralSize, true);
+  end.setUint32(16, centralStart, true);
+  end.setUint16(20, 0, true); // comment length
+
+  return new Blob([...localParts, ...centralParts, new Uint8Array(end.buffer)], { type: "application/zip" });
+}
+
+// One shared Promise<Uint8Array> per (record, filename), so downloading
+// several configs that reference the same NIfTI (a shared B1 map, a shared
+// density volume, ...) only fetches it from Zenodo once per page visit.
+const _niftiCache = new Map();
+function _fetchNiftiBytesCached(recordId, filename) {
+  const key = `${recordId}/${filename}`;
+  if (!_niftiCache.has(key)) {
+    const url = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
+    _niftiCache.set(
+      key,
+      fetch(url, { cache: "force-cache" }).then((r) =>
+        r.ok
+          ? r.arrayBuffer().then((buf) => new Uint8Array(buf))
+          : Promise.reject(new Error(`HTTP ${r.status} fetching ${filename}`))
+      )
+    );
+  }
+  return _niftiCache.get(key);
+}
+
+// Downloads <name>.zip (same base name as the phantom JSON) containing the
+// JSON plus every NIfTI it references, bundled client-side.
+async function downloadPhantomZip(recordId, filename, button) {
+  const original = button.textContent;
+  button.disabled = true;
+  try {
+    const text = await fetchPhantomText(recordId, filename);
+    const niftiFiles = collectNiftiFiles(JSON.parse(text));
+    const total = 1 + niftiFiles.length;
+    let done = 1; // the phantom JSON itself
+    button.textContent = `downloading ${done}/${total}`;
+
+    const entries = [{ name: filename, data: new TextEncoder().encode(text) }];
+    for (const niftiName of niftiFiles) {
+      entries.push({ name: niftiName, data: await _fetchNiftiBytesCached(recordId, niftiName) });
+      done++;
+      button.textContent = `downloading ${done}/${total}`;
+    }
+
+    const blob = buildZip(entries);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename.replace(/\.json$/i, "")}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert(`Could not download ${filename}: ${err.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+function renderDownloadButton(recordId, filename) {
+  const btn = document.createElement("button");
+  btn.className = "download-btn";
+  btn.type = "button";
+  btn.title = `Download ${filename.replace(/\.json$/i, "")}.zip`;
+  btn.setAttribute("aria-label", btn.title);
+  btn.textContent = "⬇";
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    downloadPhantomZip(recordId, filename, btn);
+  });
+  return btn;
 }
 
 async function loadRegistry() {
@@ -72,7 +268,8 @@ async function loadRegistry() {
 }
 
 function renderRegistry(container, data) {
-  const entries = Object.entries(data);
+  // Reverse of registry.json's order, so the newest-added collections show first.
+  const entries = Object.entries(data).reverse();
   if (entries.length === 0) {
     container.innerHTML = `<p class="muted">No entries yet.</p>`;
     return;
@@ -127,6 +324,7 @@ const ARRAY_PROPERTIES = new Set(["B1+", "B1-"]);
 
 function renderEntry(name, entry) {
   const phantoms = Array.isArray(entry.phantoms) ? entry.phantoms : [];
+  const phantomCount = countPhantoms(phantoms);
   const authors = (entry.authors || [])
     .map((a) => a.name)
     .filter(Boolean)
@@ -140,7 +338,7 @@ function renderEntry(name, entry) {
     <summary class="card-summary">
       <span class="card-title">${escape(name)}</span>
       ${renderTags(entry.keywords)}
-      <span class="card-meta">${phantoms.length} phantom${phantoms.length === 1 ? "" : "s"}</span>
+      <span class="card-meta">${phantomCount} phantom${phantomCount === 1 ? "" : "s"}</span>
     </summary>
     <div class="card-body">
       ${entry.description ? `<p class="entry-desc">${escape(entry.description)}</p>` : ""}
@@ -149,7 +347,7 @@ function renderEntry(name, entry) {
         ${entry.license ? `<dt>License</dt><dd>${escape(entry.license)}</dd>` : ""}
         </dl>
       <div class="phantoms-slot"></div>
-      ${doiUrl ? `<hr class="files-divider"><p class="files-label">Raw files: <a href="${doiUrl}">${escape(entry.doi)}</a></p>` : ""}
+      ${doiUrl ? `<hr class="files-divider">` : ""}
       <div class="files-slot"></div>
     </div>
   `;
@@ -160,10 +358,10 @@ function renderEntry(name, entry) {
     el.querySelector(".phantoms-slot").appendChild(phantomSection);
   }
 
-  let filesSection = null;
-  if (recordId) {
-    filesSection = renderFilesSection(recordId);
-    el.querySelector(".files-slot").appendChild(filesSection);
+  let filesSummary = null;
+  if (doiUrl) {
+    filesSummary = renderFilesSummary(doiUrl, entry.doi, recordId);
+    el.querySelector(".files-slot").appendChild(filesSummary);
   }
 
   let loaded = false;
@@ -171,16 +369,104 @@ function renderEntry(name, entry) {
     if (!el.open || loaded) return;
     loaded = true;
     if (phantomSection) phantomSection.loadPhantoms();
-    if (filesSection) filesSection.load();
+    if (filesSummary) filesSummary.load();
   });
 
   return el;
 }
 
+// Top-level entry point: wraps a (possibly nested) phantoms array in a
+// '.list-section' and forwards lazy-loading to the tree it renders.
 function renderPhantomSection(phantoms, recordId, collectionName) {
   const wrap = document.createElement("div");
   wrap.className = "list-section";
+  const tree = renderPhantomTree(phantoms, recordId, collectionName);
+  wrap.appendChild(tree);
+  wrap.loadPhantoms = tree.loadPhantoms;
+  return wrap;
+}
 
+// Renders one level of a (possibly nested) phantoms array: leaf filenames
+// become rows in a table; group objects become nested accordions (see
+// renderPhantomGroup) that lazily render their own subtree on first expand.
+// `pathLabel` is the breadcrumb (collection + group names so far) shown in
+// each phantom's tissue modal header.
+function renderPhantomTree(entries, recordId, pathLabel) {
+  const container = document.createElement("div");
+  container.className = "phantom-tree";
+
+  const files = entries.filter((e) => typeof e === "string");
+  const groups = entries.filter((e) => e && typeof e === "object");
+
+  let table = null;
+  if (files.length > 0) {
+    table = renderPhantomTable(files, recordId, pathLabel);
+    container.appendChild(table);
+  }
+  for (const group of groups) {
+    container.appendChild(renderPhantomGroup(group, recordId, pathLabel));
+  }
+
+  // Only the leaf table has anything to fetch at this level - nested groups
+  // load themselves lazily when expanded (see renderPhantomGroup).
+  container.loadPhantoms = () => { if (table) table.loadPhantoms(); };
+
+  return container;
+}
+
+// A named group of phantom entries, rendered as a nested collapsible card
+// that drills into its own subtree. Lazily loads phantom metadata (B0,
+// resolution, tissues) for its subtree only the first time it's expanded -
+// important since a deep tree can otherwise trigger hundreds of Zenodo
+// fetches on page load.
+function renderPhantomGroup(group, recordId, pathLabel) {
+  const groupPhantoms = Array.isArray(group.phantoms) ? group.phantoms : [];
+  const count = countPhantoms(groupPhantoms);
+  const childPathLabel = `${pathLabel}/${group.group}`;
+
+  const details = document.createElement("details");
+  details.className = "card group";
+  details.innerHTML = `
+    <summary class="card-summary">
+      <span class="card-title">${escape(group.group)}</span>
+      ${group.default ? `<span class="tag group-default-tag">default: ${escape(group.default)}</span>` : ""}
+      ${group.default && recordId ? `<span class="download-slot"></span>` : ""}
+      <span class="card-meta">${count} phantom${count === 1 ? "" : "s"}</span>
+    </summary>
+    <div class="card-body">
+      ${group.description ? `<p class="entry-desc">${escape(group.description)}</p>` : ""}
+      <div class="group-content-slot"></div>
+    </div>
+  `;
+
+  if (group.default && recordId) {
+    details.querySelector(".download-slot").appendChild(renderDownloadButton(recordId, group.default));
+  }
+
+  const tree = renderPhantomTree(groupPhantoms, recordId, childPathLabel);
+  details.querySelector(".group-content-slot").appendChild(tree);
+
+  let loaded = false;
+  details.addEventListener("toggle", () => {
+    if (!details.open || loaded) return;
+    loaded = true;
+    tree.loadPhantoms();
+  });
+
+  return details;
+}
+
+// Every leaf filename under a (possibly nested) phantoms array.
+function countPhantoms(entries) {
+  let n = 0;
+  for (const e of entries) {
+    if (typeof e === "string") n++;
+    else if (e && typeof e === "object") n += countPhantoms(e.phantoms || []);
+  }
+  return n;
+}
+
+function renderPhantomTable(phantoms, recordId, pathLabel) {
   const tableWrap = document.createElement("div");
   tableWrap.className = "data-list-wrap";
 
@@ -194,6 +480,8 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     <th>Tissues</th>
     <th class="col-spacer"></th>
     <th>Resolution</th>
+    <th class="col-spacer"></th>
+    <th></th>
   </tr>`;
   table.appendChild(thead);
 
@@ -226,6 +514,15 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     resTd.innerHTML = '<span class="loading-text">…</span>';
     tr.appendChild(resTd);
 
+    const downloadSpacerTd = document.createElement("td");
+    downloadSpacerTd.className = "col-spacer";
+    tr.appendChild(downloadSpacerTd);
+
+    const downloadTd = document.createElement("td");
+    if (recordId) downloadTd.appendChild(renderDownloadButton(recordId, filename));
+    else downloadTd.innerHTML = '<span class="muted">—</span>';
+    tr.appendChild(downloadTd);
+
     tbody.appendChild(tr);
 
     return { filename, filenameTd, b0Td, resTd, tissueTd };
@@ -233,9 +530,8 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
 
   table.appendChild(tbody);
   tableWrap.appendChild(table);
-  wrap.appendChild(tableWrap);
 
-  wrap.loadPhantoms = () => {
+  tableWrap.loadPhantoms = () => {
     for (const { filename, filenameTd, b0Td, resTd, tissueTd } of rows) {
       if (!recordId) {
         const dash = '<span class="muted">—</span>';
@@ -261,7 +557,7 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
           btn.className = "filename-link";
           btn.textContent = filename.replace(/\.json$/i, "");
           btn.title = "View tissues";
-          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, collectionName));
+          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, pathLabel));
           filenameTd.innerHTML = "";
           filenameTd.appendChild(btn);
         })
@@ -274,10 +570,10 @@ function renderPhantomSection(phantoms, recordId, collectionName) {
     }
   };
 
-  return wrap;
+  return tableWrap;
 }
 
-function openTissueModal(tissues, rawData, filename, collectionName) {
+function openTissueModal(tissues, rawData, filename, pathLabel) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.setAttribute("role", "dialog");
@@ -310,7 +606,7 @@ function openTissueModal(tissues, rawData, filename, collectionName) {
   // Center: plain path, non-interactive
   const titleEl = document.createElement("span");
   titleEl.className = "modal-header-title";
-  titleEl.innerHTML = `<span class="modal-path-collection">${escape(collectionName)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
+  titleEl.innerHTML = `<span class="modal-path-collection">${escape(pathLabel)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
 
   // Right: close button
   const closeBtn = document.createElement("button");
@@ -396,65 +692,29 @@ function highlightJson(obj) {
   return out;
 }
 
-function renderFilesSection(recordId) {
-  const wrap = document.createElement("div");
-  wrap.innerHTML = `<p class="muted" style="font-size:0.85rem">Loading&hellip;</p>`;
+// Just the doi link plus the record's total download size - no per-file listing.
+function renderFilesSummary(doiUrl, doi, recordId) {
+  const el = document.createElement("p");
+  el.className = "files-label";
+  el.innerHTML = `Raw files: <a href="${doiUrl}">${escape(doi)}</a>`;
 
-  wrap.load = () => {
+  el.load = () => {
+    if (!recordId) return;
     fetch(`https://zenodo.org/api/records/${recordId}`, { cache: "force-cache" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((data) => { wrap.innerHTML = renderFileList(data?.files || [], recordId); })
-      .catch((err) => {
-        wrap.innerHTML = `<p class="error" style="font-size:0.85rem">Could not load files (${escape(err.message)}).</p>`;
+      .then((data) => {
+        const total = (data?.files || []).reduce((acc, f) => acc + (f.size || 0), 0);
+        el.innerHTML = `Raw files: <a href="${doiUrl}">${escape(doi)}</a> - ${escape(formatSize(total))}`;
+      })
+      .catch(() => {
+        // leave the doi link without a size on failure
       });
   };
 
-  return wrap;
-}
-
-function sortZenodoFiles(files) {
-  const group = (key) => {
-    const k = key.toLowerCase();
-    if (k.endsWith(".tar")) return 0;
-    if (k.endsWith(".nii") || k.endsWith(".nii.gz") || k.endsWith(".ngz")) return 1;
-    return 2;
-  };
-  return [...files].sort((a, b) => {
-    const d = group(a.key) - group(b.key);
-    return d !== 0 ? d : a.key.localeCompare(b.key);
-  });
-}
-
-function renderFileList(files, recordId) {
-  if (files.length === 0) return `<p class="muted">No files.</p>`;
-  const sorted = sortZenodoFiles(files);
-  const total = files.reduce((acc, f) => acc + (f.size || 0), 0);
-  const rows = sorted.map((f) => {
-    const url = `https://zenodo.org/records/${recordId}/files/${encodeURIComponent(f.key)}`;
-    return `<tr>
-      <td class="col-name"><a href="${url}">${escape(f.key)}</a></td>
-      <td class="col-spacer"></td>
-      <td>${escape(formatSize(f.size))}</td>
-    </tr>`;
-  }).join("");
-  return `<div class="data-list-wrap">
-    <table class="data-list">
-      <thead><tr>
-        <th>File</th>
-        <th class="col-spacer"></th>
-        <th>Size</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr>
-        <th>${files.length} file${files.length === 1 ? "" : "s"}</th>
-        <th class="col-spacer"></th>
-        <th>${escape(formatSize(total))}</th>
-      </tr></tfoot>
-    </table>
-  </div>`;
+  return el;
 }
 
 function formatSize(bytes) {

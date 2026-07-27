@@ -12,6 +12,7 @@ from .loader import (
     NumpyTissue,
 )
 from .registry import (
+    flatten_phantoms,
     load_registry,
     load_registry_phantom,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "ResliceTo",
     "NumpyPhantom",
     "NumpyTissue",
+    "flatten_phantoms",
     "load_registry",
     "load_registry_phantom",
 ]

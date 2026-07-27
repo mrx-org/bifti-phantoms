@@ -101,3 +101,23 @@
   opacity: 0.3;
   font-size: 0.82rem;
 }
+
+.download-btn {
+  background: var(--c-accent);
+  border: 1px solid var(--c-accent);
+  border-radius: 999px;
+  color: var(--c-base);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.2rem 0.45rem;
+  font-weight: 600;
+}
+.download-btn:hover:not(:disabled) { background: var(--c-accent-hi); border-color: var(--c-accent-hi); }
+.download-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: var(--c-pill);
+  border-color: var(--c-pill-border);
+  color: var(--c-dim);
+}

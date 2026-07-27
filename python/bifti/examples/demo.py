@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from bifti import NumpyPhantom, NumpyTissue, load_registry, load_registry_phantom
+from bifti import NumpyPhantom, NumpyTissue, flatten_phantoms, load_registry, load_registry_phantom
 
 HERE = Path(__file__).parent
 FIGURES = HERE / "figures"
@@ -80,7 +80,7 @@ def choose_phantom() -> Path:
     index: list[tuple[str, str]] = []
     for collection_name, entry in load_registry().items():
         print(f"- {collection_name}")
-        for name in entry["phantoms"]:
+        for name in flatten_phantoms(entry["phantoms"]):
             index.append((collection_name, name))
             print(f"    {len(index)}. {name}")
 

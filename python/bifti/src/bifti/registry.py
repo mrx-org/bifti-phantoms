@@ -57,6 +57,22 @@ def load_registry_phantom(collection: str, name: str) -> Path:
     return json_path
 
 
+def flatten_phantoms(phantoms: list) -> list[str]:
+    """Every phantom filename in a (possibly nested) phantoms list, depth-first.
+
+    A ``phantoms`` entry is either a filename string or a group object
+    (``{"group": ..., "phantoms": [...]}``); this walks past groups to
+    collect every filename regardless of nesting depth.
+    """
+    files: list[str] = []
+    for entry in phantoms:
+        if isinstance(entry, str):
+            files.append(entry)
+        else:
+            files.extend(flatten_phantoms(entry.get("phantoms", [])))
+    return files
+
+
 # ===========================================================================
 # Internals
 # ===========================================================================
@@ -161,5 +177,5 @@ def collect_nifti_files(phantom: BiftiPhantom) -> list[str]:
 if __name__ == "__main__":
     for collection_name, entry in load_registry().items():
         print(f"{collection_name}  ({entry['doi']})")
-        for phantom in entry["phantoms"]:
+        for phantom in flatten_phantoms(entry["phantoms"]):
             print(f"    {phantom}")

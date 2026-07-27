@@ -39,14 +39,44 @@
           "pattern": "^10\\.\\d{4,9}/zenodo\\.\\d+$"
         },
         "phantoms": {
-          "description": "The phantom JSON filenames inside the Zenodo record (one per configuration, e.g. one per field strength). Each is referenced as '<collection>/<filename>'; the NIfTI files a phantom needs live in the same record.",
+          "description": "The phantom JSON filenames inside the Zenodo record (one per configuration, e.g. one per field strength), optionally organized into nested groups. Each filename is referenced as '<collection>/<filename>' regardless of nesting depth; the NIfTI files a phantom needs live in the same record.",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {
-            "type": "string",
-            "pattern": "^[^/]+\\.json$"
-          }
+          "items": { "$ref": "#/$defs/phantomEntry" }
+        }
+      }
+    },
+    "phantomEntry": {
+      "description": "Either a phantom JSON filename, or a named group nesting further phantom entries.",
+      "oneOf": [
+        { "type": "string", "pattern": "^[^/]+\\.json$" },
+        { "$ref": "#/$defs/phantomGroup" }
+      ]
+    },
+    "phantomGroup": {
+      "description": "A named, purely organizational grouping of phantom entries. Carries no file of its own; 'phantoms' may again mix filenames and further groups, so nesting is unlimited.",
+      "type": "object",
+      "required": [ "group", "phantoms" ],
+      "properties": {
+        "group": {
+          "description": "The group's display name.",
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "description": "Optional one-sentence description of the group.",
+          "type": "string"
+        },
+        "default": {
+          "description": "Optional filename (from within this group, at any depth) to use when a single representative phantom is needed.",
+          "type": "string",
+          "pattern": "^[^/]+\\.json$"
+        },
+        "phantoms": {
+          "description": "The filenames and/or nested groups belonging to this group.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/phantomEntry" }
         }
       }
     },

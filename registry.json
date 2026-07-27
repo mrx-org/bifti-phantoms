@@ -184,18 +184,977 @@
       "breast_3T_all_artefacts.json", "breast_3T_artefact_B1+.json", "breast_3T_artefact_B1-.json", "breast_3T_artefact_dB0.json",
       "breast_3T_slice_paper_inhom_B1+.json", "breast_3T_slice_paper_inhom_B1-.json", "breast_3T_slice_paper_inhom_dB0.json", 
       "breast_3T_slice_paper_nofat.json", "breast_7T_inhomB1.json", "breast_7T_slice_paper_inhom_B1.json", "breast_7T_slice_paper_nofat.json"
-    ]  },
-  "brainweb-subj04-3T-0.5mm": {
-    "description": "anatomical brain model (subj04) from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T, full 3D volume and single-slice transversal/coronal/sagittal variants.",
-    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T"],
+    ]
+  },
+  "collection-brainweb": {
+    "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, in three resolutions (0.5/1/2 mm) each as a full 3D volume and single-slice transversal/coronal/sagittal variants, organized as nested groups (subject > field strength/resolution).",
+    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution" ],
     "authors": [
       { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
     ],
     "license": "LicenseRef-BrainWeb",
     "doi": "10.5281/zenodo.20553009",
     "phantoms": [
-      "subj04-3T-05mm.json","subj04-3T-05mm-tra.json","subj04-3T-05mm-cor.json","subj04-3T-05mm-sag.json"
+      {
+        "group": "subj04",
+        "default": "subj04-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj04-3T-05mm.json",
+            "phantoms": [
+              "subj04-3T-05mm.json", "subj04-3T-05mm-cor.json", "subj04-3T-05mm-sag.json", "subj04-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj04-3T-1mm.json",
+            "phantoms": [
+              "subj04-3T-1mm.json", "subj04-3T-1mm-cor.json", "subj04-3T-1mm-sag.json", "subj04-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj04-3T-2mm.json",
+            "phantoms": [
+              "subj04-3T-2mm.json", "subj04-3T-2mm-cor.json", "subj04-3T-2mm-sag.json", "subj04-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj04-7T-05mm.json",
+            "phantoms": [
+              "subj04-7T-05mm.json", "subj04-7T-05mm-cor.json", "subj04-7T-05mm-sag.json", "subj04-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj04-7T-1mm.json",
+            "phantoms": [
+              "subj04-7T-1mm.json", "subj04-7T-1mm-cor.json", "subj04-7T-1mm-sag.json", "subj04-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj04-7T-2mm.json",
+            "phantoms": [
+              "subj04-7T-2mm.json", "subj04-7T-2mm-cor.json", "subj04-7T-2mm-sag.json", "subj04-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj05",
+        "default": "subj05-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj05-3T-05mm.json",
+            "phantoms": [
+              "subj05-3T-05mm.json", "subj05-3T-05mm-cor.json", "subj05-3T-05mm-sag.json", "subj05-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj05-3T-1mm.json",
+            "phantoms": [
+              "subj05-3T-1mm.json", "subj05-3T-1mm-cor.json", "subj05-3T-1mm-sag.json", "subj05-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj05-3T-2mm.json",
+            "phantoms": [
+              "subj05-3T-2mm.json", "subj05-3T-2mm-cor.json", "subj05-3T-2mm-sag.json", "subj05-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj05-7T-05mm.json",
+            "phantoms": [
+              "subj05-7T-05mm.json", "subj05-7T-05mm-cor.json", "subj05-7T-05mm-sag.json", "subj05-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj05-7T-1mm.json",
+            "phantoms": [
+              "subj05-7T-1mm.json", "subj05-7T-1mm-cor.json", "subj05-7T-1mm-sag.json", "subj05-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj05-7T-2mm.json",
+            "phantoms": [
+              "subj05-7T-2mm.json", "subj05-7T-2mm-cor.json", "subj05-7T-2mm-sag.json", "subj05-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj06",
+        "default": "subj06-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj06-3T-05mm.json",
+            "phantoms": [
+              "subj06-3T-05mm.json", "subj06-3T-05mm-cor.json", "subj06-3T-05mm-sag.json", "subj06-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj06-3T-1mm.json",
+            "phantoms": [
+              "subj06-3T-1mm.json", "subj06-3T-1mm-cor.json", "subj06-3T-1mm-sag.json", "subj06-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj06-3T-2mm.json",
+            "phantoms": [
+              "subj06-3T-2mm.json", "subj06-3T-2mm-cor.json", "subj06-3T-2mm-sag.json", "subj06-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj06-7T-05mm.json",
+            "phantoms": [
+              "subj06-7T-05mm.json", "subj06-7T-05mm-cor.json", "subj06-7T-05mm-sag.json", "subj06-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj06-7T-1mm.json",
+            "phantoms": [
+              "subj06-7T-1mm.json", "subj06-7T-1mm-cor.json", "subj06-7T-1mm-sag.json", "subj06-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj06-7T-2mm.json",
+            "phantoms": [
+              "subj06-7T-2mm.json", "subj06-7T-2mm-cor.json", "subj06-7T-2mm-sag.json", "subj06-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj18",
+        "default": "subj18-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj18-3T-05mm.json",
+            "phantoms": [
+              "subj18-3T-05mm.json", "subj18-3T-05mm-cor.json", "subj18-3T-05mm-sag.json", "subj18-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj18-3T-1mm.json",
+            "phantoms": [
+              "subj18-3T-1mm.json", "subj18-3T-1mm-cor.json", "subj18-3T-1mm-sag.json", "subj18-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj18-3T-2mm.json",
+            "phantoms": [
+              "subj18-3T-2mm.json", "subj18-3T-2mm-cor.json", "subj18-3T-2mm-sag.json", "subj18-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj18-7T-05mm.json",
+            "phantoms": [
+              "subj18-7T-05mm.json", "subj18-7T-05mm-cor.json", "subj18-7T-05mm-sag.json", "subj18-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj18-7T-1mm.json",
+            "phantoms": [
+              "subj18-7T-1mm.json", "subj18-7T-1mm-cor.json", "subj18-7T-1mm-sag.json", "subj18-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj18-7T-2mm.json",
+            "phantoms": [
+              "subj18-7T-2mm.json", "subj18-7T-2mm-cor.json", "subj18-7T-2mm-sag.json", "subj18-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj20",
+        "default": "subj20-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj20-3T-05mm.json",
+            "phantoms": [
+              "subj20-3T-05mm.json", "subj20-3T-05mm-cor.json", "subj20-3T-05mm-sag.json", "subj20-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj20-3T-1mm.json",
+            "phantoms": [
+              "subj20-3T-1mm.json", "subj20-3T-1mm-cor.json", "subj20-3T-1mm-sag.json", "subj20-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj20-3T-2mm.json",
+            "phantoms": [
+              "subj20-3T-2mm.json", "subj20-3T-2mm-cor.json", "subj20-3T-2mm-sag.json", "subj20-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj20-7T-05mm.json",
+            "phantoms": [
+              "subj20-7T-05mm.json", "subj20-7T-05mm-cor.json", "subj20-7T-05mm-sag.json", "subj20-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj20-7T-1mm.json",
+            "phantoms": [
+              "subj20-7T-1mm.json", "subj20-7T-1mm-cor.json", "subj20-7T-1mm-sag.json", "subj20-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj20-7T-2mm.json",
+            "phantoms": [
+              "subj20-7T-2mm.json", "subj20-7T-2mm-cor.json", "subj20-7T-2mm-sag.json", "subj20-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj38",
+        "default": "subj38-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj38-3T-05mm.json",
+            "phantoms": [
+              "subj38-3T-05mm.json", "subj38-3T-05mm-cor.json", "subj38-3T-05mm-sag.json", "subj38-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj38-3T-1mm.json",
+            "phantoms": [
+              "subj38-3T-1mm.json", "subj38-3T-1mm-cor.json", "subj38-3T-1mm-sag.json", "subj38-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj38-3T-2mm.json",
+            "phantoms": [
+              "subj38-3T-2mm.json", "subj38-3T-2mm-cor.json", "subj38-3T-2mm-sag.json", "subj38-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj38-7T-05mm.json",
+            "phantoms": [
+              "subj38-7T-05mm.json", "subj38-7T-05mm-cor.json", "subj38-7T-05mm-sag.json", "subj38-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj38-7T-1mm.json",
+            "phantoms": [
+              "subj38-7T-1mm.json", "subj38-7T-1mm-cor.json", "subj38-7T-1mm-sag.json", "subj38-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj38-7T-2mm.json",
+            "phantoms": [
+              "subj38-7T-2mm.json", "subj38-7T-2mm-cor.json", "subj38-7T-2mm-sag.json", "subj38-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj41",
+        "default": "subj41-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj41-3T-05mm.json",
+            "phantoms": [
+              "subj41-3T-05mm.json", "subj41-3T-05mm-cor.json", "subj41-3T-05mm-sag.json", "subj41-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj41-3T-1mm.json",
+            "phantoms": [
+              "subj41-3T-1mm.json", "subj41-3T-1mm-cor.json", "subj41-3T-1mm-sag.json", "subj41-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj41-3T-2mm.json",
+            "phantoms": [
+              "subj41-3T-2mm.json", "subj41-3T-2mm-cor.json", "subj41-3T-2mm-sag.json", "subj41-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj41-7T-05mm.json",
+            "phantoms": [
+              "subj41-7T-05mm.json", "subj41-7T-05mm-cor.json", "subj41-7T-05mm-sag.json", "subj41-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj41-7T-1mm.json",
+            "phantoms": [
+              "subj41-7T-1mm.json", "subj41-7T-1mm-cor.json", "subj41-7T-1mm-sag.json", "subj41-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj41-7T-2mm.json",
+            "phantoms": [
+              "subj41-7T-2mm.json", "subj41-7T-2mm-cor.json", "subj41-7T-2mm-sag.json", "subj41-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj42",
+        "default": "subj42-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj42-3T-05mm.json",
+            "phantoms": [
+              "subj42-3T-05mm.json", "subj42-3T-05mm-cor.json", "subj42-3T-05mm-sag.json", "subj42-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj42-3T-1mm.json",
+            "phantoms": [
+              "subj42-3T-1mm.json", "subj42-3T-1mm-cor.json", "subj42-3T-1mm-sag.json", "subj42-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj42-3T-2mm.json",
+            "phantoms": [
+              "subj42-3T-2mm.json", "subj42-3T-2mm-cor.json", "subj42-3T-2mm-sag.json", "subj42-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj42-7T-05mm.json",
+            "phantoms": [
+              "subj42-7T-05mm.json", "subj42-7T-05mm-cor.json", "subj42-7T-05mm-sag.json", "subj42-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj42-7T-1mm.json",
+            "phantoms": [
+              "subj42-7T-1mm.json", "subj42-7T-1mm-cor.json", "subj42-7T-1mm-sag.json", "subj42-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj42-7T-2mm.json",
+            "phantoms": [
+              "subj42-7T-2mm.json", "subj42-7T-2mm-cor.json", "subj42-7T-2mm-sag.json", "subj42-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj43",
+        "default": "subj43-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj43-3T-05mm.json",
+            "phantoms": [
+              "subj43-3T-05mm.json", "subj43-3T-05mm-cor.json", "subj43-3T-05mm-sag.json", "subj43-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj43-3T-1mm.json",
+            "phantoms": [
+              "subj43-3T-1mm.json", "subj43-3T-1mm-cor.json", "subj43-3T-1mm-sag.json", "subj43-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj43-3T-2mm.json",
+            "phantoms": [
+              "subj43-3T-2mm.json", "subj43-3T-2mm-cor.json", "subj43-3T-2mm-sag.json", "subj43-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj43-7T-05mm.json",
+            "phantoms": [
+              "subj43-7T-05mm.json", "subj43-7T-05mm-cor.json", "subj43-7T-05mm-sag.json", "subj43-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj43-7T-1mm.json",
+            "phantoms": [
+              "subj43-7T-1mm.json", "subj43-7T-1mm-cor.json", "subj43-7T-1mm-sag.json", "subj43-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj43-7T-2mm.json",
+            "phantoms": [
+              "subj43-7T-2mm.json", "subj43-7T-2mm-cor.json", "subj43-7T-2mm-sag.json", "subj43-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj44",
+        "default": "subj44-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj44-3T-05mm.json",
+            "phantoms": [
+              "subj44-3T-05mm.json", "subj44-3T-05mm-cor.json", "subj44-3T-05mm-sag.json", "subj44-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj44-3T-1mm.json",
+            "phantoms": [
+              "subj44-3T-1mm.json", "subj44-3T-1mm-cor.json", "subj44-3T-1mm-sag.json", "subj44-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj44-3T-2mm.json",
+            "phantoms": [
+              "subj44-3T-2mm.json", "subj44-3T-2mm-cor.json", "subj44-3T-2mm-sag.json", "subj44-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj44-7T-05mm.json",
+            "phantoms": [
+              "subj44-7T-05mm.json", "subj44-7T-05mm-cor.json", "subj44-7T-05mm-sag.json", "subj44-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj44-7T-1mm.json",
+            "phantoms": [
+              "subj44-7T-1mm.json", "subj44-7T-1mm-cor.json", "subj44-7T-1mm-sag.json", "subj44-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj44-7T-2mm.json",
+            "phantoms": [
+              "subj44-7T-2mm.json", "subj44-7T-2mm-cor.json", "subj44-7T-2mm-sag.json", "subj44-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj45",
+        "default": "subj45-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj45-3T-05mm.json",
+            "phantoms": [
+              "subj45-3T-05mm.json", "subj45-3T-05mm-cor.json", "subj45-3T-05mm-sag.json", "subj45-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj45-3T-1mm.json",
+            "phantoms": [
+              "subj45-3T-1mm.json", "subj45-3T-1mm-cor.json", "subj45-3T-1mm-sag.json", "subj45-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj45-3T-2mm.json",
+            "phantoms": [
+              "subj45-3T-2mm.json", "subj45-3T-2mm-cor.json", "subj45-3T-2mm-sag.json", "subj45-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj45-7T-05mm.json",
+            "phantoms": [
+              "subj45-7T-05mm.json", "subj45-7T-05mm-cor.json", "subj45-7T-05mm-sag.json", "subj45-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj45-7T-1mm.json",
+            "phantoms": [
+              "subj45-7T-1mm.json", "subj45-7T-1mm-cor.json", "subj45-7T-1mm-sag.json", "subj45-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj45-7T-2mm.json",
+            "phantoms": [
+              "subj45-7T-2mm.json", "subj45-7T-2mm-cor.json", "subj45-7T-2mm-sag.json", "subj45-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj46",
+        "default": "subj46-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj46-3T-05mm.json",
+            "phantoms": [
+              "subj46-3T-05mm.json", "subj46-3T-05mm-cor.json", "subj46-3T-05mm-sag.json", "subj46-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj46-3T-1mm.json",
+            "phantoms": [
+              "subj46-3T-1mm.json", "subj46-3T-1mm-cor.json", "subj46-3T-1mm-sag.json", "subj46-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj46-3T-2mm.json",
+            "phantoms": [
+              "subj46-3T-2mm.json", "subj46-3T-2mm-cor.json", "subj46-3T-2mm-sag.json", "subj46-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj46-7T-05mm.json",
+            "phantoms": [
+              "subj46-7T-05mm.json", "subj46-7T-05mm-cor.json", "subj46-7T-05mm-sag.json", "subj46-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj46-7T-1mm.json",
+            "phantoms": [
+              "subj46-7T-1mm.json", "subj46-7T-1mm-cor.json", "subj46-7T-1mm-sag.json", "subj46-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj46-7T-2mm.json",
+            "phantoms": [
+              "subj46-7T-2mm.json", "subj46-7T-2mm-cor.json", "subj46-7T-2mm-sag.json", "subj46-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj47",
+        "default": "subj47-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj47-3T-05mm.json",
+            "phantoms": [
+              "subj47-3T-05mm.json", "subj47-3T-05mm-cor.json", "subj47-3T-05mm-sag.json", "subj47-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj47-3T-1mm.json",
+            "phantoms": [
+              "subj47-3T-1mm.json", "subj47-3T-1mm-cor.json", "subj47-3T-1mm-sag.json", "subj47-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj47-3T-2mm.json",
+            "phantoms": [
+              "subj47-3T-2mm.json", "subj47-3T-2mm-cor.json", "subj47-3T-2mm-sag.json", "subj47-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj47-7T-05mm.json",
+            "phantoms": [
+              "subj47-7T-05mm.json", "subj47-7T-05mm-cor.json", "subj47-7T-05mm-sag.json", "subj47-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj47-7T-1mm.json",
+            "phantoms": [
+              "subj47-7T-1mm.json", "subj47-7T-1mm-cor.json", "subj47-7T-1mm-sag.json", "subj47-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj47-7T-2mm.json",
+            "phantoms": [
+              "subj47-7T-2mm.json", "subj47-7T-2mm-cor.json", "subj47-7T-2mm-sag.json", "subj47-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj48",
+        "default": "subj48-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj48-3T-05mm.json",
+            "phantoms": [
+              "subj48-3T-05mm.json", "subj48-3T-05mm-cor.json", "subj48-3T-05mm-sag.json", "subj48-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj48-3T-1mm.json",
+            "phantoms": [
+              "subj48-3T-1mm.json", "subj48-3T-1mm-cor.json", "subj48-3T-1mm-sag.json", "subj48-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj48-3T-2mm.json",
+            "phantoms": [
+              "subj48-3T-2mm.json", "subj48-3T-2mm-cor.json", "subj48-3T-2mm-sag.json", "subj48-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj48-7T-05mm.json",
+            "phantoms": [
+              "subj48-7T-05mm.json", "subj48-7T-05mm-cor.json", "subj48-7T-05mm-sag.json", "subj48-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj48-7T-1mm.json",
+            "phantoms": [
+              "subj48-7T-1mm.json", "subj48-7T-1mm-cor.json", "subj48-7T-1mm-sag.json", "subj48-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj48-7T-2mm.json",
+            "phantoms": [
+              "subj48-7T-2mm.json", "subj48-7T-2mm-cor.json", "subj48-7T-2mm-sag.json", "subj48-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj49",
+        "default": "subj49-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj49-3T-05mm.json",
+            "phantoms": [
+              "subj49-3T-05mm.json", "subj49-3T-05mm-cor.json", "subj49-3T-05mm-sag.json", "subj49-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj49-3T-1mm.json",
+            "phantoms": [
+              "subj49-3T-1mm.json", "subj49-3T-1mm-cor.json", "subj49-3T-1mm-sag.json", "subj49-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj49-3T-2mm.json",
+            "phantoms": [
+              "subj49-3T-2mm.json", "subj49-3T-2mm-cor.json", "subj49-3T-2mm-sag.json", "subj49-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj49-7T-05mm.json",
+            "phantoms": [
+              "subj49-7T-05mm.json", "subj49-7T-05mm-cor.json", "subj49-7T-05mm-sag.json", "subj49-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj49-7T-1mm.json",
+            "phantoms": [
+              "subj49-7T-1mm.json", "subj49-7T-1mm-cor.json", "subj49-7T-1mm-sag.json", "subj49-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj49-7T-2mm.json",
+            "phantoms": [
+              "subj49-7T-2mm.json", "subj49-7T-2mm-cor.json", "subj49-7T-2mm-sag.json", "subj49-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj50",
+        "default": "subj50-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj50-3T-05mm.json",
+            "phantoms": [
+              "subj50-3T-05mm.json", "subj50-3T-05mm-cor.json", "subj50-3T-05mm-sag.json", "subj50-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj50-3T-1mm.json",
+            "phantoms": [
+              "subj50-3T-1mm.json", "subj50-3T-1mm-cor.json", "subj50-3T-1mm-sag.json", "subj50-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj50-3T-2mm.json",
+            "phantoms": [
+              "subj50-3T-2mm.json", "subj50-3T-2mm-cor.json", "subj50-3T-2mm-sag.json", "subj50-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj50-7T-05mm.json",
+            "phantoms": [
+              "subj50-7T-05mm.json", "subj50-7T-05mm-cor.json", "subj50-7T-05mm-sag.json", "subj50-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj50-7T-1mm.json",
+            "phantoms": [
+              "subj50-7T-1mm.json", "subj50-7T-1mm-cor.json", "subj50-7T-1mm-sag.json", "subj50-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj50-7T-2mm.json",
+            "phantoms": [
+              "subj50-7T-2mm.json", "subj50-7T-2mm-cor.json", "subj50-7T-2mm-sag.json", "subj50-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj51",
+        "default": "subj51-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj51-3T-05mm.json",
+            "phantoms": [
+              "subj51-3T-05mm.json", "subj51-3T-05mm-cor.json", "subj51-3T-05mm-sag.json", "subj51-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj51-3T-1mm.json",
+            "phantoms": [
+              "subj51-3T-1mm.json", "subj51-3T-1mm-cor.json", "subj51-3T-1mm-sag.json", "subj51-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj51-3T-2mm.json",
+            "phantoms": [
+              "subj51-3T-2mm.json", "subj51-3T-2mm-cor.json", "subj51-3T-2mm-sag.json", "subj51-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj51-7T-05mm.json",
+            "phantoms": [
+              "subj51-7T-05mm.json", "subj51-7T-05mm-cor.json", "subj51-7T-05mm-sag.json", "subj51-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj51-7T-1mm.json",
+            "phantoms": [
+              "subj51-7T-1mm.json", "subj51-7T-1mm-cor.json", "subj51-7T-1mm-sag.json", "subj51-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj51-7T-2mm.json",
+            "phantoms": [
+              "subj51-7T-2mm.json", "subj51-7T-2mm-cor.json", "subj51-7T-2mm-sag.json", "subj51-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj52",
+        "default": "subj52-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj52-3T-05mm.json",
+            "phantoms": [
+              "subj52-3T-05mm.json", "subj52-3T-05mm-cor.json", "subj52-3T-05mm-sag.json", "subj52-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj52-3T-1mm.json",
+            "phantoms": [
+              "subj52-3T-1mm.json", "subj52-3T-1mm-cor.json", "subj52-3T-1mm-sag.json", "subj52-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj52-3T-2mm.json",
+            "phantoms": [
+              "subj52-3T-2mm.json", "subj52-3T-2mm-cor.json", "subj52-3T-2mm-sag.json", "subj52-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj52-7T-05mm.json",
+            "phantoms": [
+              "subj52-7T-05mm.json", "subj52-7T-05mm-cor.json", "subj52-7T-05mm-sag.json", "subj52-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj52-7T-1mm.json",
+            "phantoms": [
+              "subj52-7T-1mm.json", "subj52-7T-1mm-cor.json", "subj52-7T-1mm-sag.json", "subj52-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj52-7T-2mm.json",
+            "phantoms": [
+              "subj52-7T-2mm.json", "subj52-7T-2mm-cor.json", "subj52-7T-2mm-sag.json", "subj52-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj53",
+        "default": "subj53-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj53-3T-05mm.json",
+            "phantoms": [
+              "subj53-3T-05mm.json", "subj53-3T-05mm-cor.json", "subj53-3T-05mm-sag.json", "subj53-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj53-3T-1mm.json",
+            "phantoms": [
+              "subj53-3T-1mm.json", "subj53-3T-1mm-cor.json", "subj53-3T-1mm-sag.json", "subj53-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj53-3T-2mm.json",
+            "phantoms": [
+              "subj53-3T-2mm.json", "subj53-3T-2mm-cor.json", "subj53-3T-2mm-sag.json", "subj53-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj53-7T-05mm.json",
+            "phantoms": [
+              "subj53-7T-05mm.json", "subj53-7T-05mm-cor.json", "subj53-7T-05mm-sag.json", "subj53-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj53-7T-1mm.json",
+            "phantoms": [
+              "subj53-7T-1mm.json", "subj53-7T-1mm-cor.json", "subj53-7T-1mm-sag.json", "subj53-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj53-7T-2mm.json",
+            "phantoms": [
+              "subj53-7T-2mm.json", "subj53-7T-2mm-cor.json", "subj53-7T-2mm-sag.json", "subj53-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      },
+      {
+        "group": "subj54",
+        "default": "subj54-3T-05mm.json",
+        "phantoms": [
+          {
+            "group": "3T 0.5 mm",
+            "default": "subj54-3T-05mm.json",
+            "phantoms": [
+              "subj54-3T-05mm.json", "subj54-3T-05mm-cor.json", "subj54-3T-05mm-sag.json", "subj54-3T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 1 mm",
+            "default": "subj54-3T-1mm.json",
+            "phantoms": [
+              "subj54-3T-1mm.json", "subj54-3T-1mm-cor.json", "subj54-3T-1mm-sag.json", "subj54-3T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "3T 2 mm",
+            "default": "subj54-3T-2mm.json",
+            "phantoms": [
+              "subj54-3T-2mm.json", "subj54-3T-2mm-cor.json", "subj54-3T-2mm-sag.json", "subj54-3T-2mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 0.5 mm",
+            "default": "subj54-7T-05mm.json",
+            "phantoms": [
+              "subj54-7T-05mm.json", "subj54-7T-05mm-cor.json", "subj54-7T-05mm-sag.json", "subj54-7T-05mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 1 mm",
+            "default": "subj54-7T-1mm.json",
+            "phantoms": [
+              "subj54-7T-1mm.json", "subj54-7T-1mm-cor.json", "subj54-7T-1mm-sag.json", "subj54-7T-1mm-tra.json"
+            ]
+          },
+          {
+            "group": "7T 2 mm",
+            "default": "subj54-7T-2mm.json",
+            "phantoms": [
+              "subj54-7T-2mm.json", "subj54-7T-2mm-cor.json", "subj54-7T-2mm-sag.json", "subj54-7T-2mm-tra.json"
+            ]
+          }
+        ]
+      }
     ]
   }
-  
 }

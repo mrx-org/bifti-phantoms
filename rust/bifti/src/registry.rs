@@ -80,8 +80,48 @@ pub struct Collection {
     pub license: String,
     /// Immutable Zenodo version DOI (e.g. "10.5281/zenodo.1234568")
     pub doi: String,
-    /// Phantom JSON filenames inside the Zenodo record
-    pub phantoms: Vec<String>,
+    /// Phantom JSON filenames inside the Zenodo record, optionally organized
+    /// into nested groups.
+    pub phantoms: Vec<PhantomEntry>,
+}
+
+impl Collection {
+    /// Every phantom filename in this collection, flattened depth-first out
+    /// of any nested groups.
+    pub fn phantom_files(&self) -> Vec<&str> {
+        fn walk<'a>(entries: &'a [PhantomEntry], out: &mut Vec<&'a str>) {
+            for entry in entries {
+                match entry {
+                    PhantomEntry::File(f) => out.push(f.as_str()),
+                    PhantomEntry::Group(g) => walk(&g.phantoms, out),
+                }
+            }
+        }
+        let mut files = Vec::new();
+        walk(&self.phantoms, &mut files);
+        files
+    }
+}
+
+/// Either a phantom JSON filename, or a named group nesting further phantom entries.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PhantomEntry {
+    File(String),
+    Group(PhantomGroup),
+}
+
+/// A named, purely organizational grouping of phantom entries. Carries no
+/// file of its own; `phantoms` may again mix filenames and further groups.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PhantomGroup {
+    pub group: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Filename (from within this group, at any depth) representative of the group.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    pub phantoms: Vec<PhantomEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

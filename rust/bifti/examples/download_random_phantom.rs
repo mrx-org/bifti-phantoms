@@ -27,9 +27,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .choose(&mut rng)
         .copied()
         .expect("registry has at least one collection");
-    let phantom_name = entry
-        .phantoms
+    let files = entry.phantom_files();
+    let phantom_name = files
         .choose(&mut rng)
+        .copied()
         .expect("collection has at least one phantom");
 
     println!("downloading {collection}/{phantom_name}...");
