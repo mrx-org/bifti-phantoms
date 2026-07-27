@@ -171,7 +171,22 @@
       "subj54-7T-2mm-cor.json", "subj54-7T-2mm-sag.json", "subj54-7T-2mm-tra.json", "subj54-7T-2mm.json"
     ]
   },
-  "brainweb": {
+  "breast-phantom": {
+    "description": "Breast digital twin phantom for 3T and 7T field strengths, both multi-slice and single slice.",
+    "keywords": [ "breast", "phantom", "3T", "7T", "2d", "3d" ],
+    "authors": [
+      { "name": "Duarte, Magda", "orcid": "0009-0008-6011-8197", "email": "magda.duarte@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
+    ],
+    "license": "CC-BY-4.0",
+    "doi": "10.5281/zenodo.21528721",
+    "phantoms": [
+      "breast_3T.json", "breast_7T.json", "breast_3T_slice_paper.json", "breast_7T_slice_paper.json",
+      "breast_3T_all_artefacts.json", "breast_3T_artefact_B1+.json", "breast_3T_artefact_B1-.json", "breast_3T_artefact_dB0.json",
+      "breast_3T_slice_paper_inhom_B1+.json", "breast_3T_slice_paper_inhom_B1-.json", "breast_3T_slice_paper_inhom_dB0.json", 
+      "breast_3T_slice_paper_nofat.json", "breast_7T_inhomB1.json", "breast_7T_slice_paper_inhom_B1.json", "breast_7T_slice_paper_nofat.json"
+    ]
+  },
+  "collection-brainweb": {
     "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, in three resolutions (0.5/1/2 mm) each as a full 3D volume and single-slice transversal/coronal/sagittal variants, organized as nested groups (subject > field strength/resolution).",
     "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution" ],
     "authors": [
@@ -1141,19 +1156,5 @@
         ]
       }
     ]
-  },
-  "breast-phantom": {
-    "description": "Breast digital twin phantom for 3T and 7T field strengths, both multi-slice and single slice.",
-    "keywords": [ "breast", "phantom", "3T", "7T", "2d", "3d" ],
-    "authors": [
-      { "name": "Duarte, Magda", "orcid": "0009-0008-6011-8197", "email": "magda.duarte@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
-    ],
-    "license": "CC-BY-4.0",
-    "doi": "10.5281/zenodo.21528721",
-    "phantoms": [
-      "breast_3T.json", "breast_7T.json", "breast_3T_slice_paper.json", "breast_7T_slice_paper.json",
-      "breast_3T_all_artefacts.json", "breast_3T_artefact_B1+.json", "breast_3T_artefact_B1-.json", "breast_3T_artefact_dB0.json",
-      "breast_3T_slice_paper_inhom_B1+.json", "breast_3T_slice_paper_inhom_B1-.json", "breast_3T_slice_paper_inhom_dB0.json", 
-      "breast_3T_slice_paper_nofat.json", "breast_7T_inhomB1.json", "breast_7T_slice_paper_inhom_B1.json", "breast_7T_slice_paper_nofat.json"
-    ]  }
+  }
 }
