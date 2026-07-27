@@ -1,0 +1,27 @@
+[project]
+name = "bifti"
+version = "1.0.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "J-Endres", email = "jonathan.endres01@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "nibabel>=5.4.2",
+    "numpy>=2.5.1",
+    "requests>=2.34.2",
+    "scipy>=1.18.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.31,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+examples = [
+    "h5py>=3.16.0",
+    "matplotlib>=3.11.1",
+    "mrzerocore>=1.0.4",
+    "torch>=2.13.0",
+]

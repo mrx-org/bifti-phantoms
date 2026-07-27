@@ -106,10 +106,11 @@ The `doi` is all you need: parse the Zenodo record id from it
 (`re.search(r"zenodo\.(\d+)$", doi)`) and pull each file from
 `https://zenodo.org/api/records/<record_id>/files/<filename>/content`.
 
-[`demo/nifti_registry.py`](demo/nifti_registry.py) is a small reference
-implementation: `available_phantoms()` fetches and caches this registry, and
-`download_phantom(collection, name)` downloads a phantom's JSON plus every NIfTI
-it references into a local cache, ready to load.
+[`python/bifti/src/bifti/registry.py`](python/bifti/src/bifti/registry.py) and
+[`rust/bifti/src/registry.rs`](rust/bifti/src/registry.rs) are the reference
+implementations: `load_registry()` fetches and parses this file, and
+`load_registry_phantom(collection, name)` downloads a phantom's JSON plus every
+NIfTI it references into a local cache, ready to load.
 
 ## Config archives
 

@@ -19,8 +19,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from nifti_loader import load_phantom, NumpyTissue
-from nifti_registry import available_phantoms, download_phantom
+from bifti import NumpyPhantom, NumpyTissue, load_registry, load_registry_phantom
 
 HERE = Path(__file__).parent
 FIGURES = HERE / "figures"
@@ -79,7 +78,7 @@ def choose_phantom() -> Path:
     downloaded from Zenodo and its local JSON path returned.
     """
     index: list[tuple[str, str]] = []
-    for collection_name, entry in available_phantoms().items():
+    for collection_name, entry in load_registry().items():
         print(f"- {collection_name}")
         for name in entry["phantoms"]:
             index.append((collection_name, name))
@@ -88,7 +87,7 @@ def choose_phantom() -> Path:
     choice = int(input("Select a phantom by number: "))
     collection, name = index[choice - 1]
     print(f"downloading {collection}/{name} ...")
-    return download_phantom(collection, name)
+    return load_registry_phantom(collection, name)
 
 
 def main() -> None:
@@ -96,7 +95,7 @@ def main() -> None:
         json_path = Path(sys.argv[1])
     else:
         json_path = choose_phantom()
-    tissues = load_phantom(json_path)
+    tissues = NumpyPhantom.load(json_path).tissues
 
     FIGURES.mkdir(exist_ok=True)
     for name, tissue in tissues.items():

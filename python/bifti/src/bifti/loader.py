@@ -14,13 +14,51 @@ import nibabel
 from nibabel.processing import resample_from_to
 
 
-from nifti_phantom import (
-    NiftiPhantom,
-    NiftiTissue,
+from .phantom import (
+    BiftiPhantom,
+    BiftiTissue,
     NiftiRef,
     NiftiMapping,
     ResliceTo,
 )
+
+
+# ===========================================================================
+# Public entry points
+# ===========================================================================
+
+
+@dataclass
+class NumpyPhantom:
+    """A loaded bifti phantom + maps, represented as dict of [`NumpyTissue`]"""
+
+    config: BiftiPhantom
+    tissues: dict[str, NumpyTissue]
+
+    @classmethod
+    def load(cls, path: Path | str):
+        """Load a complete phantom from its ``phantom.json``.
+
+        NIfTI files are resolved relative to the JSON file's directory, matching the
+        folder convention in ``../SPEC.md``.
+        """
+        path = Path(path)
+        config = BiftiPhantom.load(Path(path))
+        return cls.load_from_config(config, base_dir=path.parent)
+
+    @classmethod
+    def load_from_config(cls, config: BiftiPhantom, base_dir: Path | str):
+        """Load all tissues of an already-parsed config from ``base_dir``.
+
+        Useful if you want to tweak the config in memory before loading the data.
+        """
+        return cls(
+            config=config,
+            tissues={
+                name: load_tissue(tissue, Path(base_dir), config.reslice_to)
+                for name, tissue in config.tissues.items()
+            },
+        )
 
 
 @dataclass
@@ -55,40 +93,12 @@ class NumpyTissue:
 
 
 # ===========================================================================
-# Public entry points
-# ===========================================================================
-
-
-def load_phantom(path: Path | str) -> dict[str, NumpyTissue]:
-    """Load a complete phantom from its ``phantom.json``.
-
-    NIfTI files are resolved relative to the JSON file's directory, matching the
-    folder convention in ``../SPEC.md``.
-    """
-    path = Path(path)
-    config = NiftiPhantom.load(path)
-    return load_config(config, base_dir=path.parent)
-
-
-def load_config(config: NiftiPhantom, base_dir: Path | str) -> dict[str, NumpyTissue]:
-    """Load all tissues of an already-parsed config from ``base_dir``.
-
-    Useful if you want to tweak the config in memory before loading the data.
-    """
-    base_dir = Path(base_dir)
-    return {
-        name: load_tissue(tissue, base_dir, config.reslice_to)
-        for name, tissue in config.tissues.items()
-    }
-
-
-# ===========================================================================
 # Phantom loading internals
 # ===========================================================================
 
 
 def load_tissue(
-    tissue: NiftiTissue,
+    tissue: BiftiTissue,
     base_dir: Path | str,
     reslice_to: ResliceTo | None = None,
 ) -> NumpyTissue:
@@ -264,7 +274,7 @@ if __name__ == "__main__":
         print("usage: python nifti_loader.py <path/to/phantom.json>")
         raise SystemExit(2)
 
-    tissues = load_phantom(sys.argv[1])
+    tissues = NumpyPhantom.load(sys.argv[1])
     for name, tissue in tissues.items():
         print(f"{name}: shape={tissue.shape}, B1+ channels={tissue.B1_tx.shape[0]}")
         print(

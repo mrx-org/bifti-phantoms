@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 import re
@@ -16,7 +15,7 @@ from urllib.parse import quote
 
 import requests
 
-from nifti_phantom import NiftiPhantom, NiftiRef, NiftiMapping
+from .phantom import BiftiPhantom, NiftiRef, NiftiMapping
 
 HERE = Path(__file__).parent
 CACHE = HERE / "cache"
@@ -34,37 +33,25 @@ ZENODO_FILE_URL = "https://zenodo.org/api/records/{record_id}/files/{filename}/c
 # ===========================================================================
 
 
-def available_phantoms() -> dict[str, dict]:
-    """Download the latest registry.json from GitHub and return it parsed.
-
-    The raw bytes are cached as ``cache/registry-<hash>.json`` (one file per
-    distinct version); the return value is the registry object as-is - a dict
-    mapping each collection name to its entry (``doi``, ``phantoms``, etc.).
-    """
-    raw = _http_get(REGISTRY_URL)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    cached = CACHE / f"registry-{hashlib.sha256(raw).hexdigest()[:12]}.json"
-    if not cached.exists():
-        cached.write_bytes(raw)
-    return json.loads(raw)
+def load_registry():
+    """Download the latest registry.json from GitHub and return it parsed."""
+    return json.loads(_http_get(REGISTRY_URL))
 
 
-def download_phantom(collection: str, name: str) -> Path:
+def load_registry_phantom(collection: str, name: str) -> Path:
     """Download a phantom's JSON and every NIfTI it references into the cache.
 
-    Files go to ``cache/<collection>-<doi>/`` (the DOI's '/' replaced with '_').
-    A version DOI is immutable, so anything already there is reused - re-runs
-    download nothing. Returns the local phantom JSON path, ready for
-    ``nifti_loader.load_phantom`` (the NIfTIs sit next to it).
+    Returns the path to the .json of the downloaded phantom. Re-running this
+    function does nothing as phantoms are immutable and cached.
     """
-    doi = available_phantoms()[collection]["doi"]
+    doi = load_registry()[collection]["doi"]
 
     dir_ = CACHE / f"{collection}-{doi.replace('/', '_')}"
     dir_.mkdir(parents=True, exist_ok=True)
 
-    record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
+    record_id = _zenodo_record_id(doi)
     json_path = _download_json(dir_, record_id, name)
-    phantom = NiftiPhantom.load(json_path)
+    phantom = BiftiPhantom.load(json_path)
     for filename in collect_nifti_files(phantom):
         _download_to(dir_, doi, filename)
     return json_path
@@ -73,6 +60,14 @@ def download_phantom(collection: str, name: str) -> Path:
 # ===========================================================================
 # Internals
 # ===========================================================================
+
+
+def _zenodo_record_id(doi: str) -> str:
+    """Extract the record id from a Zenodo version DOI ("10.5281/zenodo.<id>")."""
+    m = re.search(r"zenodo\.(\d+)$", doi)
+    if not m:
+        raise ValueError(f"Not a Zenodo DOI: {doi!r}")
+    return m.group(1)
 
 
 def _http_get(url: str) -> bytes:
@@ -89,7 +84,7 @@ def _download_to(dir_: Path, doi: str, filename: str) -> Path:
     """
     dest = dir_ / filename
     if not dest.exists():
-        record_id = re.search(r"zenodo\.(\d+)$", doi).group(1)
+        record_id = _zenodo_record_id(doi)
         url = ZENODO_FILE_URL.format(record_id=record_id, filename=filename)
         dest.write_bytes(_http_get(url))
     return dest
@@ -124,7 +119,10 @@ def _download_json(dir_: Path, record_id: str, name: str) -> Path:
 
     with tarfile.open(fileobj=io.BytesIO(archive.read_bytes()), mode="r:") as tf:
         member = tf.getmember(name)  # raises KeyError if absent
-        dest.write_bytes(tf.extractfile(member).read())  # type: ignore[union-attr]
+        extracted = tf.extractfile(member)
+        if extracted is None:
+            raise ValueError(f"{name!r} is not a regular file in configs.tar")
+        dest.write_bytes(extracted.read())
     return dest
 
 
@@ -137,7 +135,7 @@ def _ref_file(prop) -> str | None:
     return None  # a plain number references no file
 
 
-def collect_nifti_files(phantom: NiftiPhantom) -> list[str]:
+def collect_nifti_files(phantom: BiftiPhantom) -> list[str]:
     """Every distinct NIfTI filename referenced across all of a phantom's tissues."""
     files: list[str] = []
     seen: set[str] = set()
@@ -161,7 +159,7 @@ def collect_nifti_files(phantom: NiftiPhantom) -> list[str]:
 # ===========================================================================
 
 if __name__ == "__main__":
-    for collection_name, entry in available_phantoms().items():
+    for collection_name, entry in load_registry().items():
         print(f"{collection_name}  ({entry['doi']})")
         for phantom in entry["phantoms"]:
             print(f"    {phantom}")
