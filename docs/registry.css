@@ -118,7 +118,7 @@
 .card.group .card-title { font-weight: 500; font-size: 0.9rem; }
 
 .group-default-tag {
-  background: var(--c-accent);
-  color: var(--c-base);
-  border-color: var(--c-accent);
+  background: var(--c-base);
+  color: var(--c-accent);
+  border-color: var(--c-pill-border);
 }
