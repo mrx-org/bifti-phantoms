@@ -3,11 +3,8 @@ target
 cache
 trace.json
 
-# demo.py plot output (the example NIfTIs in demo/data are committed)
-demo/figures/
-
-# downloaded registry + Zenodo phantoms (demo/nifti_registry.py)
-demo/cache/
+# demo.py plot output (the example NIfTIs in examples/data are committed)
+python/bifti/examples/figures/
 
 # files used for writing the ESMRMB abstract
 *.seq
