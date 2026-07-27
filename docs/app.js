@@ -1,5 +1,5 @@
 const REGISTRY_URL =
-  "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/grouped-phantoms/registry.json";
+  "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/main/registry.json";
 const REPO_URL = "https://github.com/mrx-org/bifti-phantoms";
 
 // One shared Promise<ArrayBuffer> per archive URL so a collection with many
