@@ -1,13 +1,13 @@
 """Simulate a Pulseq sequence on a NIfTI phantom with MR-zero.
 
-Loads a phantom JSON via ``bifti.load_phantom``, which already honours the
+Loads a phantom JSON via ``bifti.NumpyPhantom.load``, which already honours the
 spec's ``reslice_to`` field — sidestepping MR-zero's current lack of
 in-package ``reslice_to`` support (see PR
 https://github.com/MRsources/MRzero-Core/pull/172).
 
 Pipeline:
 
-1. ``load_phantom`` → ``dict[str, NumpyTissue]`` on the target grid.
+1. ``NumpyPhantom.load`` → ``dict[str, NumpyTissue]`` on the target grid.
 2. Each tissue wrapped as ``mr0.VoxelGridPhantom``.
 3. ``TissueDict.combine().build()`` → partial-volume ``SimData``.
 4. ``mr0.Sequence.import_file`` reads the ``.seq``.
@@ -32,7 +32,7 @@ import torch
 import matplotlib.pyplot as plt
 import MRzeroCore as mr0
 
-from bifti import NumpyTissue, load_phantom
+from bifti import NumpyTissue, NumpyPhantom
 
 
 def to_voxel_grid(t: NumpyTissue) -> mr0.VoxelGridPhantom:
@@ -92,7 +92,7 @@ def build_simdata(phantom_json: Path, combine: bool = False) -> mr0.SimData:
     ``combine=True`` tissue parameters are averaged into one spin per voxel;
     cheaper, but signal at long TE drifts because exp(-t/T2) is convex in T2.
     """
-    tissues = load_phantom(phantom_json)
+    tissues = NumpyPhantom.load(phantom_json).tissues
     grids = mr0.TissueDict({name: to_voxel_grid(t) for name, t in tissues.items()})
     if combine:
         return grids.combine().build()

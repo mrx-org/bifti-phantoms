@@ -5,11 +5,34 @@ the phantom JSON, load a phantom into plain NumPy arrays, and fetch phantoms
 from the public [registry](../../REGISTRY.md).
 
 ```python
-from bifti import NiftiPhantom, load_phantom
+from bifti import NumpyPhantom
 
-phantom = NiftiPhantom.load("subj42-3T.json")
-tissues = load_phantom("subj42-3T.json")  # dict[str, NumpyTissue] of NumPy arrays
+phantom = NumpyPhantom.load("subj42-3T.json")
+tissue = phantom.tissues["gm"]  # a NumpyTissue: density, T1, T2, ... as np.ndarray
+print(tissue.shape, tissue.T1.mean())
 ```
+
+`phantom.config` is the parsed `BiftiPhantom` (the raw JSON structure: units,
+system, tissue definitions) — see [phantom.py](src/bifti/phantom.py) for the
+full data model, and [loader.py](src/bifti/loader.py) for how each property
+resolves to an array.
+
+## API at a glance
+
+Everything below is importable from the top-level `bifti` package (`from
+bifti import ...`):
+
+| Name | What it is |
+|------|------------|
+| `NumpyPhantom.load(path)` | Load a phantom JSON + its NIfTIs into `NumpyPhantom(config, tissues)`. |
+| `NumpyTissue` | One tissue as NumPy arrays: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`, `B1_rx`, plus `.shape`/`.affine`. |
+| `BiftiPhantom.load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O) — `BiftiPhantom(units, system, tissues, reslice_to, schema)`. |
+| `load_registry()` | Fetch and parse the public [registry.json](../../registry.json). |
+| `load_registry_phantom(collection, name)` | Download one phantom's JSON + NIfTIs from Zenodo into a local cache; returns the JSON path. |
+
+`NumpyPhantom.load` is what you want for simulation/analysis (arrays); use
+`BiftiPhantom` directly only if you're generating or editing phantom JSONs
+without touching pixel data (e.g. [`examples/make_numerical_brain_cropped_bifti.py`](examples/make_numerical_brain_cropped_bifti.py)).
 
 ## Installation
 
@@ -101,3 +124,19 @@ byte-identical files. The phantoms together exercise the whole format:
 > **Note:** loading a tissue with a `func` mapping prints a warning — the loader
 > evaluates `func` with `eval` for brevity, so only load phantoms you trust (see
 > the note in [`bifti/loader.py`](src/bifti/loader.py)).
+
+## Known limitations
+
+- **Complex-valued NIfTI data isn't handled.** A complex `B1+`/`B1-` map gets
+  cast with `np.asarray(..., dtype=np.float64)` in
+  [`loader.py`](src/bifti/loader.py), which silently discards the imaginary
+  part (numpy emits a `ComplexWarning`, easy to miss). The
+  [Rust crate](../../rust/bifti/) fails loudly instead in this case.
+- Only the default [`units`](../../JSON.md#units) are accepted.
+
+## See also
+
+- [../../README.md](../../README.md) — repo overview, format spec, and the
+  registry.
+- [../../rust/bifti/](../../rust/bifti/) — the Rust crate, including how it
+  differs from this package.

@@ -44,7 +44,7 @@ from pathlib import Path
 import numpy as np
 import h5py
 
-from bifti import NumpyTissue, load_phantom
+from bifti import NumpyPhantom, NumpyTissue
 
 
 def tissue_spins(tissue: NumpyTissue, density_threshold: float,
@@ -172,7 +172,7 @@ def convert(json_path: Path, out_path: Path, name: str,
     if spins_per_voxel < 1:
         raise ValueError("spins_per_voxel must be >= 1")
     rng = np.random.default_rng(seed)
-    tissues = load_phantom(json_path)
+    tissues = NumpyPhantom.load(json_path).tissues
     warn_on_drops(tissues)
 
     per_tissue = [tissue_spins(t, density_threshold, spins_per_voxel, rng)
