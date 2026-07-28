@@ -1,204 +1,12 @@
-const REGISTRY_URL =
-  "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/main/registry.json";
-const REPO_URL = "https://github.com/mrx-org/bifti-phantoms";
-
-// One shared Promise<ArrayBuffer> per archive URL so a collection with many
-// phantoms only triggers one configs.tar download regardless of concurrency.
-const _archiveCache = new Map();
-function _fetchArchiveCached(url) {
-  if (!_archiveCache.has(url)) {
-    _archiveCache.set(
-      url,
-      fetch(url, { cache: "force-cache" }).then((r) =>
-        r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))
-      )
-    );
-  }
-  return _archiveCache.get(url);
-}
-
-// Walk a TAR ArrayBuffer (512-byte blocks) and return the text content of
-// `filename`, or null if the entry is not found.
-function _extractFromTar(buffer, filename) {
-  const view = new Uint8Array(buffer);
-  const dec = new TextDecoder();
-  let offset = 0;
-  while (offset + 512 <= view.length) {
-    const name = dec.decode(view.subarray(offset, offset + 100)).replace(/\0/g, "");
-    if (!name) break; // end-of-archive null block
-    const size = parseInt(dec.decode(view.subarray(offset + 124, offset + 136)).trim(), 8);
-    if (name === filename) {
-      return dec.decode(view.subarray(offset + 512, offset + 512 + size));
-    }
-    offset += 512 + Math.ceil(size / 512) * 512;
-  }
-  return null;
-}
-
-// Fetch a phantom JSON's raw text from a Zenodo record. Tries configs.tar
-// first (one shared download for all phantoms in the record); falls back to
-// the direct file URL only if the archive is absent or doesn't contain the
-// entry. Raw text (not just the parsed object) is what a zip download needs
-// to embed the file byte-for-byte.
-async function fetchPhantomText(recordId, filename) {
-  const tarUrl = `https://zenodo.org/api/records/${recordId}/files/configs.tar/content`;
-  try {
-    const buf = await _fetchArchiveCached(tarUrl);
-    const text = _extractFromTar(buf, filename);
-    if (text != null) return text;
-  } catch (_) {
-    // no configs.tar — fall through to direct fetch
-  }
-
-  const directUrl = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
-  const r = await fetch(directUrl, { cache: "force-cache" });
-  if (r.ok) return r.text();
-
-  throw new Error(`${filename} not found in record ${recordId} or configs.tar`);
-}
-
-async function fetchPhantomJson(recordId, filename) {
-  return JSON.parse(await fetchPhantomText(recordId, filename));
-}
-
-// ===========================================================================
-// Phantom zip download: fetch a phantom JSON + every NIfTI it references and
-// bundle them client-side into a "<name>.zip" the browser downloads.
-// ===========================================================================
-
-// A NIfTI reference is "<filename>[<index>]" (a plain string) or
-// { file: "<filename>[<index>]", func: "..." } (a transformed reference).
-// Mirrors collect_nifti_files in python/bifti/src/bifti/registry.py and
-// rust/bifti/src/registry.rs.
-function _niftiFilenameFromRef(ref) {
-  const m = /^(.*)\[\d+\]$/.exec(ref);
-  return m ? m[1] : ref;
-}
-
-function _refFile(prop) {
-  if (prop == null || typeof prop === "number") return null;
-  if (typeof prop === "string") return _niftiFilenameFromRef(prop);
-  if (typeof prop === "object" && typeof prop.file === "string") return _niftiFilenameFromRef(prop.file);
-  return null;
-}
-
-// Every distinct NIfTI filename referenced across all of a phantom's tissues.
-function collectNiftiFiles(phantom) {
-  const files = [];
-  const seen = new Set();
-  const add = (name) => { if (name && !seen.has(name)) { seen.add(name); files.push(name); } };
-
-  for (const tissue of Object.values(phantom?.tissues || {})) {
-    add(_refFile(tissue.density));
-    for (const key of ["T1", "T2", "T2'", "ADC", "dB0"]) add(_refFile(tissue[key]));
-    for (const key of ["B1+", "B1-"]) {
-      for (const channel of tissue[key] || []) add(_refFile(channel));
-    }
-  }
-  return files;
-}
-
-const _CRC_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-    table[n] = c >>> 0;
-  }
-  return table;
-})();
-
-function _crc32(bytes) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) crc = _CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-// Build an uncompressed (store-method) ZIP from [{ name, data: Uint8Array }].
-// No compression library needed - ZIP allows raw stored entries, so this is
-// just the local/central-directory bookkeeping plus a CRC-32 per entry.
-function buildZip(files) {
-  const encoder = new TextEncoder();
-  const localParts = [];
-  const centralParts = [];
-  let offset = 0;
-
-  for (const { name, data } of files) {
-    const nameBytes = encoder.encode(name);
-    const crc = _crc32(data);
-
-    const local = new DataView(new ArrayBuffer(30));
-    local.setUint32(0, 0x04034b50, true);
-    local.setUint16(4, 20, true); // version needed
-    local.setUint16(6, 0, true); // flags
-    local.setUint16(8, 0, true); // method: store
-    local.setUint16(10, 0, true); // mod time
-    local.setUint16(12, 0, true); // mod date
-    local.setUint32(14, crc, true);
-    local.setUint32(18, data.length, true); // compressed size
-    local.setUint32(22, data.length, true); // uncompressed size
-    local.setUint16(26, nameBytes.length, true);
-    local.setUint16(28, 0, true); // extra length
-    localParts.push(new Uint8Array(local.buffer), nameBytes, data);
-
-    const central = new DataView(new ArrayBuffer(46));
-    central.setUint32(0, 0x02014b50, true);
-    central.setUint16(4, 20, true); // version made by
-    central.setUint16(6, 20, true); // version needed
-    central.setUint16(8, 0, true); // flags
-    central.setUint16(10, 0, true); // method
-    central.setUint16(12, 0, true); // mod time
-    central.setUint16(14, 0, true); // mod date
-    central.setUint32(16, crc, true);
-    central.setUint32(20, data.length, true);
-    central.setUint32(24, data.length, true);
-    central.setUint16(28, nameBytes.length, true);
-    central.setUint16(30, 0, true); // extra length
-    central.setUint16(32, 0, true); // comment length
-    central.setUint16(34, 0, true); // disk number start
-    central.setUint16(36, 0, true); // internal attrs
-    central.setUint32(38, 0, true); // external attrs
-    central.setUint32(42, offset, true); // offset of local header
-    centralParts.push(new Uint8Array(central.buffer), nameBytes);
-
-    offset += 30 + nameBytes.length + data.length;
-  }
-
-  const centralStart = offset;
-  const centralSize = centralParts.reduce((acc, p) => acc + p.length, 0);
-
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true);
-  end.setUint16(4, 0, true); // disk number
-  end.setUint16(6, 0, true); // disk where central directory starts
-  end.setUint16(8, files.length, true);
-  end.setUint16(10, files.length, true);
-  end.setUint32(12, centralSize, true);
-  end.setUint32(16, centralStart, true);
-  end.setUint16(20, 0, true); // comment length
-
-  return new Blob([...localParts, ...centralParts, new Uint8Array(end.buffer)], { type: "application/zip" });
-}
-
-// One shared Promise<Uint8Array> per (record, filename), so downloading
-// several configs that reference the same NIfTI (a shared B1 map, a shared
-// density volume, ...) only fetches it from Zenodo once per page visit.
-const _niftiCache = new Map();
-function _fetchNiftiBytesCached(recordId, filename) {
-  const key = `${recordId}/${filename}`;
-  if (!_niftiCache.has(key)) {
-    const url = `https://zenodo.org/api/records/${recordId}/files/${encodeURIComponent(filename)}/content`;
-    _niftiCache.set(
-      key,
-      fetch(url, { cache: "force-cache" }).then((r) =>
-        r.ok
-          ? r.arrayBuffer().then((buf) => new Uint8Array(buf))
-          : Promise.reject(new Error(`HTTP ${r.status} fetching ${filename}`))
-      )
-    );
-  }
-  return _niftiCache.get(key);
-}
+import {
+  REPO_URL,
+  loadRegistry as fetchRegistry,
+  countPhantoms,
+  parseZenodoRecordId,
+  fetchPhantomJson,
+  fetchRecordTotalSize,
+  buildPhantomZip,
+} from "./bifti.js";
 
 // Downloads <name>.zip (same base name as the phantom JSON) containing the
 // JSON plus every NIfTI it references, bundled client-side.
@@ -206,24 +14,13 @@ async function downloadPhantomZip(recordId, filename, button) {
   const original = button.textContent;
   button.disabled = true;
   try {
-    const text = await fetchPhantomText(recordId, filename);
-    const niftiFiles = collectNiftiFiles(JSON.parse(text));
-    const total = 1 + niftiFiles.length;
-    let done = 1; // the phantom JSON itself
-    button.textContent = `downloading ${done}/${total}`;
-
-    const entries = [{ name: filename, data: new TextEncoder().encode(text) }];
-    for (const niftiName of niftiFiles) {
-      entries.push({ name: niftiName, data: await _fetchNiftiBytesCached(recordId, niftiName) });
-      done++;
+    const { blob, downloadName } = await buildPhantomZip(recordId, filename, (done, total) => {
       button.textContent = `downloading ${done}/${total}`;
-    }
-
-    const blob = buildZip(entries);
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${filename.replace(/\.json$/i, "")}.zip`;
+    a.download = downloadName;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -254,9 +51,7 @@ function renderDownloadButton(recordId, filename) {
 async function loadRegistry() {
   const container = document.getElementById("registry-list");
   try {
-    const res = await fetch(REGISTRY_URL, { cache: "no-cache" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await fetchRegistry();
     renderRegistry(container, data);
   } catch (err) {
     container.innerHTML = `
@@ -354,7 +149,7 @@ function renderEntry(name, entry) {
 
   let phantomSection = null;
   if (phantoms.length > 0) {
-    phantomSection = renderPhantomSection(phantoms, recordId, name);
+    phantomSection = renderPhantomSection(phantoms, recordId);
     el.querySelector(".phantoms-slot").appendChild(phantomSection);
   }
 
@@ -377,52 +172,50 @@ function renderEntry(name, entry) {
 
 // Top-level entry point: wraps a (possibly nested) phantoms array in a
 // '.list-section' and forwards lazy-loading to the tree it renders.
-function renderPhantomSection(phantoms, recordId, collectionName) {
+function renderPhantomSection(phantoms, recordId) {
   const wrap = document.createElement("div");
   wrap.className = "list-section";
-  const tree = renderPhantomTree(phantoms, recordId, collectionName);
+  const tree = renderPhantomTree(phantoms, recordId);
   wrap.appendChild(tree);
   wrap.loadPhantoms = tree.loadPhantoms;
   return wrap;
 }
 
 // Renders one level of a (possibly nested) phantoms array: leaf filenames
-// become rows in a table; group objects become nested accordions (see
-// renderPhantomGroup) that lazily render their own subtree on first expand.
-// `pathLabel` is the breadcrumb (collection + group names so far) shown in
-// each phantom's tissue modal header.
-function renderPhantomTree(entries, recordId, pathLabel) {
+// become phantom cards (see renderPhantomList); group objects become nested
+// accordions (see renderPhantomGroup) that lazily render their own subtree
+// on first expand.
+function renderPhantomTree(entries, recordId) {
   const container = document.createElement("div");
   container.className = "phantom-tree";
 
   const files = entries.filter((e) => typeof e === "string");
   const groups = entries.filter((e) => e && typeof e === "object");
 
-  let table = null;
+  let list = null;
   if (files.length > 0) {
-    table = renderPhantomTable(files, recordId, pathLabel);
-    container.appendChild(table);
+    list = renderPhantomList(files, recordId);
+    container.appendChild(list);
   }
   for (const group of groups) {
-    container.appendChild(renderPhantomGroup(group, recordId, pathLabel));
+    container.appendChild(renderPhantomGroup(group, recordId));
   }
 
-  // Only the leaf table has anything to fetch at this level - nested groups
+  // Only the leaf list has anything to fetch at this level - nested groups
   // load themselves lazily when expanded (see renderPhantomGroup).
-  container.loadPhantoms = () => { if (table) table.loadPhantoms(); };
+  container.loadPhantoms = () => { if (list) list.loadPhantoms(); };
 
   return container;
 }
 
 // A named group of phantom entries, rendered as a nested collapsible card
-// that drills into its own subtree. Lazily loads phantom metadata (B0,
-// resolution, tissues) for its subtree only the first time it's expanded -
-// important since a deep tree can otherwise trigger hundreds of Zenodo
-// fetches on page load.
-function renderPhantomGroup(group, recordId, pathLabel) {
+// that drills into its own subtree. Lazily loads phantom metadata (resolution,
+// tissues) for its subtree only the first time it's expanded - important
+// since a deep tree can otherwise trigger hundreds of Zenodo fetches on page
+// load.
+function renderPhantomGroup(group, recordId) {
   const groupPhantoms = Array.isArray(group.phantoms) ? group.phantoms : [];
   const count = countPhantoms(groupPhantoms);
-  const childPathLabel = `${pathLabel}/${group.group}`;
 
   const details = document.createElement("details");
   details.className = "card group";
@@ -443,7 +236,7 @@ function renderPhantomGroup(group, recordId, pathLabel) {
     details.querySelector(".download-slot").appendChild(renderDownloadButton(recordId, group.default));
   }
 
-  const tree = renderPhantomTree(groupPhantoms, recordId, childPathLabel);
+  const tree = renderPhantomTree(groupPhantoms, recordId);
   details.querySelector(".group-content-slot").appendChild(tree);
 
   let loaded = false;
@@ -456,136 +249,89 @@ function renderPhantomGroup(group, recordId, pathLabel) {
   return details;
 }
 
-// Every leaf filename under a (possibly nested) phantoms array.
-function countPhantoms(entries) {
-  let n = 0;
-  for (const e of entries) {
-    if (typeof e === "string") n++;
-    else if (e && typeof e === "object") n += countPhantoms(e.phantoms || []);
-  }
-  return n;
-}
-
-function renderPhantomTable(phantoms, recordId, pathLabel) {
-  const tableWrap = document.createElement("div");
-  tableWrap.className = "data-list-wrap";
-
-  const table = document.createElement("table");
-  table.className = "data-list";
-
-  const thead = document.createElement("thead");
-  thead.innerHTML = `<tr>
-    <th>Phantom</th>
-    <th>B<sub>0</sub></th>
-    <th>Tissues</th>
-    <th class="col-spacer"></th>
-    <th>Resolution</th>
-    <th class="col-spacer"></th>
-    <th></th>
-  </tr>`;
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
+// A leaf-level phantom list: one collapsible card per phantom, styled like a
+// group card (filename, tissues, resolution, download button in the summary)
+// but expanding to show the tissue table / raw JSON instead of a subtree.
+function renderPhantomList(phantoms, recordId) {
+  const container = document.createElement("div");
+  container.className = "phantom-tree";
 
   const rows = phantoms.map((filename) => {
-    const tr = document.createElement("tr");
+    const details = document.createElement("details");
+    details.className = "card group phantom";
+    details.innerHTML = `
+      <summary class="card-summary">
+        <span class="card-title"><code>${escape(filename)}</code></span>
+        <span class="card-meta phantom-tissues"><span class="loading-text">…</span></span>
+        <span class="card-meta phantom-resolution"><span class="loading-text">…</span></span>
+        ${recordId ? `<span class="download-slot"></span>` : ""}
+      </summary>
+      <div class="card-body"></div>
+    `;
 
-    const filenameTd = document.createElement("td");
-    filenameTd.className = "col-name";
-    const filenameCode = document.createElement("code");
-    filenameCode.textContent = filename.replace(/\.json$/i, "");
-    filenameTd.appendChild(filenameCode);
-    tr.appendChild(filenameTd);
+    if (recordId) {
+      details.querySelector(".download-slot").appendChild(renderDownloadButton(recordId, filename));
+    }
 
-    const b0Td = document.createElement("td");
-    b0Td.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(b0Td);
+    container.appendChild(details);
 
-    const tissueTd = document.createElement("td");
-    tissueTd.className = "col-muted";
-    tissueTd.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(tissueTd);
-
-    const spacerTd = document.createElement("td");
-    spacerTd.className = "col-spacer";
-    tr.appendChild(spacerTd);
-
-    const resTd = document.createElement("td");
-    resTd.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(resTd);
-
-    const downloadSpacerTd = document.createElement("td");
-    downloadSpacerTd.className = "col-spacer";
-    tr.appendChild(downloadSpacerTd);
-
-    const downloadTd = document.createElement("td");
-    if (recordId) downloadTd.appendChild(renderDownloadButton(recordId, filename));
-    else downloadTd.innerHTML = '<span class="muted">—</span>';
-    tr.appendChild(downloadTd);
-
-    tbody.appendChild(tr);
-
-    return { filename, filenameTd, b0Td, resTd, tissueTd };
+    return {
+      filename,
+      details,
+      body: details.querySelector(".card-body"),
+      tissuesEl: details.querySelector(".phantom-tissues"),
+      resEl: details.querySelector(".phantom-resolution"),
+    };
   });
 
-  table.appendChild(tbody);
-  tableWrap.appendChild(table);
-
-  tableWrap.loadPhantoms = () => {
-    for (const { filename, filenameTd, b0Td, resTd, tissueTd } of rows) {
+  container.loadPhantoms = () => {
+    for (const { filename, details, body, tissuesEl, resEl } of rows) {
       if (!recordId) {
         const dash = '<span class="muted">—</span>';
-        b0Td.innerHTML = dash;
-        resTd.innerHTML = dash;
-        tissueTd.innerHTML = dash;
+        tissuesEl.innerHTML = dash;
+        resEl.innerHTML = dash;
+        body.innerHTML = `<p class="muted" style="padding:0.5rem 0">Not available.</p>`;
         continue;
       }
 
-      fetchPhantomJson(recordId, filename)
+      const dataPromise = fetchPhantomJson(recordId, filename);
+
+      dataPromise
         .then((data) => {
-          const b0 = data?.system?.B0;
-          b0Td.textContent = b0 !== undefined ? `${b0} T` : "—";
-
           const res = data?.reslice_to?.resolution;
-          resTd.textContent = Array.isArray(res) ? res.join("×") : "native";
+          resEl.textContent = Array.isArray(res) ? res.join("×") : "native";
 
-          const tissues = data?.tissues || {};
-          const tissueNames = Object.keys(tissues);
-          tissueTd.textContent = tissueNames.length > 0 ? tissueNames.join(", ") : "—";
-
-          const btn = document.createElement("button");
-          btn.className = "filename-link";
-          btn.textContent = filename.replace(/\.json$/i, "");
-          btn.title = "View tissues";
-          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, pathLabel));
-          filenameTd.innerHTML = "";
-          filenameTd.appendChild(btn);
+          const tissueNames = Object.keys(data?.tissues || {});
+          tissuesEl.textContent = tissueNames.length > 0 ? tissueNames.join(", ") : "—";
         })
         .catch((err) => {
           const errHtml = `<span class="muted" title="${escape(err.message)}">!</span>`;
-          b0Td.innerHTML = errHtml;
-          resTd.innerHTML = errHtml;
-          tissueTd.innerHTML = errHtml;
+          tissuesEl.innerHTML = errHtml;
+          resEl.innerHTML = errHtml;
         });
+
+      let bodyLoaded = false;
+      details.addEventListener("toggle", () => {
+        if (!details.open || bodyLoaded) return;
+        bodyLoaded = true;
+        body.innerHTML = `<p class="muted" style="padding:0.5rem 0">Loading…</p>`;
+        dataPromise
+          .then((data) => renderPhantomDetail(body, data))
+          .catch((err) => {
+            body.innerHTML = `<p class="muted" style="padding:0.5rem 0">Could not load: ${escape(err.message)}</p>`;
+          });
+      });
     }
   };
 
-  return tableWrap;
+  return container;
 }
 
-function openTissueModal(tissues, rawData, filename, pathLabel) {
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
+// Renders a phantom's tissue table (with a table/JSON toggle) into `container`.
+function renderPhantomDetail(container, rawData) {
+  const tissues = rawData?.tissues || {};
+  const tissueNames = Object.keys(tissues);
 
-  const box = document.createElement("div");
-  box.className = "modal-box";
-
-  const header = document.createElement("div");
-  header.className = "modal-header";
-
-  // Left: toggle switch + label
   const toggleWrap = document.createElement("div");
   toggleWrap.className = "view-toggle";
 
@@ -603,30 +349,13 @@ function openTissueModal(tissues, rawData, filename, pathLabel) {
   toggleWrap.appendChild(toggleBtn);
   toggleWrap.appendChild(toggleLabel);
 
-  // Center: plain path, non-interactive
-  const titleEl = document.createElement("span");
-  titleEl.className = "modal-header-title";
-  titleEl.innerHTML = `<span class="modal-path-collection">${escape(pathLabel)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
-
-  // Right: close button
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "modal-close";
-  closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "×";
-
-  header.appendChild(toggleWrap);
-  header.appendChild(titleEl);
-  header.appendChild(closeBtn);
-
-  const body = document.createElement("div");
-  body.className = "modal-body";
-
-  const tissueNames = Object.keys(tissues);
+  const content = document.createElement("div");
+  content.className = "phantom-detail-content";
 
   function showTable() {
-    body.innerHTML = tissueNames.length > 0
+    content.innerHTML = tissueNames.length > 0
       ? renderTissueTable(tissues, tissueNames)
-      : `<p class="muted" style="padding:1rem">No tissues defined.</p>`;
+      : `<p class="muted" style="padding:0.5rem 0">No tissues defined.</p>`;
     toggleBtn.setAttribute("aria-checked", "false");
     toggleLabel.textContent = "table";
   }
@@ -635,8 +364,8 @@ function openTissueModal(tissues, rawData, filename, pathLabel) {
     const pre = document.createElement("pre");
     pre.className = "json-viewer";
     pre.innerHTML = highlightJson(rawData);
-    body.innerHTML = "";
-    body.appendChild(pre);
+    content.innerHTML = "";
+    content.appendChild(pre);
     toggleBtn.setAttribute("aria-checked", "true");
     toggleLabel.textContent = "json";
   }
@@ -649,22 +378,9 @@ function openTissueModal(tissues, rawData, filename, pathLabel) {
     showingJson ? showJson() : showTable();
   });
 
-  box.appendChild(header);
-  box.appendChild(body);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-
-  const close = () => {
-    overlay.remove();
-    document.removeEventListener("keydown", onKey);
-  };
-
-  const onKey = (e) => { if (e.key === "Escape") close(); };
-
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-  closeBtn.addEventListener("click", close);
-  document.addEventListener("keydown", onKey);
-  closeBtn.focus();
+  container.innerHTML = "";
+  container.appendChild(toggleWrap);
+  container.appendChild(content);
 }
 
 function highlightJson(obj) {
@@ -700,13 +416,8 @@ function renderFilesSummary(doiUrl, doi, recordId) {
 
   el.load = () => {
     if (!recordId) return;
-    fetch(`https://zenodo.org/api/records/${recordId}`, { cache: "force-cache" })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        const total = (data?.files || []).reduce((acc, f) => acc + (f.size || 0), 0);
+    fetchRecordTotalSize(recordId)
+      .then((total) => {
         el.innerHTML = `Raw files: <a href="${doiUrl}">${escape(doi)}</a> - ${escape(formatSize(total))}`;
       })
       .catch(() => {
@@ -783,12 +494,6 @@ function renderArray(arr) {
       : (v && v.file ? (v.func ? `${v.file} → ${v.func}` : v.file) : JSON.stringify(v));
     return `<span class="cell-ref" data-tooltip="${escape(tip)}">${label}</span>`;
   }).join(", ");
-}
-
-function parseZenodoRecordId(doi) {
-  if (!doi) return null;
-  const m = /zenodo\.(\d+)/i.exec(doi);
-  return m ? m[1] : null;
 }
 
 function escape(s) {

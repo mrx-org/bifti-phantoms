@@ -104,7 +104,7 @@
 
 /* Nested phantom groups: reuse .card/.card-summary/.card-body, but smaller
    and indented with a left accent so nesting depth reads visually. */
-.phantom-tree { display: flex; flex-direction: column; gap: 0.5rem; }
+.phantom-tree { display: flex; flex-direction: column; gap: 0; }
 .phantom-tree .phantom-tree { margin-top: 0.5rem; }
 
 .card.group {
@@ -116,6 +116,12 @@
 .card.group > .card-summary { padding: 0.5rem 0.75rem; }
 .card.group > .card-body { padding: 0.25rem 0.75rem 0.75rem; }
 .card.group .card-title { font-weight: 500; font-size: 0.9rem; }
+
+.card.phantom .card-title code {
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--c-text);
+}
 
 .group-default-tag {
   background: var(--c-base);
