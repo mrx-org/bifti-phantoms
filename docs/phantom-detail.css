@@ -1,36 +1,4 @@
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--c-overlay);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.modal-box {
-  background: var(--c-base);
-  border-radius: var(--radius);
-  width: min(90vw, 820px);
-  max-height: 80vh;
-  overflow: hidden;
-  box-shadow: 0 8px 32px var(--c-overlay);
-  display: flex;
-  flex-direction: column;
-  scrollbar-color: var(--c-surface) var(--c-base);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 1rem;
-  background: var(--c-surface);
-  flex-shrink: 0;
-}
-
-/* Toggle switch (left side of modal header) */
+/* Toggle switch (table/JSON), shown inline in an expanded phantom card */
 .view-toggle {
   display: flex;
   align-items: center;
@@ -78,40 +46,6 @@
   font-size: 0.74rem;
   color: var(--c-text);
   min-width: 3.5ch;
-}
-
-/* Centered path title */
-.modal-header-title {
-  flex: 1;
-  text-align: center;
-  font-size: 0.86rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 0.5rem;
-}
-
-.modal-path-collection { color: var(--c-text); }
-.modal-path-file { color: var(--c-accent); font-weight: 800; }
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 1.3rem;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--c-text);
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.modal-close:hover { color: var(--c-dim); background: var(--c-surface); }
-
-.modal-body { overflow: auto; flex: 1; }
-.modal-body .table-wrap { border-radius: 0; }
-
-@media (max-width: 600px) {
-  .modal-box { width: 100%; max-height: 90vh; }
 }
 
 /* JSON viewer */

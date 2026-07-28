@@ -149,7 +149,7 @@ function renderEntry(name, entry) {
 
   let phantomSection = null;
   if (phantoms.length > 0) {
-    phantomSection = renderPhantomSection(phantoms, recordId, name);
+    phantomSection = renderPhantomSection(phantoms, recordId);
     el.querySelector(".phantoms-slot").appendChild(phantomSection);
   }
 
@@ -172,52 +172,50 @@ function renderEntry(name, entry) {
 
 // Top-level entry point: wraps a (possibly nested) phantoms array in a
 // '.list-section' and forwards lazy-loading to the tree it renders.
-function renderPhantomSection(phantoms, recordId, collectionName) {
+function renderPhantomSection(phantoms, recordId) {
   const wrap = document.createElement("div");
   wrap.className = "list-section";
-  const tree = renderPhantomTree(phantoms, recordId, collectionName);
+  const tree = renderPhantomTree(phantoms, recordId);
   wrap.appendChild(tree);
   wrap.loadPhantoms = tree.loadPhantoms;
   return wrap;
 }
 
 // Renders one level of a (possibly nested) phantoms array: leaf filenames
-// become rows in a table; group objects become nested accordions (see
-// renderPhantomGroup) that lazily render their own subtree on first expand.
-// `pathLabel` is the breadcrumb (collection + group names so far) shown in
-// each phantom's tissue modal header.
-function renderPhantomTree(entries, recordId, pathLabel) {
+// become phantom cards (see renderPhantomList); group objects become nested
+// accordions (see renderPhantomGroup) that lazily render their own subtree
+// on first expand.
+function renderPhantomTree(entries, recordId) {
   const container = document.createElement("div");
   container.className = "phantom-tree";
 
   const files = entries.filter((e) => typeof e === "string");
   const groups = entries.filter((e) => e && typeof e === "object");
 
-  let table = null;
+  let list = null;
   if (files.length > 0) {
-    table = renderPhantomTable(files, recordId, pathLabel);
-    container.appendChild(table);
+    list = renderPhantomList(files, recordId);
+    container.appendChild(list);
   }
   for (const group of groups) {
-    container.appendChild(renderPhantomGroup(group, recordId, pathLabel));
+    container.appendChild(renderPhantomGroup(group, recordId));
   }
 
-  // Only the leaf table has anything to fetch at this level - nested groups
+  // Only the leaf list has anything to fetch at this level - nested groups
   // load themselves lazily when expanded (see renderPhantomGroup).
-  container.loadPhantoms = () => { if (table) table.loadPhantoms(); };
+  container.loadPhantoms = () => { if (list) list.loadPhantoms(); };
 
   return container;
 }
 
 // A named group of phantom entries, rendered as a nested collapsible card
-// that drills into its own subtree. Lazily loads phantom metadata (B0,
-// resolution, tissues) for its subtree only the first time it's expanded -
-// important since a deep tree can otherwise trigger hundreds of Zenodo
-// fetches on page load.
-function renderPhantomGroup(group, recordId, pathLabel) {
+// that drills into its own subtree. Lazily loads phantom metadata (resolution,
+// tissues) for its subtree only the first time it's expanded - important
+// since a deep tree can otherwise trigger hundreds of Zenodo fetches on page
+// load.
+function renderPhantomGroup(group, recordId) {
   const groupPhantoms = Array.isArray(group.phantoms) ? group.phantoms : [];
   const count = countPhantoms(groupPhantoms);
-  const childPathLabel = `${pathLabel}/${group.group}`;
 
   const details = document.createElement("details");
   details.className = "card group";
@@ -238,7 +236,7 @@ function renderPhantomGroup(group, recordId, pathLabel) {
     details.querySelector(".download-slot").appendChild(renderDownloadButton(recordId, group.default));
   }
 
-  const tree = renderPhantomTree(groupPhantoms, recordId, childPathLabel);
+  const tree = renderPhantomTree(groupPhantoms, recordId);
   details.querySelector(".group-content-slot").appendChild(tree);
 
   let loaded = false;
@@ -251,126 +249,89 @@ function renderPhantomGroup(group, recordId, pathLabel) {
   return details;
 }
 
-function renderPhantomTable(phantoms, recordId, pathLabel) {
-  const tableWrap = document.createElement("div");
-  tableWrap.className = "data-list-wrap";
-
-  const table = document.createElement("table");
-  table.className = "data-list";
-
-  const thead = document.createElement("thead");
-  thead.innerHTML = `<tr>
-    <th>Phantom</th>
-    <th>B<sub>0</sub></th>
-    <th>Tissues</th>
-    <th class="col-spacer"></th>
-    <th>Resolution</th>
-    <th class="col-spacer"></th>
-    <th></th>
-  </tr>`;
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
+// A leaf-level phantom list: one collapsible card per phantom, styled like a
+// group card (filename, tissues, resolution, download button in the summary)
+// but expanding to show the tissue table / raw JSON instead of a subtree.
+function renderPhantomList(phantoms, recordId) {
+  const container = document.createElement("div");
+  container.className = "phantom-tree";
 
   const rows = phantoms.map((filename) => {
-    const tr = document.createElement("tr");
+    const details = document.createElement("details");
+    details.className = "card group phantom";
+    details.innerHTML = `
+      <summary class="card-summary">
+        <span class="card-title"><code>${escape(filename)}</code></span>
+        <span class="card-meta phantom-tissues"><span class="loading-text">…</span></span>
+        <span class="card-meta phantom-resolution"><span class="loading-text">…</span></span>
+        ${recordId ? `<span class="download-slot"></span>` : ""}
+      </summary>
+      <div class="card-body"></div>
+    `;
 
-    const filenameTd = document.createElement("td");
-    filenameTd.className = "col-name";
-    const filenameCode = document.createElement("code");
-    filenameCode.textContent = filename.replace(/\.json$/i, "");
-    filenameTd.appendChild(filenameCode);
-    tr.appendChild(filenameTd);
+    if (recordId) {
+      details.querySelector(".download-slot").appendChild(renderDownloadButton(recordId, filename));
+    }
 
-    const b0Td = document.createElement("td");
-    b0Td.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(b0Td);
+    container.appendChild(details);
 
-    const tissueTd = document.createElement("td");
-    tissueTd.className = "col-muted";
-    tissueTd.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(tissueTd);
-
-    const spacerTd = document.createElement("td");
-    spacerTd.className = "col-spacer";
-    tr.appendChild(spacerTd);
-
-    const resTd = document.createElement("td");
-    resTd.innerHTML = '<span class="loading-text">…</span>';
-    tr.appendChild(resTd);
-
-    const downloadSpacerTd = document.createElement("td");
-    downloadSpacerTd.className = "col-spacer";
-    tr.appendChild(downloadSpacerTd);
-
-    const downloadTd = document.createElement("td");
-    if (recordId) downloadTd.appendChild(renderDownloadButton(recordId, filename));
-    else downloadTd.innerHTML = '<span class="muted">—</span>';
-    tr.appendChild(downloadTd);
-
-    tbody.appendChild(tr);
-
-    return { filename, filenameTd, b0Td, resTd, tissueTd };
+    return {
+      filename,
+      details,
+      body: details.querySelector(".card-body"),
+      tissuesEl: details.querySelector(".phantom-tissues"),
+      resEl: details.querySelector(".phantom-resolution"),
+    };
   });
 
-  table.appendChild(tbody);
-  tableWrap.appendChild(table);
-
-  tableWrap.loadPhantoms = () => {
-    for (const { filename, filenameTd, b0Td, resTd, tissueTd } of rows) {
+  container.loadPhantoms = () => {
+    for (const { filename, details, body, tissuesEl, resEl } of rows) {
       if (!recordId) {
         const dash = '<span class="muted">—</span>';
-        b0Td.innerHTML = dash;
-        resTd.innerHTML = dash;
-        tissueTd.innerHTML = dash;
+        tissuesEl.innerHTML = dash;
+        resEl.innerHTML = dash;
+        body.innerHTML = `<p class="muted" style="padding:0.5rem 0">Not available.</p>`;
         continue;
       }
 
-      fetchPhantomJson(recordId, filename)
+      const dataPromise = fetchPhantomJson(recordId, filename);
+
+      dataPromise
         .then((data) => {
-          const b0 = data?.system?.B0;
-          b0Td.textContent = b0 !== undefined ? `${b0} T` : "—";
-
           const res = data?.reslice_to?.resolution;
-          resTd.textContent = Array.isArray(res) ? res.join("×") : "native";
+          resEl.textContent = Array.isArray(res) ? res.join("×") : "native";
 
-          const tissues = data?.tissues || {};
-          const tissueNames = Object.keys(tissues);
-          tissueTd.textContent = tissueNames.length > 0 ? tissueNames.join(", ") : "—";
-
-          const btn = document.createElement("button");
-          btn.className = "filename-link";
-          btn.textContent = filename.replace(/\.json$/i, "");
-          btn.title = "View tissues";
-          btn.addEventListener("click", () => openTissueModal(tissues, data, filename, pathLabel));
-          filenameTd.innerHTML = "";
-          filenameTd.appendChild(btn);
+          const tissueNames = Object.keys(data?.tissues || {});
+          tissuesEl.textContent = tissueNames.length > 0 ? tissueNames.join(", ") : "—";
         })
         .catch((err) => {
           const errHtml = `<span class="muted" title="${escape(err.message)}">!</span>`;
-          b0Td.innerHTML = errHtml;
-          resTd.innerHTML = errHtml;
-          tissueTd.innerHTML = errHtml;
+          tissuesEl.innerHTML = errHtml;
+          resEl.innerHTML = errHtml;
         });
+
+      let bodyLoaded = false;
+      details.addEventListener("toggle", () => {
+        if (!details.open || bodyLoaded) return;
+        bodyLoaded = true;
+        body.innerHTML = `<p class="muted" style="padding:0.5rem 0">Loading…</p>`;
+        dataPromise
+          .then((data) => renderPhantomDetail(body, data))
+          .catch((err) => {
+            body.innerHTML = `<p class="muted" style="padding:0.5rem 0">Could not load: ${escape(err.message)}</p>`;
+          });
+      });
     }
   };
 
-  return tableWrap;
+  return container;
 }
 
-function openTissueModal(tissues, rawData, filename, pathLabel) {
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
+// Renders a phantom's tissue table (with a table/JSON toggle) into `container`.
+function renderPhantomDetail(container, rawData) {
+  const tissues = rawData?.tissues || {};
+  const tissueNames = Object.keys(tissues);
 
-  const box = document.createElement("div");
-  box.className = "modal-box";
-
-  const header = document.createElement("div");
-  header.className = "modal-header";
-
-  // Left: toggle switch + label
   const toggleWrap = document.createElement("div");
   toggleWrap.className = "view-toggle";
 
@@ -388,30 +349,13 @@ function openTissueModal(tissues, rawData, filename, pathLabel) {
   toggleWrap.appendChild(toggleBtn);
   toggleWrap.appendChild(toggleLabel);
 
-  // Center: plain path, non-interactive
-  const titleEl = document.createElement("span");
-  titleEl.className = "modal-header-title";
-  titleEl.innerHTML = `<span class="modal-path-collection">${escape(pathLabel)}/</span><span class="modal-path-file">${escape(filename)}</span>`;
-
-  // Right: close button
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "modal-close";
-  closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "×";
-
-  header.appendChild(toggleWrap);
-  header.appendChild(titleEl);
-  header.appendChild(closeBtn);
-
-  const body = document.createElement("div");
-  body.className = "modal-body";
-
-  const tissueNames = Object.keys(tissues);
+  const content = document.createElement("div");
+  content.className = "phantom-detail-content";
 
   function showTable() {
-    body.innerHTML = tissueNames.length > 0
+    content.innerHTML = tissueNames.length > 0
       ? renderTissueTable(tissues, tissueNames)
-      : `<p class="muted" style="padding:1rem">No tissues defined.</p>`;
+      : `<p class="muted" style="padding:0.5rem 0">No tissues defined.</p>`;
     toggleBtn.setAttribute("aria-checked", "false");
     toggleLabel.textContent = "table";
   }
@@ -420,8 +364,8 @@ function openTissueModal(tissues, rawData, filename, pathLabel) {
     const pre = document.createElement("pre");
     pre.className = "json-viewer";
     pre.innerHTML = highlightJson(rawData);
-    body.innerHTML = "";
-    body.appendChild(pre);
+    content.innerHTML = "";
+    content.appendChild(pre);
     toggleBtn.setAttribute("aria-checked", "true");
     toggleLabel.textContent = "json";
   }
@@ -434,22 +378,9 @@ function openTissueModal(tissues, rawData, filename, pathLabel) {
     showingJson ? showJson() : showTable();
   });
 
-  box.appendChild(header);
-  box.appendChild(body);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-
-  const close = () => {
-    overlay.remove();
-    document.removeEventListener("keydown", onKey);
-  };
-
-  const onKey = (e) => { if (e.key === "Escape") close(); };
-
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-  closeBtn.addEventListener("click", close);
-  document.addEventListener("keydown", onKey);
-  closeBtn.focus();
+  container.innerHTML = "";
+  container.appendChild(toggleWrap);
+  container.appendChild(content);
 }
 
 function highlightJson(obj) {
