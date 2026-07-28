@@ -186,6 +186,18 @@
       "breast_3T_slice_paper_nofat.json", "breast_7T_inhomB1.json", "breast_7T_slice_paper_inhom_B1.json", "breast_7T_slice_paper_nofat.json"
     ]
   },
+  "brainweb-subj04-3T-0.5mm": {
+    "description": "anatomical brain model (subj04) from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T, full 3D volume and single-slice transversal/coronal/sagittal variants.",
+    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T"],
+    "authors": [
+      { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
+    ],
+    "license": "LicenseRef-BrainWeb",
+    "doi": "10.5281/zenodo.20553009",
+    "phantoms": [
+      "subj04-3T-05mm.json","subj04-3T-05mm-tra.json","subj04-3T-05mm-cor.json","subj04-3T-05mm-sag.json"
+    ]
+  },
   "collection-brainweb": {
     "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, in three resolutions (0.5/1/2 mm) each as a full 3D volume and single-slice transversal/coronal/sagittal variants, organized as nested groups (subject > field strength/resolution).",
     "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution" ],
