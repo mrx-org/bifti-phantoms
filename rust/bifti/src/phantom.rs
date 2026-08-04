@@ -1,7 +1,7 @@
 use regex::Regex;
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -286,6 +286,39 @@ impl BiftiPhantom {
         }
         serde_json::to_writer(std::io::BufWriter::new(std::fs::File::create(path)?), self)?;
         Ok(())
+    }
+
+    /// Returns a list of all nifti files referenced by this phantom
+    pub fn referenced_nifti_files(&self) -> Vec<PathBuf> {
+        let mut files = HashSet::new();
+
+        fn extract<'a>(files: &mut HashSet<&'a PathBuf>, prop: &'a TissueProperty) {
+            match prop {
+                TissueProperty::Value(_) => false,
+                TissueProperty::Ref(nifti_ref) => files.insert(&nifti_ref.file_name),
+                TissueProperty::Mapping(nifti_mapping) => {
+                    files.insert(&nifti_mapping.file.file_name)
+                }
+            };
+        }
+
+        for tissue in self.tissues.values() {
+            files.insert(&tissue.density.file_name);
+
+            extract(&mut files, &tissue.properties.t1);
+            extract(&mut files, &tissue.properties.t2);
+            extract(&mut files, &tissue.properties.t2dash);
+            extract(&mut files, &tissue.properties.adc);
+            extract(&mut files, &tissue.properties.db0);
+            for channel in &tissue.properties.b1_tx {
+                extract(&mut files, channel);
+            }
+            for channel in &tissue.properties.b1_rx {
+                extract(&mut files, channel);
+            }
+        }
+
+        files.into_iter().cloned().collect()
     }
 }
 

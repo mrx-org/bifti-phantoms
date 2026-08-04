@@ -1,9 +1,8 @@
 use crate::BiftiPhantom;
-use crate::phantom::TissueProperty;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     io::Read,
     ops::Deref,
     path::{Path, PathBuf},
@@ -62,8 +61,8 @@ impl Registry {
         let record_id = zenodo_record_id(doi)?;
         let json_path = download_json(&dir, collection, record_id, name)?;
         let phantom = BiftiPhantom::load(&json_path)?;
-        for filename in collect_nifti_files(&phantom) {
-            download_to(&dir, doi, &filename)?;
+        for filename in phantom.referenced_nifti_files() {
+            download_to(&dir, doi, &filename.to_string_lossy())?;
         }
         Ok(json_path)
     }
@@ -215,43 +214,4 @@ fn download_json(
     entry.read_to_end(&mut buf)?;
     std::fs::write(&dest, buf)?;
     Ok(dest)
-}
-
-fn ref_file(prop: &TissueProperty) -> Option<&Path> {
-    match prop {
-        TissueProperty::Ref(r) => Some(&r.file_name),
-        TissueProperty::Mapping(m) => Some(&m.file.file_name),
-        TissueProperty::Value(_) => None,
-    }
-}
-
-/// Every distinct NIfTI filename referenced across all of a phantom's tissues.
-fn collect_nifti_files(phantom: &BiftiPhantom) -> Vec<String> {
-    let mut seen = HashSet::new();
-    let mut files = Vec::new();
-    let mut add = |path: Option<&Path>| {
-        if let Some(name) = path.and_then(Path::file_name) {
-            let name = name.to_string_lossy().into_owned();
-            if seen.insert(name.clone()) {
-                files.push(name);
-            }
-        }
-    };
-
-    for tissue in phantom.tissues.values() {
-        add(Some(&tissue.density.file_name));
-        for prop in [
-            &tissue.properties.t1,
-            &tissue.properties.t2,
-            &tissue.properties.t2dash,
-            &tissue.properties.adc,
-            &tissue.properties.db0,
-        ] {
-            add(ref_file(prop));
-        }
-        for prop in tissue.properties.b1_tx.iter().chain(&tissue.properties.b1_rx) {
-            add(ref_file(prop));
-        }
-    }
-    files
 }
