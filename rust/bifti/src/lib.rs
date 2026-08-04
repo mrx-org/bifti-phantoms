@@ -6,6 +6,7 @@ mod registry;
 pub use loader::{Phantom, Tissue, Volume, VolumeData};
 pub use phantom::{
     BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, PhantomSystem, PhantomUnits, ResliceTo,
+    TissueProperties, TissueProperty,
 };
 pub use registry::{Collection, PhantomEntry, PhantomGroup, Registry};
 
