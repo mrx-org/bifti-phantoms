@@ -13,3 +13,4 @@ brainweb/
 
 # generated files
 *.tar
+**/output
