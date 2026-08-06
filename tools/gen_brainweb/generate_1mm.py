@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import math
 import re
 import tarfile
 from pathlib import Path
@@ -63,11 +64,28 @@ EXTENT_Y = 217.0
 EXTENT_Z = 181.0
 
 
-def native_1mm_resolution() -> tuple[int, int, int]:
-    """The (nx, ny, nz) a 2x2x2 block-average of the native 0.5mm grid must produce."""
-    import math
+def grid(extent: float, r: float) -> tuple[int, float]:
+    """Voxel count and centered origin (mm) for a given extent/voxel size - same
+    convention as generate.py's grid(), duplicated here (see note above) so the
+    1mm affine can be computed directly from the phantom's physical size rather
+    than derived from whatever affine the source 0.5mm file happens to store."""
+    n = math.ceil(extent / r)
+    origin = -(n - 1) / 2 * r
+    return n, origin
 
-    return tuple(math.ceil(e / 1.0) for e in (EXTENT_X, EXTENT_Y, EXTENT_Z))
+
+def native_1mm_grid() -> tuple[tuple[int, int, int], np.ndarray]:
+    """Resolution and centered 4x4 affine for the native 1mm grid."""
+    (nx, ox), (ny, oy), (nz, oz) = (grid(EXTENT_X, 1.0), grid(EXTENT_Y, 1.0), grid(EXTENT_Z, 1.0))
+    affine = np.array(
+        [
+            [1.0, 0.0, 0.0, ox],
+            [0.0, 1.0, 0.0, oy],
+            [0.0, 0.0, 1.0, oz],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+    return (nx, ny, nz), affine
 
 
 # ===========================================================================
@@ -129,40 +147,31 @@ def block_average_2x2x2(data: np.ndarray) -> np.ndarray:
     return reshaped.mean(axis=(1, 3, 5))
 
 
-def downsample_nifti(src: Path, dst: Path, expected_resolution: tuple[int, int, int]) -> None:
+def downsample_nifti(
+    src: Path, dst: Path, target_resolution: tuple[int, int, int], target_affine: np.ndarray
+) -> None:
     """Block-average one 0.5mm NIfTI by factor 2 and write it as float32,
-    keeping the same filename (it now *is* the collection's native data)."""
+    keeping the same filename (it now *is* the collection's native data).
+
+    The output affine is the centered grid computed by native_1mm_grid() -
+    the source file's own affine is not read or trusted, only its voxel data
+    and shape.
+    """
     img = nibabel.load(src)
     assert isinstance(img, nibabel.Nifti1Image), f"{src} is not a NIfTI-1 file"
     data = np.asarray(img.dataobj)
     assert data.ndim == 4, f"{src}: expected 4D data, got shape {data.shape}"
 
-    sform = img.get_sform()
-    off_diag = sform[:3, :3] - np.diag(np.diagonal(sform[:3, :3]))
-    assert np.allclose(off_diag, 0), (
-        f"{src}: affine has off-diagonal terms - phantom NIfTIs must be axis-aligned "
-        "RAS+ (see ../../NIFTI.md)"
-    )
-
     averaged = block_average_2x2x2(data)
-    if averaged.shape[:3] != tuple(expected_resolution):
+    if averaged.shape[:3] != tuple(target_resolution):
         raise ValueError(
             f"{src}: downsampled shape {averaged.shape[:3]} != expected "
-            f"{tuple(expected_resolution)} - is this really the native 0.5mm file?"
+            f"{tuple(target_resolution)} - is this really the native 0.5mm file?"
         )
     averaged = averaged.astype(np.float32)
 
-    # Averaging source voxels (2k, 2k+1) along an axis lands the result at their
-    # midpoint: new voxel size doubles, new origin = old origin + half the old
-    # voxel size.
-    new_affine = sform.copy()
-    for ax in range(3):
-        old_r = sform[ax, ax]
-        new_affine[ax, ax] = old_r * 2.0
-        new_affine[ax, 3] = sform[ax, 3] + 0.5 * old_r
-
-    out_img = nibabel.Nifti1Image(averaged, new_affine)
-    out_img.set_sform(new_affine, code=2)  # 2 == ALIGNED (subject space), see NIFTI.md
+    out_img = nibabel.Nifti1Image(averaged, target_affine)
+    out_img.set_sform(target_affine, code=2)  # 2 == ALIGNED (subject space), see NIFTI.md
     out_img.set_qform(None, code=0)
     nibabel.save(out_img, dst)
 
@@ -311,12 +320,12 @@ def main() -> None:
     downloaded = download_record(record_id, cache_dir)
 
     args.target_dir.mkdir(parents=True, exist_ok=True)
-    expected_resolution = native_1mm_resolution()
+    target_resolution, target_affine = native_1mm_grid()
 
     nifti_files = [p for p in downloaded if p.name != "configs.tar"]
     print(f"\nDownsampling {len(nifti_files)} NIfTI file(s) by factor 2 ...")
     for src in sorted(nifti_files):
-        downsample_nifti(src, args.target_dir / src.name, expected_resolution)
+        downsample_nifti(src, args.target_dir / src.name, target_resolution, target_affine)
         print(f"  downsampled {src.name}")
 
     print("\nRewriting configs.tar ...")
