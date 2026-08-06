@@ -1,27 +1,35 @@
-"""Downsample the native 0.5mm BrainWeb NIfTI files (from the collection-brainweb
-Zenodo record) to 1mm by averaging non-overlapping 2x2x2 voxel blocks, and
-generate the matching phantom JSON configs for a new collection-brainweb-1mm.
+"""Fully automated pipeline that builds the collection-brainweb-1mm payload
+from the published collection-brainweb Zenodo record.
 
-Unlike generate.py (which only ever reslices the 0.5mm data on load via
-`reslice_to`, so every resolution still requires downloading the full 0.5mm
-volumes), this script writes real, smaller 1mm NIfTI files. The 1mm resolution
-is exact block-averaging (no interpolation); the 2mm variant is still a
-`reslice_to` config that resamples the 1mm files on load, exactly like
-generate.py does for its 1mm/2mm variants - so 2mm needs no separate data.
+collection-brainweb only ever reslices its native 0.5mm NIfTI data on load
+(via `reslice_to`), so even its 1mm/2mm variants require downloading the full
+0.5mm volumes. This script:
+
+1. Looks up collection-brainweb's DOI in registry.json and downloads every
+   file in that Zenodo record (NIfTIs + configs.tar), caching them so re-runs
+   don't re-download.
+2. Downsamples every NIfTI by a factor of 2 (averaging non-overlapping 2x2x2
+   voxel blocks: 0.5mm -> 1mm), writing the result as float32 to keep files
+   small.
+3. Rewrites configs.tar: the native-0.5mm configs are dropped (that data no
+   longer exists in this collection), the 1mm configs have their
+   `reslice_to` removed (the downsampled data is now their native resolution),
+   and the 2mm configs are left as-is (they still resample - now from the
+   1mm data, since the NIfTI files they reference were overwritten in place).
+
+Deps: requests, numpy, nibabel.
 
 Usage:
-    python generate_1mm.py <src_dir> <out_dir>
+    python generate_1mm.py <target_dir>
 
-<src_dir> must contain the native 0.5mm NIfTI triplet for every subject in
-SUBJECTS, as downloaded from the collection-brainweb Zenodo record:
-    subjXX.nii.gz, subjXX_dB0.nii.gz, subjXX_B1+.nii.gz
+Writes into <target_dir>: every downsampled `*.nii.gz` plus the rewritten
+`configs.tar`. Upload everything in <target_dir> (except `.download-cache/`)
+to a single new Zenodo record - that's the whole payload for
+collection-brainweb-1mm.
 
-Writes into <out_dir>:
-    subjXX-1mm.nii.gz, subjXX-1mm_dB0.nii.gz, subjXX-1mm_B1+.nii.gz  (float32)
-    configs.tar  (every subjXX-{3T,7T}-{1mm,2mm}[-tra/cor/sag].json)
-
-Upload every file in <out_dir> to a single new Zenodo record - that record is
-the whole payload for the collection-brainweb-1mm registry entry.
+Also see `derive_registry_entry()` / `--print-registry-entry`, which builds
+the collection-brainweb-1mm entry already added to registry.json (with a
+placeholder DOI - replace it with the real one once the record is published).
 """
 
 from __future__ import annotations
@@ -29,27 +37,83 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import sys
+import re
 import tarfile
 from pathlib import Path
+from urllib.parse import quote
 
 import nibabel
 import numpy as np
+import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from generate import (  # noqa: E402 - reuse the exact conventions collection-brainweb uses
-    SUBJECTS,
-    reslice_3d,
-    reslice_tra,
-    reslice_cor,
-    reslice_sag,
-    build_config,
-    _replace_subject,
-)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REGISTRY_JSON = REPO_ROOT / "registry.json"
 
-RESOLUTIONS = [("1mm", 1.0), ("2mm", 2.0)]
+# A Zenodo version DOI ("10.5281/zenodo.<id>") embeds the record id; see REGISTRY.md.
+ZENODO_RECORD_URL = "https://zenodo.org/api/records/{record_id}"
+ZENODO_FILE_URL = "https://zenodo.org/api/records/{record_id}/files/{filename}/content"
 
-NIFTI_SUFFIXES = ["", "_dB0", "_B1+"]
+RESOLUTION_TAG_RE = re.compile(r"-(05mm|1mm|2mm)(?=-|\.json$)")
+
+# Extent of the BrainWeb grid in mm (362x434x362 voxels at 0.5mm native
+# resolution), duplicated from generate.py so this script has no import-time
+# dependency on it (it lives in the same directory only by convention).
+EXTENT_X = 181.0
+EXTENT_Y = 217.0
+EXTENT_Z = 181.0
+
+
+def native_1mm_resolution() -> tuple[int, int, int]:
+    """The (nx, ny, nz) a 2x2x2 block-average of the native 0.5mm grid must produce."""
+    import math
+
+    return tuple(math.ceil(e / 1.0) for e in (EXTENT_X, EXTENT_Y, EXTENT_Z))
+
+
+# ===========================================================================
+# Zenodo download
+# ===========================================================================
+
+
+def zenodo_record_id(doi: str) -> str:
+    m = re.search(r"zenodo\.(\d+)$", doi)
+    if not m:
+        raise ValueError(f"not a Zenodo DOI: {doi!r}")
+    return m.group(1)
+
+
+def list_record_files(record_id: str) -> list[dict]:
+    r = requests.get(ZENODO_RECORD_URL.format(record_id=record_id), timeout=60)
+    r.raise_for_status()
+    return r.json()["files"]
+
+
+def download_record(record_id: str, cache_dir: Path) -> list[Path]:
+    """Download every file in the Zenodo record into cache_dir (skips files
+    already present with the expected size, so re-runs resume for free)."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for f in list_record_files(record_id):
+        name = f["key"]
+        size = f.get("size")
+        dest = cache_dir / name
+        if dest.exists() and (size is None or dest.stat().st_size == size):
+            print(f"  cached    {name}")
+        else:
+            url = ZENODO_FILE_URL.format(record_id=record_id, filename=quote(name, safe=""))
+            print(f"  download  {name} ...")
+            with requests.get(url, stream=True, timeout=300) as resp:
+                resp.raise_for_status()
+                with open(dest, "wb") as fh:
+                    for chunk in resp.iter_content(chunk_size=1 << 20):
+                        fh.write(chunk)
+        paths.append(dest)
+    return paths
+
+
+# ===========================================================================
+# NIfTI downsampling
+# ===========================================================================
 
 
 def block_average_2x2x2(data: np.ndarray) -> np.ndarray:
@@ -66,7 +130,8 @@ def block_average_2x2x2(data: np.ndarray) -> np.ndarray:
 
 
 def downsample_nifti(src: Path, dst: Path, expected_resolution: tuple[int, int, int]) -> None:
-    """Block-average one 0.5mm NIfTI to 1mm and write it as float32."""
+    """Block-average one 0.5mm NIfTI by factor 2 and write it as float32,
+    keeping the same filename (it now *is* the collection's native data)."""
     img = nibabel.load(src)
     assert isinstance(img, nibabel.Nifti1Image), f"{src} is not a NIfTI-1 file"
     data = np.asarray(img.dataobj)
@@ -89,9 +154,7 @@ def downsample_nifti(src: Path, dst: Path, expected_resolution: tuple[int, int, 
 
     # Averaging source voxels (2k, 2k+1) along an axis lands the result at their
     # midpoint: new voxel size doubles, new origin = old origin + half the old
-    # voxel size. This reproduces exactly the grid generate.py's reslice_3d(1.0)
-    # computes for the 1mm reslice_to variant, so "native" 1mm here is
-    # geometrically identical to that resampled grid.
+    # voxel size.
     new_affine = sform.copy()
     for ax in range(3):
         old_r = sform[ax, ax]
@@ -104,72 +167,165 @@ def downsample_nifti(src: Path, dst: Path, expected_resolution: tuple[int, int, 
     nibabel.save(out_img, dst)
 
 
-def load_1mm_template() -> dict:
-    """subj04.json with its NIfTI references pointed at the new subj04-1mm* files."""
-    with open(Path(__file__).resolve().parent / "subj04.json") as f:
-        template = json.load(f)
-    for old, new in [
-        ("subj04.nii.gz", "subj04-1mm.nii.gz"),
-        ("subj04_dB0.nii.gz", "subj04-1mm_dB0.nii.gz"),
-        ("subj04_B1+.nii.gz", "subj04-1mm_B1+.nii.gz"),
-    ]:
-        template = _replace_subject(template, old, new)
-    return template
+# ===========================================================================
+# configs.tar rewriting
+# ===========================================================================
 
 
-def build_configs() -> dict[str, dict]:
-    template = load_1mm_template()
-    configs = {}
-
-    for subj in SUBJECTS:
-        for field, field_str in [(3, "3T"), (7, "7T")]:
-            for res_str, r in RESOLUTIONS:
-                prefix = f"subj{subj:02d}-{field_str}-{res_str}"
-
-                # 3D: no reslice_to at native 1mm, downsample (reslice) otherwise.
-                reslice_3d_val = None if r == 1.0 else reslice_3d(r)
-                configs[f"{prefix}.json"] = build_config(template, subj, field, reslice_3d_val)
-
-                for orient, fn in [("tra", reslice_tra), ("cor", reslice_cor), ("sag", reslice_sag)]:
-                    configs[f"{prefix}-{orient}.json"] = build_config(template, subj, field, fn(r))
-
-    return configs
+def resolution_tag(name: str) -> str:
+    """'05mm' / '1mm' / '2mm' encoded in a phantom filename, e.g. subj04-3T-1mm-cor.json."""
+    m = RESOLUTION_TAG_RE.search(name)
+    if not m:
+        raise ValueError(f"can't determine resolution tag from filename {name!r}")
+    return m.group(1)
 
 
-def write_configs_tar(configs: dict[str, dict], out_dir: Path) -> None:
-    with tarfile.open(out_dir / "configs.tar", "w") as tar:
-        for name in sorted(configs):
-            data = json.dumps(configs[name], indent=2).encode("utf-8")
+def rewrite_configs_tar(src_tar: Path, dst_tar: Path) -> list[str]:
+    """Drop native-0.5mm configs, strip `reslice_to` from 1mm configs (now
+    native), leave 2mm configs untouched (they still resample - now from the
+    1mm data, since the NIfTI files they reference were overwritten in place).
+    """
+    kept: dict[str, bytes] = {}
+    with tarfile.open(src_tar, "r") as tin:
+        for member in tin.getmembers():
+            if not member.isfile():
+                continue
+            tag = resolution_tag(member.name)
+            if tag == "05mm":
+                continue
+            raw = tin.extractfile(member).read()
+            if tag == "1mm":
+                cfg = json.loads(raw)
+                cfg.pop("reslice_to", None)
+                raw = json.dumps(cfg, indent=2).encode("utf-8")
+            kept[member.name] = raw
+
+    with tarfile.open(dst_tar, "w") as tout:
+        for name in sorted(kept):
+            data = kept[name]
             info = tarfile.TarInfo(name=name)
             info.size = len(data)
-            tar.addfile(info, io.BytesIO(data))
+            tout.addfile(info, io.BytesIO(data))
+
+    return sorted(kept)
+
+
+# ===========================================================================
+# registry.json entry
+# ===========================================================================
+
+PLACEHOLDER_DOI = "10.5281/zenodo.00000000"
+
+
+def _flatten(entries: list) -> list[str]:
+    names = []
+    for e in entries:
+        if isinstance(e, str):
+            names.append(e)
+        else:
+            names.extend(_flatten(e.get("phantoms", [])))
+    return names
+
+
+def _filter_out_native_05mm(entries: list) -> list:
+    """Recursively drop every '-05mm' filename/group from a phantoms[] list."""
+    out = []
+    for e in entries:
+        if isinstance(e, str):
+            if resolution_tag(e) != "05mm":
+                out.append(e)
+            continue
+        filtered_children = _filter_out_native_05mm(e.get("phantoms", []))
+        if not filtered_children:
+            continue
+        new_group = dict(e)
+        new_group["phantoms"] = filtered_children
+        names = _flatten(filtered_children)
+        if new_group.get("default") not in names:
+            new_group["default"] = names[0]
+        out.append(new_group)
+    return out
+
+
+def derive_registry_entry(
+    registry: dict, source: str = "collection-brainweb", doi: str = PLACEHOLDER_DOI
+) -> dict:
+    """Build the collection-brainweb-1mm entry from the already-published
+    collection-brainweb entry: same phantom filenames/groups, minus every
+    native-0.5mm one."""
+    src = registry[source]
+    return {
+        "description": (
+            "1mm and 2mm variants of the 20 anatomical brain models from the BrainWeb "
+            "Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) "
+            "at 3T and 7T, downsampled from collection-brainweb's native 0.5mm data by "
+            "averaging 2x2x2 voxel blocks (1mm is native resolution; 2mm is resampled "
+            "from it on load). Same nested layout as collection-brainweb (subject > "
+            "field strength/resolution), without the large native 0.5mm data."
+        ),
+        "keywords": [*src.get("keywords", []), "downsampled"],
+        "authors": src["authors"],
+        "license": src["license"],
+        "doi": doi,
+        "phantoms": _filter_out_native_05mm(src["phantoms"]),
+    }
+
+
+# ===========================================================================
+# CLI
+# ===========================================================================
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("src_dir", type=Path, help="directory with the native 0.5mm subjXX*.nii.gz files")
-    parser.add_argument("out_dir", type=Path, help="directory to write the 1mm NIfTIs and configs.tar into")
+    parser.add_argument("target_dir", type=Path, nargs="?", help="where to write the collection-brainweb-1mm payload")
+    parser.add_argument(
+        "--download-cache", type=Path, default=None,
+        help="directory to cache the downloaded collection-brainweb record in "
+             "(default: <target_dir>/.download-cache)",
+    )
+    parser.add_argument(
+        "--collection", default="collection-brainweb",
+        help="registry.json collection to downsample from (default: collection-brainweb)",
+    )
+    parser.add_argument(
+        "--print-registry-entry", action="store_true",
+        help="print the collection-brainweb-1mm registry.json entry (no download) and exit",
+    )
     args = parser.parse_args()
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    expected_resolution = tuple(reslice_3d(1.0)["resolution"])
+    registry = json.loads(REGISTRY_JSON.read_text(encoding="utf-8"))
 
-    for subj in SUBJECTS:
-        subj_str = f"subj{subj:02d}"
-        for suffix in NIFTI_SUFFIXES:
-            src = args.src_dir / f"{subj_str}{suffix}.nii.gz"
-            dst = args.out_dir / f"{subj_str}-1mm{suffix}.nii.gz"
-            downsample_nifti(src, dst, expected_resolution)
-        print(f"downsampled {subj_str}")
+    if args.print_registry_entry:
+        print(json.dumps(derive_registry_entry(registry, args.collection), indent=2))
+        return
 
-    configs = build_configs()
-    write_configs_tar(configs, args.out_dir)
+    if args.target_dir is None:
+        parser.error("target_dir is required unless --print-registry-entry is given")
 
-    n_nifti = len(SUBJECTS) * len(NIFTI_SUFFIXES)
-    print(f"\nWrote {n_nifti} downsampled NIfTI file(s) and configs.tar "
-          f"({len(configs)} configs) to {args.out_dir}")
-    print("Upload every *.nii.gz file plus configs.tar in that directory to a single "
-          "new Zenodo record for collection-brainweb-1mm.")
+    doi = registry[args.collection]["doi"]
+    record_id = zenodo_record_id(doi)
+    cache_dir = args.download_cache or (args.target_dir / ".download-cache")
+
+    print(f"Downloading {args.collection} ({doi}) into {cache_dir} ...")
+    downloaded = download_record(record_id, cache_dir)
+
+    args.target_dir.mkdir(parents=True, exist_ok=True)
+    expected_resolution = native_1mm_resolution()
+
+    nifti_files = [p for p in downloaded if p.name != "configs.tar"]
+    print(f"\nDownsampling {len(nifti_files)} NIfTI file(s) by factor 2 ...")
+    for src in sorted(nifti_files):
+        downsample_nifti(src, args.target_dir / src.name, expected_resolution)
+        print(f"  downsampled {src.name}")
+
+    print("\nRewriting configs.tar ...")
+    kept = rewrite_configs_tar(cache_dir / "configs.tar", args.target_dir / "configs.tar")
+    n_dropped_by = len(kept)
+    print(f"  kept {n_dropped_by} configs (dropped native-0.5mm, stripped reslice_to from 1mm)")
+
+    print(f"\nDone. Upload every file in {args.target_dir} (except .download-cache/) "
+          "to a single new Zenodo record for collection-brainweb-1mm.")
 
 
 if __name__ == "__main__":
