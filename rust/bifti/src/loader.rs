@@ -1,9 +1,12 @@
 use std::{collections::HashMap, path::Path};
 
 use nifti::{NiftiObject, NiftiVolume, ReaderStreamedOptions};
-use num_complex::Complex;
 
-use crate::{BiftiPhantom, BiftiTissue, NiftiRef, ResliceTo, phantom::TissueProperty};
+use crate::{
+    BiftiPhantom, BiftiTissue, NiftiRef, ResliceTo,
+    phantom::TissueProperty,
+    volume::{Volume, VolumeData, VolumeDataElement},
+};
 
 pub struct Phantom {
     pub config: BiftiPhantom,
@@ -49,90 +52,107 @@ pub struct Tissue {
     pub b1_rx: Vec<Volume>,
 }
 
-pub struct Volume {
-    pub affine: [[f64; 4]; 3],
-    pub shape: [usize; 3],
-    pub data: VolumeData,
-}
-
-pub enum VolumeData {
-    Float32(Vec<f32>),
-    Float64(Vec<f64>),
-    Complex32(Vec<Complex<f32>>),
-    Complex64(Vec<Complex<f64>>),
-}
-
 // ===========================================================================
 // Phantom loading internals
 // ===========================================================================
 
-impl Volume {
-    fn from_f64(value: f64) -> Self {
-        Self {
-            affine: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-            ],
-            shape: [1, 1, 1],
-            data: VolumeData::Float64(vec![value]),
-        }
+impl VolumeData {
+    fn from_nifti(slice: nifti::InMemNiftiVolume) -> Result<Self, crate::Error> {
+        use nifti::NiftiType as Nt;
+        Ok(match slice.data_type() {
+            Nt::Uint8 => Self::Uint8(slice.into_nifti_typed_data()?),
+            Nt::Uint16 => Self::Uint16(slice.into_nifti_typed_data()?),
+            Nt::Uint32 => Self::Uint32(slice.into_nifti_typed_data()?),
+            Nt::Uint64 => Self::Uint64(slice.into_nifti_typed_data()?),
+            Nt::Int8 => Self::Int8(slice.into_nifti_typed_data()?),
+            Nt::Int16 => Self::Int16(slice.into_nifti_typed_data()?),
+            Nt::Int32 => Self::Int32(slice.into_nifti_typed_data()?),
+            Nt::Int64 => Self::Int64(slice.into_nifti_typed_data()?),
+            Nt::Float32 => Self::Float32(slice.into_nifti_typed_data()?),
+            Nt::Float64 => Self::Float64(slice.into_nifti_typed_data()?),
+            Nt::Complex64 => Self::Complex64(slice.into_nifti_typed_data()?),
+            Nt::Complex128 => Self::Complex128(slice.into_nifti_typed_data()?),
+            // Not supported: Float128, Complex256, Rgb24, Rgba32
+            other => return Err(crate::Error::UnsupportedDataType(format!("{other:?}"))),
+        })
     }
+}
 
+impl Volume {
     /// Resample this volume onto the grid described by `reslice_to`, using
     /// trilinear interpolation. Voxels that map outside of the source volume
     /// are set to 0.
-    fn reslice(self, reslice_to: ResliceTo) -> Result<Self, crate::Error> {
+    fn reslice(
+        self,
+        ResliceTo {
+            affine,
+            resolution: res,
+        }: ResliceTo,
+    ) -> Result<Self, crate::Error> {
         // Treat single-voxel volumes as constant and homogeneous
         if self.shape == [1, 1, 1] {
-            let voxel_count =
-                reslice_to.resolution[0] * reslice_to.resolution[1] * reslice_to.resolution[2];
-            let data = match self.data {
-                VolumeData::Float32(data) => VolumeData::Float32(vec![data[0]; voxel_count]),
-                VolumeData::Float64(data) => VolumeData::Float64(vec![data[0]; voxel_count]),
-                VolumeData::Complex32(data) => VolumeData::Complex32(vec![data[0]; voxel_count]),
-                VolumeData::Complex64(data) => VolumeData::Complex64(vec![data[0]; voxel_count]),
-            };
-
             return Ok(Self {
-                affine: reslice_to.affine,
-                shape: reslice_to.resolution,
-                data,
+                affine,
+                shape: res,
+                data: self.data.expand(res[0] * res[1] * res[2]),
             });
         }
 
-        let input: Vec<f64> = match &self.data {
-            VolumeData::Float32(data) => data.iter().map(|&x| x as f64).collect(),
-            VolumeData::Float64(data) => data.clone(),
-            VolumeData::Complex32(_) | VolumeData::Complex64(_) => {
-                return Err(crate::Error::UnsupportedDataType(
-                    "reslicing complex-valued data is not supported".to_string(),
-                ));
-            }
+        // let input: Vec<f64> = match &self.data {
+        //     VolumeData::Float32(data) => data.iter().map(|&x| x as f64).collect(),
+        //     VolumeData::Float64(data) => data.clone(),
+        //     VolumeData::Complex64(_) | VolumeData::Complex128(_) => {
+        //         return Err(crate::Error::UnsupportedDataType(
+        //             "reslicing complex-valued data is not supported".to_string(),
+        //         ));
+        //     }
+        // };
+
+        // let inv_input_affine = invert_affine(self.affine);
+        // let res = res;
+        // let mut resampled = vec![0.0f64; res[0] * res[1] * res[2]];
+
+        // // map the target voxel index into world-space via the
+        // // target's affine, then back into (continuous) source
+        // // volume indices via the source's inverse affine
+        // for ix in 0..res[0] {
+        //     for iy in 0..res[1] {
+        //         for iz in 0..res[2] {
+        //             let world = apply_affine([ix as f64, iy as f64, iz as f64], affine);
+        //             let index = apply_affine(world, inv_input_affine);
+        //             resampled[ix * res[1] * res[2] + iy * res[2] + iz] =
+        //                 trilinear_interp(&input, self.shape, index);
+        //         }
+        //     }
+        // }
+
+        // Ok(Self {
+        //     affine,
+        //     shape: res,
+        //     data: VolumeData::Float64(resampled),
+        // })
+
+        
+
+        let resampled = match &self.data {
+            VolumeData::Uint8(items) => VolumeData::Uint8(reslice(items)),
+            VolumeData::Uint16(items) => todo!(),
+            VolumeData::Uint32(items) => todo!(),
+            VolumeData::Uint64(items) => todo!(),
+            VolumeData::Int8(items) => todo!(),
+            VolumeData::Int16(items) => todo!(),
+            VolumeData::Int32(items) => todo!(),
+            VolumeData::Int64(items) => todo!(),
+            VolumeData::Float32(items) => todo!(),
+            VolumeData::Float64(items) => todo!(),
+            VolumeData::Complex64(items) => todo!(),
+            VolumeData::Complex128(items) => todo!(),
         };
 
-        let inv_input_affine = invert_affine(self.affine);
-        let res = reslice_to.resolution;
-        let mut resampled = vec![0.0f64; res[0] * res[1] * res[2]];
-
-        for ix in 0..res[0] {
-            for iy in 0..res[1] {
-                for iz in 0..res[2] {
-                    // map the target voxel index into world-space via the
-                    // target's affine, then back into (continuous) source
-                    // volume indices via the source's inverse affine
-                    let world = apply_affine([ix as f64, iy as f64, iz as f64], reslice_to.affine);
-                    let index = apply_affine(world, inv_input_affine);
-                    resampled[ix * res[1] * res[2] + iy * res[2] + iz] =
-                        trilinear_interp(&input, self.shape, index);
-                }
-            }
-        }
-
         Ok(Self {
-            affine: reslice_to.affine,
+            affine,
             shape: res,
-            data: VolumeData::Float64(resampled),
+            data: resampled,
         })
     }
 
@@ -157,7 +177,7 @@ impl Volume {
             header.srow_z.map(|v| v as f64),
         ];
 
-        let volume = obj.into_volume();
+        let mut volume = obj.into_volume();
         let dim = volume.dim();
 
         if dim.len() != 4 || index >= dim[3] as usize {
@@ -169,18 +189,8 @@ impl Volume {
 
         let shape = [dim[0] as usize, dim[1] as usize, dim[2] as usize];
 
-        let slice = volume
-            .skip(index)
-            .next()
-            .expect("index bounds checked above")?;
-
-        let data = match slice.data_type() {
-            nifti::NiftiType::Float32 => VolumeData::Float32(slice.into_nifti_typed_data()?),
-            nifti::NiftiType::Float64 => VolumeData::Float64(slice.into_nifti_typed_data()?),
-            // nifti::NiftiType::Complex64 => VolumeData::Complex32(slice.into_nifti_typed_data()?),
-            // nifti::NiftiType::Complex128 => VolumeData::Complex64(slice.into_nifti_typed_data()?),
-            other => return Err(crate::Error::UnsupportedDataType(format!("{other:?}"))),
-        };
+        let slice = volume.nth(index).expect("index bounds checked above")?;
+        let data = VolumeData::from_nifti(slice)?;
 
         let volume = Self {
             affine,
@@ -309,7 +319,15 @@ fn invert_affine(a: [[f64; 4]; 3]) -> [[f64; 4]; 3] {
     ]
 }
 
-fn trilinear_interp(data: &[f64], [nx, ny, nz]: [usize; 3], [x, y, z]: [f64; 3]) -> f64 {
+fn reslice<T: VolumeDataElement>(data: &[T]) -> Vec<T> {
+    todo!()
+}
+
+fn trilinear_interp<T: VolumeDataElement>(
+    data: &[T],
+    [nx, ny, nz]: [usize; 3],
+    [x, y, z]: [f64; 3],
+) -> T {
     let x0 = x.floor() as i64;
     let y0 = y.floor() as i64;
     let z0 = z.floor() as i64;
@@ -318,20 +336,20 @@ fn trilinear_interp(data: &[f64], [nx, ny, nz]: [usize; 3], [x, y, z]: [f64; 3])
     let fz = z - z.floor();
     let (inx, iny, inz) = (nx as i64, ny as i64, nz as i64);
 
-    let get = |xi: i64, yi: i64, zi: i64| -> f64 {
+    let get = |xi: i64, yi: i64, zi: i64| -> T {
         if xi < 0 || xi >= inx || yi < 0 || yi >= iny || zi < 0 || zi >= inz {
-            return 0.0;
+            return T::ZERO;
         }
         data[xi as usize * ny * nz + yi as usize * nz + zi as usize]
     };
 
-    let c00 = get(x0, y0, z0) * (1.0 - fz) + get(x0, y0, z0 + 1) * fz;
-    let c01 = get(x0, y0 + 1, z0) * (1.0 - fz) + get(x0, y0 + 1, z0 + 1) * fz;
-    let c10 = get(x0 + 1, y0, z0) * (1.0 - fz) + get(x0 + 1, y0, z0 + 1) * fz;
-    let c11 = get(x0 + 1, y0 + 1, z0) * (1.0 - fz) + get(x0 + 1, y0 + 1, z0 + 1) * fz;
+    let c00 = T::lerp(get(x0, y0, z0), get(x0, y0, z0 + 1), fz);
+    let c01 = T::lerp(get(x0, y0 + 1, z0), get(x0, y0 + 1, z0 + 1), fz);
+    let c10 = T::lerp(get(x0 + 1, y0, z0), get(x0 + 1, y0, z0 + 1), fz);
+    let c11 = T::lerp(get(x0 + 1, y0 + 1, z0), get(x0 + 1, y0 + 1, z0 + 1), fz);
 
-    let c0 = c00 * (1.0 - fy) + c01 * fy;
-    let c1 = c10 * (1.0 - fy) + c11 * fy;
+    let c0 = T::lerp(c00, c01, fy);
+    let c1 = T::lerp(c10, c11, fy);
 
-    c0 * (1.0 - fx) + c1 * fx
+    T::lerp(c0, c1, fx)
 }

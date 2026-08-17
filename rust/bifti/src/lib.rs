@@ -2,6 +2,7 @@ mod eval;
 mod loader;
 mod phantom;
 mod registry;
+mod volume;
 
 pub use loader::{Phantom, Tissue, Volume, VolumeData};
 pub use phantom::{
