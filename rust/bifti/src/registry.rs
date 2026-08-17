@@ -1,5 +1,6 @@
 use crate::BiftiPhantom;
 use regex::Regex;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -18,7 +19,7 @@ static ZENODO_ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"zenodo\.
 
 /// Index of public BIfTI phantoms: maps each collection name to its entry.
 /// https://github.com/mrx-org/bifti-phantoms/blob/main/bifti-registry.schema.json
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Registry(HashMap<String, Collection>);
 
@@ -69,7 +70,7 @@ impl Registry {
 }
 
 /// A registered Zenodo record and the phantom files it contains.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Collection {
     pub description: String,
     #[serde(default)]
@@ -103,7 +104,7 @@ impl Collection {
 }
 
 /// Either a phantom JSON filename, or a named group nesting further phantom entries.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum PhantomEntry {
     File(String),
@@ -112,7 +113,7 @@ pub enum PhantomEntry {
 
 /// A named, purely organizational grouping of phantom entries. Carries no
 /// file of its own; `phantoms` may again mix filenames and further groups.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PhantomGroup {
     pub group: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -123,7 +124,7 @@ pub struct PhantomGroup {
     pub phantoms: Vec<PhantomEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Author {
     /// Conventionally "Family, Given".
     pub name: String,

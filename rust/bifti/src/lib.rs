@@ -9,7 +9,7 @@ pub use phantom::{
     BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, PhantomSystem, PhantomUnits, ResliceTo,
     TissueProperties, TissueProperty,
 };
-pub use registry::{Collection, PhantomEntry, PhantomGroup, Registry};
+pub use registry::{Author, Collection, PhantomEntry, PhantomGroup, Registry};
 pub use volume::{Volume, VolumeData, VolumeDataElement};
 
 #[derive(Debug, thiserror::Error)]
