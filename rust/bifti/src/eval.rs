@@ -1,6 +1,23 @@
-use std::str::FromStr;
+use std::{
+    ops::{Add, Div, Mul, Sub},
+    str::FromStr,
+};
 
-/// Parses an expression `func` and applies it to all elements in `data`.
+use crate::{Volume, VolumeData, VolumeDataElement};
+
+/// Dispatches `$data` to `eval_typed` once, based on its variant, so the arithmetic below runs
+/// natively in that variant's element type rather than going through a common type per element.
+macro_rules! eval_variant {
+    ($data:expr, $ast:expr, $($variant:ident),* $(,)?) => {
+        match $data {
+            $(VolumeData::$variant(items) => VolumeData::$variant(eval_typed(items, $ast)),)*
+        }
+    };
+}
+
+/// Parses an expression `func` and applies it to all elements in `volume`, evaluating natively
+/// in the volume's element type (a `Uint8` volume stays `Uint8`, a `Complex64` volume stays
+/// `Complex64`, etc).
 /// - Avaliable operators: + - * / ( )
 /// - Available variables: x, x_min, x_max, x_mean, x_std
 ///
@@ -8,22 +25,41 @@ use std::str::FromStr;
 /// is mapped while the other constants are pre-computed from the `data` array.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(func)))]
 pub fn eval_mapping_func(mut volume: Volume, func: &str) -> Result<Volume, crate::Error> {
-    let data: Vec<f64> = match volume.data {
-        crate::loader::VolumeData::Float64(items) => items,
-        _ => return Err(crate::Error::MappingNonF64Data)
-    };
-
     let ast: Expr = func.parse()?;
-    let input = Input::new(&data);
-    let output = ast.eval(&input);
 
-    let output = match output {
+    volume.data = eval_variant!(
+        volume.data,
+        &ast,
+        Uint8,
+        Uint16,
+        Uint32,
+        Uint64,
+        Int8,
+        Int16,
+        Int32,
+        Int64,
+        Float32,
+        Float64,
+        Complex64,
+        Complex128,
+    );
+
+    Ok(volume)
+}
+
+/// Evaluates `ast` over `items` using `T`'s own arithmetic. Only the aggregate stats
+/// (`x_min`/`x_max`/`x_mean`/`x_std`) and literal constants round-trip through `f64` (via
+/// [`VolumeDataElement::to_f64`]/[`VolumeDataElement::from_f64`]) - summing a `Vec<u8>`
+/// natively, for example, would overflow long before reaching a meaningful mean.
+fn eval_typed<T>(items: Vec<T>, ast: &Expr) -> Vec<T>
+where
+    T: VolumeDataElement + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T>,
+{
+    let input = Input::new(&items);
+    match ast.eval(&input) {
         Array::Scalar(value) => vec![value],
         Array::Vector(items) => items,
-    };
-
-    volume.data = VolumeData::Float64(output);
-    Ok(volume)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -57,103 +93,82 @@ enum InputName {
     XStd,
 }
 
+/// Combines two already-evaluated `Array<T>`s element-wise with `$op`, broadcasting a `Scalar`
+/// against a `Vector` where needed.
+macro_rules! binary_op {
+    ($lhs:expr, $rhs:expr, $op:tt) => {
+        match ($lhs, $rhs) {
+            (Array::Scalar(l), Array::Scalar(r)) => Array::Scalar(l $op r),
+            (Array::Scalar(l), Array::Vector(r)) => {
+                Array::Vector(r.into_iter().map(|r| l $op r).collect())
+            }
+            (Array::Vector(l), Array::Scalar(r)) => {
+                Array::Vector(l.into_iter().map(|l| l $op r).collect())
+            }
+            (Array::Vector(l), Array::Vector(r)) => {
+                Array::Vector(l.into_iter().zip(r).map(|(l, r)| l $op r).collect())
+            }
+        }
+    };
+}
+
 impl Expr {
-    /// TODO: This is not super performant - each collect as well as Array::get produces a clone at full map resolution!
-    fn eval(&self, input: &Input) -> Array {
+    fn eval<T>(&self, input: &Input<T>) -> Array<T>
+    where
+        T: VolumeDataElement
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>,
+    {
         match self {
             Expr::Input(name) => input.get(*name),
-            Expr::Value(value) => Array::Scalar(*value),
-            Expr::Add(lhs, rhs) => match (lhs.eval(input), rhs.eval(input)) {
-                (Array::Scalar(lhs), Array::Scalar(rhs)) => Array::Scalar(lhs + rhs),
-                (Array::Scalar(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(rhs.iter().map(|rhs| lhs + rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Scalar(rhs)) => {
-                    Array::Vector(lhs.iter().map(|lhs| lhs + rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(lhs.iter().zip(rhs).map(|(lhs, rhs)| lhs + rhs).collect())
-                }
-            },
-            Expr::Sub(lhs, rhs) => match (lhs.eval(input), rhs.eval(input)) {
-                (Array::Scalar(lhs), Array::Scalar(rhs)) => Array::Scalar(lhs - rhs),
-                (Array::Scalar(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(rhs.iter().map(|rhs| lhs - rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Scalar(rhs)) => {
-                    Array::Vector(lhs.iter().map(|lhs| lhs - rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(lhs.iter().zip(rhs).map(|(lhs, rhs)| lhs - rhs).collect())
-                }
-            },
-            Expr::Mul(lhs, rhs) => match (lhs.eval(input), rhs.eval(input)) {
-                (Array::Scalar(lhs), Array::Scalar(rhs)) => Array::Scalar(lhs * rhs),
-                (Array::Scalar(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(rhs.iter().map(|rhs| lhs * rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Scalar(rhs)) => {
-                    Array::Vector(lhs.iter().map(|lhs| lhs * rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(lhs.iter().zip(rhs).map(|(lhs, rhs)| lhs * rhs).collect())
-                }
-            },
-            Expr::Div(lhs, rhs) => match (lhs.eval(input), rhs.eval(input)) {
-                (Array::Scalar(lhs), Array::Scalar(rhs)) => Array::Scalar(lhs / rhs),
-                (Array::Scalar(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(rhs.iter().map(|rhs| lhs / rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Scalar(rhs)) => {
-                    Array::Vector(lhs.iter().map(|lhs| lhs / rhs).collect())
-                }
-                (Array::Vector(lhs), Array::Vector(rhs)) => {
-                    Array::Vector(lhs.iter().zip(rhs).map(|(lhs, rhs)| lhs / rhs).collect())
-                }
-            },
+            Expr::Value(value) => Array::Scalar(T::from_f64(*value)),
+            Expr::Add(lhs, rhs) => binary_op!(lhs.eval(input), rhs.eval(input), +),
+            Expr::Sub(lhs, rhs) => binary_op!(lhs.eval(input), rhs.eval(input), -),
+            Expr::Mul(lhs, rhs) => binary_op!(lhs.eval(input), rhs.eval(input), *),
+            Expr::Div(lhs, rhs) => binary_op!(lhs.eval(input), rhs.eval(input), /),
             Expr::Paren(expr) => expr.eval(input),
         }
     }
 }
 
-enum Array {
-    Scalar(f64),
-    Vector(Vec<f64>),
-}
-
-impl FromIterator<f64> for Array {
-    fn from_iter<T: IntoIterator<Item = f64>>(iter: T) -> Self {
-        Self::Vector(iter.into_iter().collect())
-    }
+enum Array<T> {
+    Scalar(T),
+    Vector(Vec<T>),
 }
 
 #[derive(Debug)]
-struct Input<'a> {
-    x: &'a [f64],
-    x_min: f64,
-    x_max: f64,
-    x_mean: f64,
-    x_std: f64,
+struct Input<'a, T> {
+    x: &'a [T],
+    x_min: T,
+    x_max: T,
+    x_mean: T,
+    x_std: T,
 }
 
-impl<'a> Input<'a> {
-    fn new(x: &'a [f64]) -> Self {
-        let x_min = *x.iter().min_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
-        let x_max = *x.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
-        let n = x.len() as f64;
-        let x_mean = x.iter().sum::<f64>() / n;
-        let x_std = (x.iter().map(|xi| (xi - x_mean).powi(2)).sum::<f64>() / n).sqrt();
+impl<'a, T: VolumeDataElement> Input<'a, T> {
+    fn new(x: &'a [T]) -> Self {
+        // Aggregate stats need real precision (and unbounded range) to be meaningful, so they're
+        // computed over an `f64` copy rather than natively - `x` itself stays untouched.
+        let x64: Vec<f64> = x.iter().map(|&v| T::to_f64(v)).collect();
+
+        let x_min = *x64.iter().min_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+        let x_max = *x64.iter().max_by(|a, b| a.total_cmp(b)).unwrap_or(&0.0);
+        let n = x64.len() as f64;
+        let x_mean = x64.iter().sum::<f64>() / n;
+        let x_std = (x64.iter().map(|xi| (xi - x_mean).powi(2)).sum::<f64>() / n).sqrt();
 
         Self {
             x,
-            x_min,
-            x_max,
-            x_mean,
-            x_std,
+            x_min: T::from_f64(x_min),
+            x_max: T::from_f64(x_max),
+            x_mean: T::from_f64(x_mean),
+            x_std: T::from_f64(x_std),
         }
     }
 
-    fn get(&self, name: InputName) -> Array {
+    fn get(&self, name: InputName) -> Array<T> {
         match name {
             InputName::X => Array::Vector(self.x.to_vec()),
             InputName::XMin => Array::Scalar(self.x_min),
@@ -174,8 +189,6 @@ use winnow::{
     prelude::*,
     token::{literal, one_of},
 };
-
-use crate::{Volume, loader::VolumeData};
 
 fn parens(i: &mut &str) -> winnow::Result<Expr> {
     delimited("(", expr, ")")

@@ -307,7 +307,7 @@ fn reslice<T: VolumeDataElement>(
                 let world = apply_affine([ix as f64, iy as f64, iz as f64], idx_to_world);
                 let index = apply_affine(world, world_to_data);
                 resampled[ix * output_shape[1] * output_shape[2] + iy * output_shape[2] + iz] =
-                    trilinear_interp(&data, input_shape, index);
+                    trilinear_interp(data, input_shape, index);
             }
         }
     }

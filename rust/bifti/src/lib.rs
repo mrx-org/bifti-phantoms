@@ -26,8 +26,6 @@ pub enum Error {
     IndexError { index: usize, shape: Vec<u16> },
     #[error("type error: nifti has unsupported type {0}")]
     UnsupportedDataType(String),
-    #[error("mapping error: mapping functions currently only support f64 data")]
-    MappingNonF64Data,
     #[error("eval error: failed to parse '{func}': {error}")]
     EvalError { func: String, error: String },
     #[error("ureq error: {0}")]
