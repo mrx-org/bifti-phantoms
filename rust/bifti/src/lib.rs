@@ -2,13 +2,15 @@ mod eval;
 mod loader;
 mod phantom;
 mod registry;
+mod volume;
 
-pub use loader::{Phantom, Tissue, Volume, VolumeData};
+pub use loader::{Phantom, Tissue};
 pub use phantom::{
     BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, PhantomSystem, PhantomUnits, ResliceTo,
     TissueProperties, TissueProperty,
 };
-pub use registry::{Collection, PhantomEntry, PhantomGroup, Registry};
+pub use registry::{Author, Collection, PhantomEntry, PhantomGroup, Registry};
+pub use volume::{Volume, VolumeData, VolumeDataElement};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -24,8 +26,6 @@ pub enum Error {
     IndexError { index: usize, shape: Vec<u16> },
     #[error("type error: nifti has unsupported type {0}")]
     UnsupportedDataType(String),
-    #[error("mapping error: mapping functions currently only support f64 data")]
-    MappingNonF64Data,
     #[error("eval error: failed to parse '{func}': {error}")]
     EvalError { func: String, error: String },
     #[error("ureq error: {0}")]
