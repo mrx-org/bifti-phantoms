@@ -85,72 +85,42 @@ impl Volume {
     fn reslice(
         self,
         ResliceTo {
-            affine,
+            affine: idx_to_world,
             resolution: res,
         }: ResliceTo,
     ) -> Result<Self, crate::Error> {
         // Treat single-voxel volumes as constant and homogeneous
         if self.shape == [1, 1, 1] {
             return Ok(Self {
-                affine,
+                affine: idx_to_world,
                 shape: res,
                 data: self.data.expand(res[0] * res[1] * res[2]),
             });
         }
 
-        // let input: Vec<f64> = match &self.data {
-        //     VolumeData::Float32(data) => data.iter().map(|&x| x as f64).collect(),
-        //     VolumeData::Float64(data) => data.clone(),
-        //     VolumeData::Complex64(_) | VolumeData::Complex128(_) => {
-        //         return Err(crate::Error::UnsupportedDataType(
-        //             "reslicing complex-valued data is not supported".to_string(),
-        //         ));
-        //     }
-        // };
-
-        // let inv_input_affine = invert_affine(self.affine);
-        // let res = res;
-        // let mut resampled = vec![0.0f64; res[0] * res[1] * res[2]];
-
-        // // map the target voxel index into world-space via the
-        // // target's affine, then back into (continuous) source
-        // // volume indices via the source's inverse affine
-        // for ix in 0..res[0] {
-        //     for iy in 0..res[1] {
-        //         for iz in 0..res[2] {
-        //             let world = apply_affine([ix as f64, iy as f64, iz as f64], affine);
-        //             let index = apply_affine(world, inv_input_affine);
-        //             resampled[ix * res[1] * res[2] + iy * res[2] + iz] =
-        //                 trilinear_interp(&input, self.shape, index);
-        //         }
-        //     }
-        // }
-
-        // Ok(Self {
-        //     affine,
-        //     shape: res,
-        //     data: VolumeData::Float64(resampled),
-        // })
-
-        
-
+        let world_to_data = invert_affine(self.affine);
+        use VolumeData::*;
         let resampled = match &self.data {
-            VolumeData::Uint8(items) => VolumeData::Uint8(reslice(items)),
-            VolumeData::Uint16(items) => todo!(),
-            VolumeData::Uint32(items) => todo!(),
-            VolumeData::Uint64(items) => todo!(),
-            VolumeData::Int8(items) => todo!(),
-            VolumeData::Int16(items) => todo!(),
-            VolumeData::Int32(items) => todo!(),
-            VolumeData::Int64(items) => todo!(),
-            VolumeData::Float32(items) => todo!(),
-            VolumeData::Float64(items) => todo!(),
-            VolumeData::Complex64(items) => todo!(),
-            VolumeData::Complex128(items) => todo!(),
+            Uint8(data) => Uint8(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Uint16(data) => Uint16(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Uint32(data) => Uint32(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Uint64(data) => Uint64(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Int8(data) => Int8(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Int16(data) => Int16(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Int32(data) => Int32(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Int64(data) => Int64(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Float32(data) => Float32(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Float64(data) => Float64(reslice(data, self.shape, res, idx_to_world, world_to_data)),
+            Complex64(data) => {
+                Complex64(reslice(data, self.shape, res, idx_to_world, world_to_data))
+            }
+            Complex128(data) => {
+                Complex128(reslice(data, self.shape, res, idx_to_world, world_to_data))
+            }
         };
 
         Ok(Self {
-            affine,
+            affine: idx_to_world,
             shape: res,
             data: resampled,
         })
@@ -210,7 +180,7 @@ impl Volume {
         reslice_to: Option<ResliceTo>,
     ) -> Result<Self, crate::Error> {
         let volume = match tissue_property {
-            TissueProperty::Value(value) => Self::from_f64(*value),
+            TissueProperty::Value(value) => Self::single_voxel(*value),
             TissueProperty::Ref(nifti_ref) => {
                 Self::load_nifti_ref(base_dir, nifti_ref, reslice_to)?
             }
@@ -319,8 +289,30 @@ fn invert_affine(a: [[f64; 4]; 3]) -> [[f64; 4]; 3] {
     ]
 }
 
-fn reslice<T: VolumeDataElement>(data: &[T]) -> Vec<T> {
-    todo!()
+fn reslice<T: VolumeDataElement>(
+    data: &[T],
+    input_shape: [usize; 3],
+    output_shape: [usize; 3],
+    idx_to_world: [[f64; 4]; 3],
+    world_to_data: [[f64; 4]; 3],
+) -> Vec<T> {
+    let mut resampled = vec![T::ZERO; output_shape[0] * output_shape[1] * output_shape[2]];
+
+    // map the target voxel index into world-space via the
+    // target's affine, then back into (continuous) source
+    // volume indices via the source's inverse affine
+    for ix in 0..output_shape[0] {
+        for iy in 0..output_shape[1] {
+            for iz in 0..output_shape[2] {
+                let world = apply_affine([ix as f64, iy as f64, iz as f64], idx_to_world);
+                let index = apply_affine(world, world_to_data);
+                resampled[ix * output_shape[1] * output_shape[2] + iy * output_shape[2] + iz] =
+                    trilinear_interp(&data, input_shape, index);
+            }
+        }
+    }
+
+    resampled
 }
 
 fn trilinear_interp<T: VolumeDataElement>(
