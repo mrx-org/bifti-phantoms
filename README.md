@@ -12,6 +12,11 @@ A phantom is one **JSON** file defining tissues and their MR properties, referen
 > - _easy to extend:_ General approach supports future extensions
 > - _easy to implement:_ JSON and NIfTI are widely supported
 
+> [!NOTE]
+> **Status:** the phantom spec is **v1** (see [SPEC.md](SPEC.md)); the
+> [registry](#registry) format is **alpha** (see [REGISTRY.md](REGISTRY.md))
+> and may still change shape.
+
 ## Quick example
 
 A minimal phantom is a JSON sidecar next to its NIfTI(s) — one tissue,

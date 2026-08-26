@@ -1,5 +1,10 @@
 # BIfTI Phantom Registry
 
+> [!NOTE]
+> **Registry status: alpha.** Unlike the phantom spec (see [SPEC.md](SPEC.md)),
+> this format carries no version tag of its own — see below — so it may still
+> change shape; entries themselves stay immutable once merged either way.
+
 [`registry.json`](registry.json) is a public, PR-editable index of BIfTI
 phantoms. It only **references** data — the phantoms are hosted on
 [Zenodo](https://zenodo.org/), and anyone can add one via a pull request. Entries

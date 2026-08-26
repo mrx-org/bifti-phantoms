@@ -1,5 +1,13 @@
 # BIfTI Phantom - File Format Specification
 
+> [!NOTE]
+> **Spec version: v1.** The version is the discriminator baked into `$schema`
+> (`bifti-phantom-v1`, see [JSON.md](JSON.md#schema)). It bumps only on a
+> breaking change to the format; since the schema sets
+> `additionalProperties: false` throughout, there is currently no
+> backward-compatible way to add fields within a version — any addition
+> requires a new version tag.
+
 The specification has two parts:
 
 - **[JSON.md](JSON.md)** - the phantom JSON file: top-level structure, units,
