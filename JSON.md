@@ -78,6 +78,16 @@ changes only how the data is sampled, never the orientation of the phantom.
 
 Both fields are required when `reslice_to` is present.
 
+How the resampling is done is up to the implementation, but note that plain
+interpolation is a poor choice when the target grid is *coarser* than the source:
+it point-samples and discards most of the data. The reference implementations
+average each output voxel over the whole source region it covers, and weight that
+average by the tissue's `density` — `T1`, `T2`, `T2'`, `ADC`, `dB0` and `B1±` are
+intensive quantities, so averaging them against the zeros outside the FOV (or in
+the background between tissues) would pull them towards zero at every edge.
+`density` itself is a volume fraction, so it is averaged unweighted and correctly
+falls off where an output voxel is only partly covered by the source.
+
 ### `tissues`
 
 An object mapping a tissue **name** to its definition. At least one tissue is

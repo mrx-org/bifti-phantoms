@@ -1,5 +1,10 @@
 use num_complex::Complex;
 
+/// A 3-D voxel volume plus the affine mapping its indices to world coordinates.
+///
+/// `data` is stored **x-fastest** (Fortran order), which is how NIfTI stores voxels and
+/// how the `nifti` crate hands them over: the voxel at index `(x, y, z)` lives at
+/// `x + y * shape[0] + z * shape[0] * shape[1]`.
 #[derive(Clone)]
 pub struct Volume {
     pub affine: [[f64; 4]; 3],

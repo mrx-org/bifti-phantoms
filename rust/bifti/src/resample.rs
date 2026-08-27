@@ -29,6 +29,14 @@ const DEFAULT_MAX_SUBSTEPS: usize = 8;
 /// Far below any real obliquity (a 1 degree rotation already gives ~0.017).
 const AXIS_ALIGNED_TOL: f64 = 1e-9;
 
+/// Weights below this (of a footprint that sums to 1) are rounding crumbs, not overlap.
+///
+/// Inverting the source affine is inexact, so a voxel that only *touches* the footprint -
+/// zero-width overlap - can come out with a weight of ~1e-17 instead of 0. Left in, such a
+/// tap makes the total weight non-zero, and the weighted mean then divides a crumb by a
+/// crumb and reports that lone voxel's value as if it were the average of the footprint.
+const WEIGHT_EPS: f64 = 1e-12;
+
 /// The source-voxel taps contributing to one output voxel along one axis.
 ///
 /// `start` is the first source index and may be out of bounds; those taps are skipped when
@@ -49,7 +57,8 @@ fn box_taps(lo: f64, hi: f64) -> AxisTaps {
         .map(|j| {
             let j = j as f64;
             let overlap = hi.min(j + 0.5) - lo.max(j - 0.5);
-            overlap.max(0.0) / width
+            let w = overlap.max(0.0) / width;
+            if w < WEIGHT_EPS { 0.0 } else { w }
         })
         .collect();
     AxisTaps {
@@ -63,9 +72,10 @@ fn box_taps(lo: f64, hi: f64) -> AxisTaps {
 fn linear_taps(c: f64) -> AxisTaps {
     let j0 = c.floor();
     let f = c - j0;
+    let clean = |w: f64| if w < WEIGHT_EPS { 0.0 } else { w };
     AxisTaps {
         start: j0 as i64,
-        weights: vec![1.0 - f, f],
+        weights: vec![clean(1.0 - f), clean(f)],
     }
 }
 
@@ -271,6 +281,12 @@ impl Resampler {
     }
 }
 
+/// Flat-index strides per axis. Voxel data is stored x-fastest, as NIfTI stores it and as
+/// the `nifti` crate hands it over - see [`crate::Volume`].
+fn voxel_strides([nx, ny, _nz]: [usize; 3]) -> [usize; 3] {
+    [1, nx, nx * ny]
+}
+
 /// Contract `axis` of a 3-D array against per-output-index taps.
 fn contract_axis<T: VolumeDataElement>(
     src: &[T::Acc],
@@ -280,13 +296,14 @@ fn contract_axis<T: VolumeDataElement>(
 ) -> (Vec<T::Acc>, [usize; 3]) {
     let mut out_shape = shape;
     out_shape[axis] = taps.len();
-    let strides = [shape[1] * shape[2], shape[2], 1];
+    let strides = voxel_strides(shape);
     let mut out = vec![T::acc_zero(); out_shape[0] * out_shape[1] * out_shape[2]];
 
+    // Write in the same x-fastest order the data is stored in (see [`Volume`]).
     let mut o = 0;
-    for i0 in 0..out_shape[0] {
+    for i2 in 0..out_shape[2] {
         for i1 in 0..out_shape[1] {
-            for i2 in 0..out_shape[2] {
+            for i0 in 0..out_shape[0] {
                 let idx = [i0, i1, i2];
                 // Base offset with the contracted axis left at 0.
                 let base: usize = (0..3)
@@ -320,11 +337,11 @@ fn permute_to_output<T: VolumeDataElement>(
     if src_axis == [0, 1, 2] {
         return src.to_vec();
     }
-    let strides = [shape[1] * shape[2], shape[2], 1];
+    let strides = voxel_strides(shape);
     let mut out = Vec::with_capacity(out_shape[0] * out_shape[1] * out_shape[2]);
-    for o0 in 0..out_shape[0] {
+    for o2 in 0..out_shape[2] {
         for o1 in 0..out_shape[1] {
-            for o2 in 0..out_shape[2] {
+            for o0 in 0..out_shape[0] {
                 let o = [o0, o1, o2];
                 let idx: usize = (0..3).map(|a| o[a] * strides[src_axis[a]]).sum();
                 out.push(src[idx]);
@@ -356,9 +373,9 @@ fn oblique_resample<T: VolumeDataElement>(
         offsets(substeps[2]),
     );
 
-    for i0 in 0..out_shape[0] {
+    for i2 in 0..out_shape[2] {
         for i1 in 0..out_shape[1] {
-            for i2 in 0..out_shape[2] {
+            for i0 in 0..out_shape[0] {
                 let mut acc = T::acc_zero();
                 for &dx in &ox {
                     for &dy in &oy {
@@ -386,6 +403,7 @@ fn trilinear<T: VolumeDataElement>(
     [nx, ny, nz]: [usize; 3],
     [x, y, z]: [f64; 3],
 ) -> T::Acc {
+    let strides = voxel_strides([nx, ny, nz]);
     let (x0, y0, z0) = (x.floor(), y.floor(), z.floor());
     let (fx, fy, fz) = (x - x0, y - y0, z - z0);
     let (x0, y0, z0) = (x0 as i64, y0 as i64, z0 as i64);
@@ -408,7 +426,8 @@ fn trilinear<T: VolumeDataElement>(
                 {
                     continue;
                 }
-                let idx = xi as usize * ny * nz + yi as usize * nz + zi as usize;
+                let idx =
+                    xi as usize * strides[0] + yi as usize * strides[1] + zi as usize * strides[2];
                 acc = T::acc_fma(acc, src[idx], w);
             }
         }
@@ -470,7 +489,7 @@ mod tests {
         assert_eq!(out.len(), 8);
 
         // Compare against the mean of each 2x2x2 block, computed by hand.
-        let at = |x: usize, y: usize, z: usize| data[x * 16 + y * 4 + z];
+        let at = |x: usize, y: usize, z: usize| data[x + y * 4 + z * 16];
         for bx in 0..2 {
             for by in 0..2 {
                 for bz in 0..2 {
@@ -482,7 +501,7 @@ mod tests {
                             }
                         }
                     }
-                    let got = out[bx * 4 + by * 2 + bz];
+                    let got = out[bx + by * 2 + bz * 4];
                     assert!(
                         (got - sum / 8.0).abs() < 1e-9,
                         "block ({bx},{by},{bz}): got {got}, want {}",
@@ -502,7 +521,7 @@ mod tests {
         let out = weighted(&r, &data, src_shape);
         assert_eq!(out.len(), 8);
 
-        let at = |x: usize, y: usize, z: usize| data[x * 64 + y * 8 + z];
+        let at = |x: usize, y: usize, z: usize| data[x + y * 8 + z * 64];
         for bx in 0..2 {
             for by in 0..2 {
                 for bz in 0..2 {
@@ -514,7 +533,7 @@ mod tests {
                             }
                         }
                     }
-                    let got = out[bx * 4 + by * 2 + bz];
+                    let got = out[bx + by * 2 + bz * 4];
                     assert!((got - sum / 64.0).abs() < 1e-9);
                 }
             }
@@ -599,9 +618,9 @@ mod tests {
         // Reference: sample the source at each output voxel centre, trilinearly.
         let m = crate::loader::compose_affine(crate::loader::invert_affine(src_affine), dst.affine);
         let mut i = 0;
-        for x in 0..7 {
+        for z in 0..7 {
             for y in 0..7 {
-                for z in 0..7 {
+                for x in 0..7 {
                     let p = [x as f64, y as f64, z as f64];
                     let c = [
                         m[0][0] * p[0] + m[0][1] * p[1] + m[0][2] * p[2] + m[0][3],
@@ -704,5 +723,59 @@ mod tests {
         let ws = r.weight_sum(&w, src_shape);
         let out = r.resample_weighted(&data, src_shape, &w, &ws);
         assert_eq!(out, vec![1u8]);
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    use super::*;
+
+    /// An output voxel that only *touches* the source - zero-width overlap - must end up
+    /// with exactly zero weight.
+    ///
+    /// Inverting the source affine is inexact, so such a voxel can pick up a ~1e-17 weight.
+    /// Divided by an equally tiny total weight, that reported the single touched voxel's
+    /// value as the footprint average, producing a hard non-zero fringe just outside the
+    /// FOV. This is the geometry of the `shapes_downsampled` fixture, which hits it.
+    #[test]
+    fn a_voxel_that_only_touches_the_source_gets_no_weight() {
+        let src_affine = [
+            [3.0, 0., 0., -60.],
+            [0., 3.0, 0., -48.],
+            [0., 0., 5.0, -10.],
+        ];
+        let dst = ResliceTo {
+            affine: [
+                [9.0, 0., 0., -66.],
+                [0., 9.0, 0., -51.],
+                [0., 0., 10.0, -12.5],
+            ],
+            resolution: [16, 12, 3],
+        };
+        let r = Resampler::build(src_affine, [40, 32, 4], dst);
+
+        let src_len = 40 * 32 * 4;
+        let ws = r.weight_sum(&vec![1.0f64; src_len], [40, 32, 4]);
+        // Output x = 0 and x = 15 lie entirely outside the source along x.
+        for z in 0..3 {
+            for y in 0..12 {
+                for x in [0usize, 15] {
+                    let i = x + y * 16 + z * 16 * 12;
+                    assert_eq!(ws[i], 0.0, "voxel ({x},{y},{z}) should have no weight");
+                }
+            }
+        }
+
+        // ... so a property there resamples to zero rather than to a raw source value.
+        let data: Vec<f64> = (0..src_len).map(|i| i as f64 + 1.0).collect();
+        let out = r.resample_weighted(&data, [40, 32, 4], &vec![1.0f64; src_len], &ws);
+        for z in 0..3 {
+            for y in 0..12 {
+                for x in [0usize, 15] {
+                    let i = x + y * 16 + z * 16 * 12;
+                    assert_eq!(out[i], 0.0, "voxel ({x},{y},{z}) should resample to 0");
+                }
+            }
+        }
     }
 }
