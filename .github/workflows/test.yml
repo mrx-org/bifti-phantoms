@@ -1,0 +1,65 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+# No `paths` filter: the Rust integration tests read the example phantoms under
+# python/bifti/examples/data/, so a "Python-only" change still has to run the Rust job.
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust/bifti
+    steps:
+      - uses: actions/checkout@v4
+      # The crate is edition 2024, so pin an explicit stable toolchain rather than
+      # relying on whatever the runner happens to ship.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/bifti
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python/bifti
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # --frozen fails the build on a stale uv.lock instead of quietly re-resolving.
+      - run: uv sync --frozen --group dev
+      - run: uv run --frozen --group dev pytest -q
+
+  # Resampling uses torch when it is importable, which is a separate code path from the
+  # NumPy one. Kept as its own job so the fast NumPy result is not gated on a large
+  # third-party download.
+  python-torch:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python/bifti
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --group dev
+      - name: Install the CPU torch wheel
+        run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+      # --no-sync is required: `uv run --frozen` re-syncs against the lock, which would
+      # uninstall the torch just added and silently revert this job to the NumPy path.
+      - name: Run the tests on the torch backend
+        run: uv run --no-sync --group dev pytest -q
+        env:
+          BIFTI_RESAMPLE_BACKEND: torch
