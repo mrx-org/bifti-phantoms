@@ -16,6 +16,19 @@ static SCHEMA_REGEX: LazyLock<Regex> =
 static NIFTI_REF_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(?P<file>.+?)\[(?P<idx>\d+)\]$").unwrap());
 
+// The format is additively extensible (../../../SPEC.md), so unknown fields are
+// ignored rather than rejected - but the schema no longer catches typos either,
+// which leaves the reader as the only place that can point one out.
+macro_rules! warn_unknown {
+    ($($arg:tt)*) => {{
+        let msg = format!($($arg)*);
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{}", msg);
+        #[cfg(not(feature = "tracing"))]
+        eprintln!("bifti: {msg}");
+    }};
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PhantomUnits {
     pub gyro: String,
@@ -245,6 +258,72 @@ pub struct BiftiTissue {
     pub density: NiftiRef,
     #[serde(flatten)]
     pub properties: TissueProperties,
+    /// Fields this version of the crate doesn't know, kept so that saving a
+    /// phantom round-trips them instead of quietly dropping them.
+    #[serde(flatten)]
+    pub unknown: serde_json::Map<String, serde_json::Value>,
+}
+
+/// A DICOM-style patient position code.
+///
+/// Defines the rotation from phantom RAS+ into scanner coordinates. The scanner
+/// frame is right-handed with Z along B0 pointing *out of* the bore and Y
+/// pointing up, which makes [`PatientPosition::FeetFirstSupine`] the identity -
+/// and therefore the default, so a phantom that states no position is never
+/// transformed. See ../../../NIFTI.md#patient-position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PatientPosition {
+    #[default]
+    #[serde(rename = "FFS")]
+    FeetFirstSupine,
+    #[serde(rename = "FFP")]
+    FeetFirstProne,
+    #[serde(rename = "FFDR")]
+    FeetFirstDecubitusRight,
+    #[serde(rename = "FFDL")]
+    FeetFirstDecubitusLeft,
+    #[serde(rename = "HFS")]
+    HeadFirstSupine,
+    #[serde(rename = "HFP")]
+    HeadFirstProne,
+    #[serde(rename = "HFDR")]
+    HeadFirstDecubitusRight,
+    #[serde(rename = "HFDL")]
+    HeadFirstDecubitusLeft,
+}
+
+impl PatientPosition {
+    /// The 3x3 rotation from phantom RAS+ into scanner coordinates, i.e.
+    /// `v_scanner = to_scanner() * v_ras`. Always a proper rotation (det = +1).
+    pub fn to_scanner(self) -> [[f64; 3]; 3] {
+        match self {
+            Self::FeetFirstSupine => [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            Self::FeetFirstProne => [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]],
+            Self::FeetFirstDecubitusRight => [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+            Self::FeetFirstDecubitusLeft => [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+            Self::HeadFirstSupine => [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]],
+            Self::HeadFirstProne => [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]],
+            Self::HeadFirstDecubitusRight => [[0.0, -1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]],
+            Self::HeadFirstDecubitusLeft => [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]],
+        }
+    }
+
+    /// The same rotation as a 4x4 affine, for composing with a voxel-to-RAS one.
+    pub fn to_scanner_affine(self) -> [[f64; 4]; 4] {
+        let r = self.to_scanner();
+        [
+            [r[0][0], r[0][1], r[0][2], 0.0],
+            [r[1][0], r[1][1], r[1][2], 0.0],
+            [r[2][0], r[2][1], r[2][2], 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    }
+}
+
+/// How the subject lies in the scanner (../../../JSON.md -> `patient`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Patient {
+    pub position: PatientPosition,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -267,16 +346,46 @@ pub struct BiftiPhantom {
     pub schema: String,
     pub units: PhantomUnits,
     pub system: PhantomSystem,
+    /// `None` means `FFS`: an unpositioned phantom is never transformed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patient: Option<Patient>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reslice_to: Option<ResliceTo>,
     pub tissues: HashMap<String, BiftiTissue>,
+    /// Fields this version of the crate doesn't know, kept so that saving a
+    /// phantom round-trips them instead of quietly dropping them.
+    #[serde(flatten)]
+    pub unknown: serde_json::Map<String, serde_json::Value>,
 }
 
 impl BiftiPhantom {
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, crate::Error> {
-        Ok(serde_json::from_reader(std::io::BufReader::new(
-            std::fs::File::open(path)?,
-        ))?)
+        let phantom: Self =
+            serde_json::from_reader(std::io::BufReader::new(std::fs::File::open(path)?))?;
+        phantom.warn_unknown_fields();
+        Ok(phantom)
+    }
+
+    /// Warn about every field that this version of the crate doesn't recognize.
+    ///
+    /// Called by [`BiftiPhantom::load`]; call it yourself if you deserialized a
+    /// phantom some other way.
+    pub fn warn_unknown_fields(&self) {
+        for key in self.unknown.keys() {
+            warn_unknown!("Ignoring unknown field {key:?} in the phantom");
+        }
+        for (name, tissue) in &self.tissues {
+            for key in tissue.unknown.keys() {
+                warn_unknown!("Ignoring unknown field {key:?} in tissue {name:?}");
+            }
+        }
+    }
+
+    /// The 3x3 phantom-RAS+ -> scanner rotation of this phantom.
+    ///
+    /// The identity when no `patient` is given (../../../NIFTI.md#patient-position).
+    pub fn to_scanner_matrix(&self) -> [[f64; 3]; 3] {
+        self.patient.unwrap_or_default().position.to_scanner()
     }
 
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), crate::Error> {
@@ -328,8 +437,10 @@ impl Default for BiftiPhantom {
             schema: default_schema(),
             units: PhantomUnits::default(),
             system: PhantomSystem::default(),
+            patient: None,
             reslice_to: None,
             tissues: HashMap::new(),
+            unknown: serde_json::Map::new(),
         }
     }
 }
@@ -343,4 +454,152 @@ where
         return Err(D::Error::custom(format!("Unsupported $schema: {schema:?}")));
     }
     Ok(schema)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ALL_POSITIONS: [PatientPosition; 8] = [
+        PatientPosition::FeetFirstSupine,
+        PatientPosition::FeetFirstProne,
+        PatientPosition::FeetFirstDecubitusRight,
+        PatientPosition::FeetFirstDecubitusLeft,
+        PatientPosition::HeadFirstSupine,
+        PatientPosition::HeadFirstProne,
+        PatientPosition::HeadFirstDecubitusRight,
+        PatientPosition::HeadFirstDecubitusLeft,
+    ];
+
+    fn det(m: [[f64; 3]; 3]) -> f64 {
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    }
+
+    #[test]
+    fn ffs_is_the_identity_and_the_default() {
+        let identity = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        assert_eq!(PatientPosition::default(), PatientPosition::FeetFirstSupine);
+        assert_eq!(PatientPosition::FeetFirstSupine.to_scanner(), identity);
+        // A phantom without a `patient` must not be transformed at all.
+        assert_eq!(BiftiPhantom::default().to_scanner_matrix(), identity);
+    }
+
+    #[test]
+    fn hfs_turns_the_subject_about_the_vertical_axis() {
+        // Head first is feet first rotated 180 deg about Y, so R and S flip.
+        assert_eq!(
+            PatientPosition::HeadFirstSupine.to_scanner(),
+            [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]
+        );
+    }
+
+    #[test]
+    fn every_position_is_a_proper_rotation() {
+        for pos in ALL_POSITIONS {
+            let m = pos.to_scanner();
+            assert!((det(m) - 1.0).abs() < 1e-12, "{pos:?} has det {}", det(m));
+
+            // Orthonormal: M * M^T == I
+            for i in 0..3 {
+                for j in 0..3 {
+                    let dot: f64 = (0..3).map(|k| m[i][k] * m[j][k]).sum();
+                    let expected = if i == j { 1.0 } else { 0.0 };
+                    assert_eq!(dot, expected, "{pos:?} rows {i},{j}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn superior_axis_says_which_end_goes_into_the_bore() {
+        for pos in ALL_POSITIONS {
+            // Scanner Z points out of the bore, so head-first maps S onto -Z.
+            let head_first = matches!(
+                pos,
+                PatientPosition::HeadFirstSupine
+                    | PatientPosition::HeadFirstProne
+                    | PatientPosition::HeadFirstDecubitusRight
+                    | PatientPosition::HeadFirstDecubitusLeft
+            );
+            let s_z = pos.to_scanner()[2][2];
+            assert_eq!(s_z, if head_first { -1.0 } else { 1.0 }, "{pos:?}");
+        }
+    }
+
+    #[test]
+    fn positions_round_trip_through_their_dicom_codes() {
+        for (pos, code) in ALL_POSITIONS
+            .iter()
+            .zip(["FFS", "FFP", "FFDR", "FFDL", "HFS", "HFP", "HFDR", "HFDL"])
+        {
+            let json = serde_json::to_string(pos).unwrap();
+            assert_eq!(json, format!("\"{code}\""));
+            assert_eq!(
+                serde_json::from_str::<PatientPosition>(&json).unwrap(),
+                *pos
+            );
+        }
+        // Codes are case-sensitive, and DICOM's non-MR codes are not supported.
+        assert!(serde_json::from_str::<PatientPosition>("\"hfs\"").is_err());
+        assert!(serde_json::from_str::<PatientPosition>("\"SITTING\"").is_err());
+    }
+
+    fn phantom_json(extra: &str) -> String {
+        format!(
+            r#"{{
+                "$schema": "bifti-phantom-v1.schema.json",
+                "units": {{
+                    "gyro": "MHz/T", "B0": "T", "T1": "s", "T2": "s", "T2'": "s",
+                    "ADC": "10^-3 mm^2/s", "dB0": "Hz", "B1+": "rel", "B1-": "rel"
+                }},
+                "system": {{ "gyro": 42.5764, "B0": 3.0 }},
+                {extra}
+                "tissues": {{ "gm": {{ "density": "x.nii.gz[0]", "T1": 1.5 }} }}
+            }}"#
+        )
+    }
+
+    #[test]
+    fn patient_is_optional_and_round_trips() {
+        let without: BiftiPhantom = serde_json::from_str(&phantom_json("")).unwrap();
+        assert_eq!(without.patient, None);
+        assert!(!serde_json::to_string(&without).unwrap().contains("patient"));
+
+        let with: BiftiPhantom =
+            serde_json::from_str(&phantom_json(r#""patient": { "position": "HFDR" },"#)).unwrap();
+        assert_eq!(
+            with.patient,
+            Some(Patient {
+                position: PatientPosition::HeadFirstDecubitusRight
+            })
+        );
+        assert_eq!(
+            with.to_scanner_matrix(),
+            PatientPosition::HeadFirstDecubitusRight.to_scanner()
+        );
+
+        let reparsed: BiftiPhantom =
+            serde_json::from_str(&serde_json::to_string(&with).unwrap()).unwrap();
+        assert_eq!(reparsed.patient, with.patient);
+    }
+
+    #[test]
+    fn unknown_fields_are_kept_rather_than_rejected() {
+        let json = phantom_json(r#""from_the_future": { "a": 1 },"#);
+        let phantom: BiftiPhantom = serde_json::from_str(&json).unwrap();
+        assert!(phantom.unknown.contains_key("from_the_future"));
+        phantom.warn_unknown_fields();
+
+        // Saving must not silently drop what we didn't understand.
+        let round_tripped: BiftiPhantom =
+            serde_json::from_str(&serde_json::to_string(&phantom).unwrap()).unwrap();
+        assert_eq!(round_tripped.unknown, phantom.unknown);
+
+        // Same at tissue level, where a typo is the likelier cause.
+        let json = json.replace(r#""T1": 1.5"#, r#""T1": 1.5, "T22": 0.1"#);
+        let phantom: BiftiPhantom = serde_json::from_str(&json).unwrap();
+        assert!(phantom.tissues["gm"].unknown.contains_key("T22"));
+    }
 }

@@ -15,6 +15,9 @@
     "gyro": 42.5764,
     "B0": 3.0
   },
+  "patient": {
+    "position": "HFS"
+  },
   "tissues": {
     "disk": {
       "density": "shapes_density.nii.gz[0]",
