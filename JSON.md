@@ -120,6 +120,16 @@ changes only how the data is sampled, never the orientation of the phantom.
 
 Both fields are required when `reslice_to` is present.
 
+The exact resampling is implementation defined. The example implementations for
+Python in Rust respect the following recommendations, which all code is highly
+encouraged to do as well:
+- on downsampling use proper area weighing or sub-sampling / integration over
+  the voxel areas. Otherwise aliasing can occur; this is especially evident
+  when building 2D slices from 3D phantoms, which should average over the slice
+- use proton-density weighted averaging. The `reslice_to` volume can extend
+  past the source data. `T1`, `T2` and other properties should not fade to zero
+  on edge voxels but should use the value of the non-zero PD voxels.
+
 ### `tissues`
 
 An object mapping a tissue **name** to its definition. At least one tissue is

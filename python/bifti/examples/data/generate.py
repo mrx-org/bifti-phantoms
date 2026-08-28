@@ -171,6 +171,19 @@ def make_shapes(rng: np.random.Generator) -> None:
     BiftiPhantom(units, system, tissues, reslice_to).save(DATA / "shapes_resliced.json")
     print("  wrote shapes_resliced.json")
 
+    # ... and onto a *coarser* 16x12x3 grid whose FOV is deliberately larger than the
+    # source, so output voxels both average many source voxels and straddle the FOV edge.
+    # This is the case plain interpolation gets wrong: it point-samples instead of
+    # averaging, and a naive average would drag T1/T2/dB0 towards the zeros outside.
+    downsample_to = ResliceTo(
+        affine=[[9, 0, 0, -66], [0, 9, 0, -51], [0, 0, 10, -12.5]],
+        resolution=[16, 12, 3],
+    )
+    BiftiPhantom(units, system, tissues, downsample_to).save(
+        DATA / "shapes_downsampled.json"
+    )
+    print("  wrote shapes_downsampled.json")
+
 
 def main() -> None:
     rng = np.random.default_rng(SEED)
