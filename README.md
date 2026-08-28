@@ -75,6 +75,11 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
 | [tools/](tools/) | CI scripts: schema/registry validation, immutability checks. |
 
+> [!IMPORTANT]
+> The example implementations for Python and Rust were built with the help of
+> LLMs and not yet reviewed thouroughly. They might contain bugs and currently
+> not live up to the targeted quality standard. This will change in the future.
+
 ## Registry
 
 Example phantoms are available in the public registry: [registry.json](registry.json).
