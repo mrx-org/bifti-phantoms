@@ -2,11 +2,18 @@
 
 > [!NOTE]
 > **Spec version: v1.** The version is the discriminator baked into `$schema`
-> (`bifti-phantom-v1`, see [JSON.md](JSON.md#schema)). It bumps only on a
-> breaking change to the format; since the schema sets
-> `additionalProperties: false` throughout, there is currently no
-> backward-compatible way to add fields within a version — any addition
-> requires a new version tag.
+> (`bifti-phantom-v1`, see [JSON.md](JSON.md#schema)).
+>
+> **The format is additively extensible.** New *optional* fields may be added
+> within a version, so the version tag bumps only on a **backwards-incompatible**
+> change: removing or renaming a field, adding a required field, or changing the
+> meaning of an existing one.
+>
+> Consequently, readers **must** ignore fields they do not recognise, and
+> **should** emit a warning for each one — a phantom written against a newer
+> revision of v1 still loads, and an unknown key is far more often a typo than a
+> future field. The schema no longer sets `additionalProperties: false`, so it
+> can no longer catch that typo for you; that job now belongs to the reader.
 
 The specification has two parts:
 

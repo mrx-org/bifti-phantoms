@@ -19,7 +19,9 @@ from .phantom import (
     BiftiTissue,
     NiftiRef,
     NiftiMapping,
+    Patient,
     ResliceTo,
+    patient_to_scanner,
 )
 
 
@@ -59,6 +61,37 @@ class NumpyPhantom:
                 for name, tissue in config.tissues.items()
             },
         )
+
+    def scanner_affine(self, tissue: str) -> np.ndarray:
+        """The 4x4 voxel -> scanner affine of one tissue.
+
+        A tissue's own ``affine`` maps voxels into the subject-aligned RAS+
+        space the phantom is stored in; this composes it with the phantom's
+        patient position to land in scanner coordinates instead. Identical to
+        ``affine`` when the phantom carries no ``patient``
+        (see ``../NIFTI.md#patient-position``).
+        """
+        return to_scanner_affine(self.tissues[tissue].affine, self.config.patient)
+
+
+def to_scanner_affine(
+    affine: list[list[float]] | np.ndarray, patient: Patient | None
+) -> np.ndarray:
+    """Compose a voxel -> RAS+ affine with a patient position.
+
+    ``affine`` is the upper 3 rows (as stored in a phantom) or a full 4x4;
+    the result is always 4x4. ``patient`` may be ``None``, which is FFS and
+    leaves the affine untouched (../NIFTI.md#patient-position).
+    """
+    affine = np.asarray(affine, dtype=np.float64)
+    if affine.shape == (3, 4):
+        affine = np.vstack([affine, [0.0, 0.0, 0.0, 1.0]])
+    if affine.shape != (4, 4):
+        raise ValueError(f"Expected a 3x4 or 4x4 affine, got {affine.shape}")
+
+    rotation = np.eye(4)
+    rotation[:3, :3] = patient_to_scanner(patient.position if patient else None)
+    return rotation @ affine
 
 
 @dataclass

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/mrx-org/nifti-phantoms/refs/heads/main/nifti-phantom-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/bifti-phantom-v1.schema.json",
   "units": {
     "gyro": "MHz/T",
     "B0": "T",

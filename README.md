@@ -66,14 +66,14 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 |------|---------|
 | [SPEC.md](SPEC.md) | Overview and folder layout. |
 | [JSON.md](JSON.md) | The phantom JSON: structure, units, system, tissues. |
-| [NIFTI.md](NIFTI.md) | The NIfTI files: format and coordinate conventions. |
+| [NIFTI.md](NIFTI.md) | The NIfTI files: format, coordinate conventions and patient position. |
 | [REGISTRY.md](REGISTRY.md) | The registry: how phantoms are hosted and shared. |
 | [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry.schema.json](bifti-registry.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json). |
 | [registry.json](registry.json) | The public index of phantoms — see [Registry](#registry). |
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |
 | [rust/bifti/](rust/bifti/) | Installable Rust crate + examples. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
-| [tools/](tools/) | CI scripts: schema/registry validation, immutability checks. |
+| [tools/](tools/) | CI scripts: phantom/registry schema validation, immutability checks. |
 
 ## Registry
 
@@ -107,5 +107,6 @@ The two implementations currently have some discrepancies:
 | Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Fails with `Error::UnsupportedDataType` |
 | Reslicing (`reslice_to`) | Via `nibabel`/`scipy`, skips resampling when already on the target grid | Own trilinear implementation; always resamples, real-valued data only |
 | Registry access | `load_registry()`, `load_registry_phantom(collection, name)` | `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` |
+| Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them |
 | Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) |
 | Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) |

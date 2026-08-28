@@ -2,10 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mrx-org/bifti-phantoms/bifti-phantom-v1",
   "title": "BIfTI Phantom v1",
-  "description": "Numerical MRI simulation phantom. Can contain segmented multi-tissue data as well as per-voxel data. References NIfTI files stored next to this file.",
+  "description": "Numerical MRI simulation phantom. Can contain segmented multi-tissue data as well as per-voxel data. References NIfTI files stored next to this file. Unknown properties are allowed on purpose: new optional fields may be added within a spec version, and readers must ignore what they do not recognize (see SPEC.md).",
   "type": "object",
   "required": [ "$schema", "units", "system", "tissues" ],
-  "additionalProperties": false,
   "properties": {
     "$schema": {
       "description": "Format discriminator and version. Any URI whose path ends in 'bifti-phantom-v1', optionally followed by a file extension (e.g. '.json', '.schema.json'), so files can point at the schema via any host, branch or tag.",
@@ -29,7 +28,6 @@
     "system": {
       "description": "Global scalar parameters of the (virtual) MR system, shared by all tissues.",
       "type": "object",
-      "additionalProperties": false,
       "required": [ "gyro", "B0" ],
       "properties": {
         "gyro": {
@@ -43,10 +41,22 @@
         }
       }
     },
+    "patient": {
+      "description": "How the subject is positioned in the scanner. Phantom data is always stored subject-aligned (RAS+), so this is what allows a consumer to convert between phantom and scanner coordinates. Purely metadata: it never changes the stored data, the NIfTI affines or `reslice_to`.",
+      "type": "object",
+      "required": [ "position" ],
+      "properties": {
+        "position": {
+          "description": "DICOM-style patient position code. Defines the patient-RAS+ -> scanner rotation; see NIFTI.md for the scanner coordinate system and the matrix of each code. Omitting the whole `patient` object means 'FFS', i.e. no transform.",
+          "type": "string",
+          "enum": [ "FFS", "FFP", "FFDR", "FFDL", "HFS", "HFP", "HFDR", "HFDL" ],
+          "default": "FFS"
+        }
+      }
+    },
     "reslice_to": {
       "description": "Optional target sampling grid. If omitted, NIfTIs are loaded as-is. If given, all NIfTIs are resampled onto the grid defined by `affine` and `resolution` (interpreted exactly as in the NIfTI standard). This only changes how the data is sampled, not the orientation of the phantom.",
       "type": "object",
-      "additionalProperties": false,
       "required": [ "affine", "resolution" ],
       "properties": {
         "affine": {
@@ -86,10 +96,9 @@
   },
   "$defs": {
     "tissue": {
-      "description": "A single tissue, defined by its spatial distribution (NIfTI) and its physical properties. Only the properties listed here are allowed; any omitted property takes its documented default.",
+      "description": "A single tissue, defined by its spatial distribution (NIfTI) and its physical properties. Any omitted property takes its documented default; unknown properties are ignored by readers.",
       "type": "object",
       "required": [ "density" ],
-      "additionalProperties": false,
       "properties": {
         "density": {
           "description": "Spatial distribution / volume fraction of this tissue. Must be spatially resolved (a NIfTI reference).",
@@ -168,7 +177,6 @@
       "description": "A NIfTI reference whose voxel values are remapped by an expression of `x` (the voxel value), e.g. {\"file\": \"subj42_dB0.nii.gz[0]\", \"func\": \"x - 420\"}.",
       "type": "object",
       "required": [ "file", "func" ],
-      "additionalProperties": false,
       "properties": {
         "file": {
           "$ref": "#/$defs/niftiReference"

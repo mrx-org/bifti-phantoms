@@ -353,9 +353,14 @@ function renderPhantomDetail(container, rawData) {
   content.className = "phantom-detail-content";
 
   function showTable() {
-    content.innerHTML = tissueNames.length > 0
+    // `patient` is optional; omitting it means FFS (see ../NIFTI.md).
+    const position = rawData?.patient?.position;
+    const positionHtml = position
+      ? `<p class="muted" style="padding:0.5rem 0 0">patient position: <code>${escape(position)}</code></p>`
+      : "";
+    content.innerHTML = positionHtml + (tissueNames.length > 0
       ? renderTissueTable(tissues, tissueNames)
-      : `<p class="muted" style="padding:0.5rem 0">No tissues defined.</p>`;
+      : `<p class="muted" style="padding:0.5rem 0">No tissues defined.</p>`);
     toggleBtn.setAttribute("aria-checked", "false");
     toggleLabel.textContent = "table";
   }

@@ -13,7 +13,8 @@ Outputs:
 
 * ``subj42*.nii.gz`` - per-voxel data for the hand-written ``subj42-3T.json``
   (a single axial slice, resliced 64x64 -> 100x100 on load).
-* ``shapes*.nii.gz`` + ``shapes.json`` - a small 3D phantom on its native grid.
+* ``shapes*.nii.gz`` + ``shapes.json`` - a small 3D phantom on its native grid,
+  carrying a ``patient`` position.
 * ``shapes_resliced.json`` - the same NIfTIs, but with a ``reslice_to`` onto a
   different resolution, so loading actually resamples the 3D volumes.
 """
@@ -25,6 +26,7 @@ import nibabel
 
 from bifti import (
     BiftiPhantom,
+    Patient,
     PhantomUnits,
     PhantomSystem,
     BiftiTissue,
@@ -153,7 +155,11 @@ def make_shapes(rng: np.random.Generator) -> None:
         ),
     }
     units, system = PhantomUnits.default(), PhantomSystem(42.5764, 3.0)
-    BiftiPhantom(units, system, tissues).save(DATA / "shapes.json")
+    # Head first supine, so this phantom is *not* the identity when mapped into
+    # scanner coordinates (../../NIFTI.md#patient-position). shapes_resliced and
+    # subj42 leave `patient` out, which means FFS / no transform.
+    patient = Patient("HFS")
+    BiftiPhantom(units, system, tissues, patient=patient).save(DATA / "shapes.json")
     print("  wrote shapes.json")
 
     # Same data, but resliced onto a finer 60x48x4 grid (same FOV) - so loading
