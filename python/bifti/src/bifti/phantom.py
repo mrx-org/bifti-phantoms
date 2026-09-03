@@ -1,6 +1,57 @@
 from dataclasses import dataclass
 from typing import Literal, Any
 from pathlib import Path
+import warnings
+
+
+def warn_unknown_fields(where: str, config: dict[str, Any], known: set[str]):
+    """Warn about fields we don't know, per ../SPEC.md.
+
+    The format is additively extensible, so unknown fields must be ignored
+    rather than rejected - but since the schema no longer catches typos, the
+    reader is the only place left that can point one out.
+    """
+    for key in config:
+        if key not in known:
+            warnings.warn(f"Ignoring unknown field {key!r} in {where}", stacklevel=3)
+
+
+# DICOM-style patient position codes and the rotation from phantom RAS+ to
+# scanner coordinates each one defines: `v_scanner = P @ v_ras`. The scanner
+# frame is right-handed with Z along B0 pointing out of the bore and Y pointing
+# up, which makes FFS the identity. See ../NIFTI.md#patient-position.
+PATIENT_POSITIONS: dict[str, list[list[float]]] = {
+    # feet first
+    "FFS": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+    "FFP": [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]],
+    "FFDR": [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+    "FFDL": [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+    # head first
+    "HFS": [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]],
+    "HFP": [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]],
+    "HFDR": [[0.0, -1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]],
+    "HFDL": [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]],
+}
+
+# A phantom without a patient position is not transformed at all, which is the
+# same as saying it is feet first supine.
+DEFAULT_PATIENT_POSITION = "FFS"
+
+
+def patient_to_scanner(position: str | None) -> list[list[float]]:
+    """The 3x3 phantom-RAS+ -> scanner rotation of a patient position.
+
+    ``None`` (no ``patient`` in the phantom) yields the identity, so callers
+    don't have to special-case the default anywhere else.
+    """
+    if position is None:
+        position = DEFAULT_PATIENT_POSITION
+    if position not in PATIENT_POSITIONS:
+        raise ValueError(
+            f"Unknown patient position {position!r}, "
+            f"expected one of {sorted(PATIENT_POSITIONS)}"
+        )
+    return [row.copy() for row in PATIENT_POSITIONS[position]]
 
 
 @dataclass
@@ -66,6 +117,7 @@ class PhantomSystem:
 
     @classmethod
     def from_dict(cls, config: dict[str, float]):
+        warn_unknown_fields("system", config, {"gyro", "B0"})
         return cls(gyro=config["gyro"], B0=config["B0"])
 
     def to_dict(self) -> dict[str, float]:
@@ -98,6 +150,7 @@ class NiftiMapping:
 
     @classmethod
     def parse(cls, config: dict[str, Any]):
+        warn_unknown_fields("a transformed reference", config, {"file", "func"})
         return cls(file=NiftiRef.parse(config["file"]), func=config["func"])
 
     def to_dict(self) -> dict[str, Any]:
@@ -121,6 +174,12 @@ class BiftiTissue:
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]):
+        warn_unknown_fields(
+            "a tissue",
+            config,
+            {"density", "T1", "T2", "T2'", "ADC", "dB0", "B1+", "B1-"},
+        )
+
         def parse_prop(prop):
             if isinstance(prop, (float, int)):
                 return float(prop)
@@ -180,6 +239,7 @@ class ResliceTo:
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]):
+        warn_unknown_fields("reslice_to", config, {"affine", "resolution"})
         return cls(
             affine=[[float(v) for v in row] for row in config["affine"]],
             resolution=[int(v) for v in config["resolution"]],
@@ -187,6 +247,35 @@ class ResliceTo:
 
     def to_dict(self) -> dict[str, Any]:
         return {"affine": self.affine, "resolution": self.resolution}
+
+
+@dataclass
+class Patient:
+    """How the subject lies in the scanner (../JSON.md -> ``patient``).
+
+    Phantom data is always stored subject-aligned in RAS+; this is what relates
+    it to the scanner coordinate system a sequence is written in.
+    """
+
+    position: str  # one of PATIENT_POSITIONS
+
+    @classmethod
+    def from_dict(cls, config: dict[str, Any]):
+        warn_unknown_fields("patient", config, {"position"})
+        position = config["position"]
+        if position not in PATIENT_POSITIONS:
+            raise ValueError(
+                f"Unknown patient position {position!r}, "
+                f"expected one of {sorted(PATIENT_POSITIONS)}"
+            )
+        return cls(position=position)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"position": self.position}
+
+    def to_scanner_matrix(self) -> list[list[float]]:
+        """The 3x3 phantom-RAS+ -> scanner rotation of this position."""
+        return patient_to_scanner(self.position)
 
 
 @dataclass
@@ -203,10 +292,19 @@ class BiftiPhantom:
     tissues: dict[str, BiftiTissue]
     reslice_to: ResliceTo | None = None
     schema: str = DEFAULT_SCHEMA
+    # Omitted means FFS: an unpositioned phantom is never transformed.
+    patient: Patient | None = None
 
     @classmethod
     def default(cls, gyro=42.5764, B0=3.0):
         return cls(PhantomUnits.default(), PhantomSystem(gyro, B0), {})
+
+    def to_scanner_matrix(self) -> list[list[float]]:
+        """The 3x3 phantom-RAS+ -> scanner rotation of this phantom.
+
+        The identity if no ``patient`` is given (../NIFTI.md#patient-position).
+        """
+        return patient_to_scanner(self.patient.position if self.patient else None)
 
     @classmethod
     def load(cls, path: Path | str):
@@ -235,18 +333,28 @@ class BiftiPhantom:
             r"(nifti|bifti)-phantom-v1(\.[^/]*)?$", schema
         ), f"Unsupported $schema: {schema!r}"
 
+        warn_unknown_fields(
+            "the phantom",
+            config,
+            {"$schema", "units", "system", "patient", "reslice_to", "tissues"},
+        )
+
         units = PhantomUnits.from_dict(config["units"])
         system = PhantomSystem.from_dict(config["system"])
         if "reslice_to" in config:
             reslice_to = ResliceTo.from_dict(config["reslice_to"])
         else:
             reslice_to = None
+        if "patient" in config:
+            patient = Patient.from_dict(config["patient"])
+        else:
+            patient = None
         tissues = {
             name: BiftiTissue.from_dict(tissue)
             for name, tissue in config["tissues"].items()
         }
 
-        return cls(units, system, tissues, reslice_to, schema)
+        return cls(units, system, tissues, reslice_to, schema, patient)
 
     def to_dict(self) -> dict:
         config: dict[str, Any] = {
@@ -254,6 +362,8 @@ class BiftiPhantom:
             "units": self.units.to_dict(),
             "system": self.system.to_dict(),
         }
+        if self.patient is not None:
+            config["patient"] = self.patient.to_dict()
         if self.reslice_to is not None:
             config["reslice_to"] = self.reslice_to.to_dict()
         config["tissues"] = {

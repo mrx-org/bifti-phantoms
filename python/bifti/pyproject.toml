@@ -11,14 +11,23 @@ dependencies = [
     "nibabel>=5.4.2",
     "numpy>=2.5.1",
     "requests>=2.34.2",
-    "scipy>=1.18.0",
 ]
+
+[project.optional-dependencies]
+# Resampling uses torch when it is importable and NumPy otherwise; see bifti._backend.
+torch = ["torch>=2.13.0"]
 
 [build-system]
 requires = ["uv_build>=0.11.31,<0.12.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    # test-only: the reference trilinear implementation the upsample path is checked
+    # against. Resampling itself no longer needs scipy.
+    "scipy>=1.18.0",
+]
 examples = [
     "h5py>=3.16.0",
     "matplotlib>=3.11.1",

@@ -1,5 +1,5 @@
 {
-  "nifti-phantom-demo": {
+  "endres-bifti_demo-001": {
     "description": "Demonstration data for the NIfTI phantom format: a synthetic brain-like phantom (single slice) plus geometric-shape phantoms on their native grid and resliced.",
     "keywords": [ "demo", "synthetic", "numerical", "brain", "2d", "3d" ],
     "authors": [
@@ -9,169 +9,7 @@
     "doi": "10.5281/zenodo.20384437",
     "phantoms": [ "subj42-3T.json", "shapes.json", "shapes_resliced.json" ]
   },
-  "brainweb-20": {
-    "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006), converted to the NIfTI phantom format. Each subject is provided as a full 3D volume (subjXX.json) and a single-slice 2D variant (subjXX-2D.json).",
-    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d" ],
-    "authors": [
-      { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
-    ],
-    "license": "LicenseRef-BrainWeb",
-    "doi": "10.5281/zenodo.20397799",
-    "phantoms": [
-      "subj04-2D.json", "subj04.json",
-      "subj05-2D.json", "subj05.json",
-      "subj06-2D.json", "subj06.json",
-      "subj18-2D.json", "subj18.json",
-      "subj20-2D.json", "subj20.json",
-      "subj38-2D.json", "subj38.json",
-      "subj41-2D.json", "subj41.json",
-      "subj42-2D.json", "subj42.json",
-      "subj43-2D.json", "subj43.json",
-      "subj44-2D.json", "subj44.json",
-      "subj45-2D.json", "subj45.json",
-      "subj46-2D.json", "subj46.json",
-      "subj47-2D.json", "subj47.json",
-      "subj48-2D.json", "subj48.json",
-      "subj49-2D.json", "subj49.json",
-      "subj50-2D.json", "subj50.json",
-      "subj51-2D.json", "subj51.json",
-      "subj52-2D.json", "subj52.json",
-      "subj53-2D.json", "subj53.json",
-      "subj54-2D.json", "subj54.json"
-    ]
-  },
-  "brainweb-20-v2": {
-    "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, in three resolutions (0.5/1/2 mm) each as a full 3D volume and single-slice transversal/coronal/sagittal variants.",
-    "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution" ],
-    "authors": [
-      { "name": "Endres, Jonathan", "orcid": "0009-0005-0908-4153", "email": "jonathan.endres@uk-erlangen.de", "affiliation": "Friedrich-Alexander-Universität Erlangen-Nürnberg" }
-    ],
-    "license": "LicenseRef-BrainWeb",
-    "doi": "10.5281/zenodo.20553009",
-    "phantoms": [
-      "subj04-3T-05mm-cor.json", "subj04-3T-05mm-sag.json", "subj04-3T-05mm-tra.json", "subj04-3T-05mm.json",
-      "subj04-3T-1mm-cor.json", "subj04-3T-1mm-sag.json", "subj04-3T-1mm-tra.json", "subj04-3T-1mm.json",
-      "subj04-3T-2mm-cor.json", "subj04-3T-2mm-sag.json", "subj04-3T-2mm-tra.json", "subj04-3T-2mm.json",
-      "subj04-7T-05mm-cor.json", "subj04-7T-05mm-sag.json", "subj04-7T-05mm-tra.json", "subj04-7T-05mm.json",
-      "subj04-7T-1mm-cor.json", "subj04-7T-1mm-sag.json", "subj04-7T-1mm-tra.json", "subj04-7T-1mm.json",
-      "subj04-7T-2mm-cor.json", "subj04-7T-2mm-sag.json", "subj04-7T-2mm-tra.json", "subj04-7T-2mm.json",
-      "subj05-3T-05mm-cor.json", "subj05-3T-05mm-sag.json", "subj05-3T-05mm-tra.json", "subj05-3T-05mm.json",
-      "subj05-3T-1mm-cor.json", "subj05-3T-1mm-sag.json", "subj05-3T-1mm-tra.json", "subj05-3T-1mm.json",
-      "subj05-3T-2mm-cor.json", "subj05-3T-2mm-sag.json", "subj05-3T-2mm-tra.json", "subj05-3T-2mm.json",
-      "subj05-7T-05mm-cor.json", "subj05-7T-05mm-sag.json", "subj05-7T-05mm-tra.json", "subj05-7T-05mm.json",
-      "subj05-7T-1mm-cor.json", "subj05-7T-1mm-sag.json", "subj05-7T-1mm-tra.json", "subj05-7T-1mm.json",
-      "subj05-7T-2mm-cor.json", "subj05-7T-2mm-sag.json", "subj05-7T-2mm-tra.json", "subj05-7T-2mm.json",
-      "subj06-3T-05mm-cor.json", "subj06-3T-05mm-sag.json", "subj06-3T-05mm-tra.json", "subj06-3T-05mm.json",
-      "subj06-3T-1mm-cor.json", "subj06-3T-1mm-sag.json", "subj06-3T-1mm-tra.json", "subj06-3T-1mm.json",
-      "subj06-3T-2mm-cor.json", "subj06-3T-2mm-sag.json", "subj06-3T-2mm-tra.json", "subj06-3T-2mm.json",
-      "subj06-7T-05mm-cor.json", "subj06-7T-05mm-sag.json", "subj06-7T-05mm-tra.json", "subj06-7T-05mm.json",
-      "subj06-7T-1mm-cor.json", "subj06-7T-1mm-sag.json", "subj06-7T-1mm-tra.json", "subj06-7T-1mm.json",
-      "subj06-7T-2mm-cor.json", "subj06-7T-2mm-sag.json", "subj06-7T-2mm-tra.json", "subj06-7T-2mm.json",
-      "subj18-3T-05mm-cor.json", "subj18-3T-05mm-sag.json", "subj18-3T-05mm-tra.json", "subj18-3T-05mm.json",
-      "subj18-3T-1mm-cor.json", "subj18-3T-1mm-sag.json", "subj18-3T-1mm-tra.json", "subj18-3T-1mm.json",
-      "subj18-3T-2mm-cor.json", "subj18-3T-2mm-sag.json", "subj18-3T-2mm-tra.json", "subj18-3T-2mm.json",
-      "subj18-7T-05mm-cor.json", "subj18-7T-05mm-sag.json", "subj18-7T-05mm-tra.json", "subj18-7T-05mm.json",
-      "subj18-7T-1mm-cor.json", "subj18-7T-1mm-sag.json", "subj18-7T-1mm-tra.json", "subj18-7T-1mm.json",
-      "subj18-7T-2mm-cor.json", "subj18-7T-2mm-sag.json", "subj18-7T-2mm-tra.json", "subj18-7T-2mm.json",
-      "subj20-3T-05mm-cor.json", "subj20-3T-05mm-sag.json", "subj20-3T-05mm-tra.json", "subj20-3T-05mm.json",
-      "subj20-3T-1mm-cor.json", "subj20-3T-1mm-sag.json", "subj20-3T-1mm-tra.json", "subj20-3T-1mm.json",
-      "subj20-3T-2mm-cor.json", "subj20-3T-2mm-sag.json", "subj20-3T-2mm-tra.json", "subj20-3T-2mm.json",
-      "subj20-7T-05mm-cor.json", "subj20-7T-05mm-sag.json", "subj20-7T-05mm-tra.json", "subj20-7T-05mm.json",
-      "subj20-7T-1mm-cor.json", "subj20-7T-1mm-sag.json", "subj20-7T-1mm-tra.json", "subj20-7T-1mm.json",
-      "subj20-7T-2mm-cor.json", "subj20-7T-2mm-sag.json", "subj20-7T-2mm-tra.json", "subj20-7T-2mm.json",
-      "subj38-3T-05mm-cor.json", "subj38-3T-05mm-sag.json", "subj38-3T-05mm-tra.json", "subj38-3T-05mm.json",
-      "subj38-3T-1mm-cor.json", "subj38-3T-1mm-sag.json", "subj38-3T-1mm-tra.json", "subj38-3T-1mm.json",
-      "subj38-3T-2mm-cor.json", "subj38-3T-2mm-sag.json", "subj38-3T-2mm-tra.json", "subj38-3T-2mm.json",
-      "subj38-7T-05mm-cor.json", "subj38-7T-05mm-sag.json", "subj38-7T-05mm-tra.json", "subj38-7T-05mm.json",
-      "subj38-7T-1mm-cor.json", "subj38-7T-1mm-sag.json", "subj38-7T-1mm-tra.json", "subj38-7T-1mm.json",
-      "subj38-7T-2mm-cor.json", "subj38-7T-2mm-sag.json", "subj38-7T-2mm-tra.json", "subj38-7T-2mm.json",
-      "subj41-3T-05mm-cor.json", "subj41-3T-05mm-sag.json", "subj41-3T-05mm-tra.json", "subj41-3T-05mm.json",
-      "subj41-3T-1mm-cor.json", "subj41-3T-1mm-sag.json", "subj41-3T-1mm-tra.json", "subj41-3T-1mm.json",
-      "subj41-3T-2mm-cor.json", "subj41-3T-2mm-sag.json", "subj41-3T-2mm-tra.json", "subj41-3T-2mm.json",
-      "subj41-7T-05mm-cor.json", "subj41-7T-05mm-sag.json", "subj41-7T-05mm-tra.json", "subj41-7T-05mm.json",
-      "subj41-7T-1mm-cor.json", "subj41-7T-1mm-sag.json", "subj41-7T-1mm-tra.json", "subj41-7T-1mm.json",
-      "subj41-7T-2mm-cor.json", "subj41-7T-2mm-sag.json", "subj41-7T-2mm-tra.json", "subj41-7T-2mm.json",
-      "subj42-3T-05mm-cor.json", "subj42-3T-05mm-sag.json", "subj42-3T-05mm-tra.json", "subj42-3T-05mm.json",
-      "subj42-3T-1mm-cor.json", "subj42-3T-1mm-sag.json", "subj42-3T-1mm-tra.json", "subj42-3T-1mm.json",
-      "subj42-3T-2mm-cor.json", "subj42-3T-2mm-sag.json", "subj42-3T-2mm-tra.json", "subj42-3T-2mm.json",
-      "subj42-7T-05mm-cor.json", "subj42-7T-05mm-sag.json", "subj42-7T-05mm-tra.json", "subj42-7T-05mm.json",
-      "subj42-7T-1mm-cor.json", "subj42-7T-1mm-sag.json", "subj42-7T-1mm-tra.json", "subj42-7T-1mm.json",
-      "subj42-7T-2mm-cor.json", "subj42-7T-2mm-sag.json", "subj42-7T-2mm-tra.json", "subj42-7T-2mm.json",
-      "subj43-3T-05mm-cor.json", "subj43-3T-05mm-sag.json", "subj43-3T-05mm-tra.json", "subj43-3T-05mm.json",
-      "subj43-3T-1mm-cor.json", "subj43-3T-1mm-sag.json", "subj43-3T-1mm-tra.json", "subj43-3T-1mm.json",
-      "subj43-3T-2mm-cor.json", "subj43-3T-2mm-sag.json", "subj43-3T-2mm-tra.json", "subj43-3T-2mm.json",
-      "subj43-7T-05mm-cor.json", "subj43-7T-05mm-sag.json", "subj43-7T-05mm-tra.json", "subj43-7T-05mm.json",
-      "subj43-7T-1mm-cor.json", "subj43-7T-1mm-sag.json", "subj43-7T-1mm-tra.json", "subj43-7T-1mm.json",
-      "subj43-7T-2mm-cor.json", "subj43-7T-2mm-sag.json", "subj43-7T-2mm-tra.json", "subj43-7T-2mm.json",
-      "subj44-3T-05mm-cor.json", "subj44-3T-05mm-sag.json", "subj44-3T-05mm-tra.json", "subj44-3T-05mm.json",
-      "subj44-3T-1mm-cor.json", "subj44-3T-1mm-sag.json", "subj44-3T-1mm-tra.json", "subj44-3T-1mm.json",
-      "subj44-3T-2mm-cor.json", "subj44-3T-2mm-sag.json", "subj44-3T-2mm-tra.json", "subj44-3T-2mm.json",
-      "subj44-7T-05mm-cor.json", "subj44-7T-05mm-sag.json", "subj44-7T-05mm-tra.json", "subj44-7T-05mm.json",
-      "subj44-7T-1mm-cor.json", "subj44-7T-1mm-sag.json", "subj44-7T-1mm-tra.json", "subj44-7T-1mm.json",
-      "subj44-7T-2mm-cor.json", "subj44-7T-2mm-sag.json", "subj44-7T-2mm-tra.json", "subj44-7T-2mm.json",
-      "subj45-3T-05mm-cor.json", "subj45-3T-05mm-sag.json", "subj45-3T-05mm-tra.json", "subj45-3T-05mm.json",
-      "subj45-3T-1mm-cor.json", "subj45-3T-1mm-sag.json", "subj45-3T-1mm-tra.json", "subj45-3T-1mm.json",
-      "subj45-3T-2mm-cor.json", "subj45-3T-2mm-sag.json", "subj45-3T-2mm-tra.json", "subj45-3T-2mm.json",
-      "subj45-7T-05mm-cor.json", "subj45-7T-05mm-sag.json", "subj45-7T-05mm-tra.json", "subj45-7T-05mm.json",
-      "subj45-7T-1mm-cor.json", "subj45-7T-1mm-sag.json", "subj45-7T-1mm-tra.json", "subj45-7T-1mm.json",
-      "subj45-7T-2mm-cor.json", "subj45-7T-2mm-sag.json", "subj45-7T-2mm-tra.json", "subj45-7T-2mm.json",
-      "subj46-3T-05mm-cor.json", "subj46-3T-05mm-sag.json", "subj46-3T-05mm-tra.json", "subj46-3T-05mm.json",
-      "subj46-3T-1mm-cor.json", "subj46-3T-1mm-sag.json", "subj46-3T-1mm-tra.json", "subj46-3T-1mm.json",
-      "subj46-3T-2mm-cor.json", "subj46-3T-2mm-sag.json", "subj46-3T-2mm-tra.json", "subj46-3T-2mm.json",
-      "subj46-7T-05mm-cor.json", "subj46-7T-05mm-sag.json", "subj46-7T-05mm-tra.json", "subj46-7T-05mm.json",
-      "subj46-7T-1mm-cor.json", "subj46-7T-1mm-sag.json", "subj46-7T-1mm-tra.json", "subj46-7T-1mm.json",
-      "subj46-7T-2mm-cor.json", "subj46-7T-2mm-sag.json", "subj46-7T-2mm-tra.json", "subj46-7T-2mm.json",
-      "subj47-3T-05mm-cor.json", "subj47-3T-05mm-sag.json", "subj47-3T-05mm-tra.json", "subj47-3T-05mm.json",
-      "subj47-3T-1mm-cor.json", "subj47-3T-1mm-sag.json", "subj47-3T-1mm-tra.json", "subj47-3T-1mm.json",
-      "subj47-3T-2mm-cor.json", "subj47-3T-2mm-sag.json", "subj47-3T-2mm-tra.json", "subj47-3T-2mm.json",
-      "subj47-7T-05mm-cor.json", "subj47-7T-05mm-sag.json", "subj47-7T-05mm-tra.json", "subj47-7T-05mm.json",
-      "subj47-7T-1mm-cor.json", "subj47-7T-1mm-sag.json", "subj47-7T-1mm-tra.json", "subj47-7T-1mm.json",
-      "subj47-7T-2mm-cor.json", "subj47-7T-2mm-sag.json", "subj47-7T-2mm-tra.json", "subj47-7T-2mm.json",
-      "subj48-3T-05mm-cor.json", "subj48-3T-05mm-sag.json", "subj48-3T-05mm-tra.json", "subj48-3T-05mm.json",
-      "subj48-3T-1mm-cor.json", "subj48-3T-1mm-sag.json", "subj48-3T-1mm-tra.json", "subj48-3T-1mm.json",
-      "subj48-3T-2mm-cor.json", "subj48-3T-2mm-sag.json", "subj48-3T-2mm-tra.json", "subj48-3T-2mm.json",
-      "subj48-7T-05mm-cor.json", "subj48-7T-05mm-sag.json", "subj48-7T-05mm-tra.json", "subj48-7T-05mm.json",
-      "subj48-7T-1mm-cor.json", "subj48-7T-1mm-sag.json", "subj48-7T-1mm-tra.json", "subj48-7T-1mm.json",
-      "subj48-7T-2mm-cor.json", "subj48-7T-2mm-sag.json", "subj48-7T-2mm-tra.json", "subj48-7T-2mm.json",
-      "subj49-3T-05mm-cor.json", "subj49-3T-05mm-sag.json", "subj49-3T-05mm-tra.json", "subj49-3T-05mm.json",
-      "subj49-3T-1mm-cor.json", "subj49-3T-1mm-sag.json", "subj49-3T-1mm-tra.json", "subj49-3T-1mm.json",
-      "subj49-3T-2mm-cor.json", "subj49-3T-2mm-sag.json", "subj49-3T-2mm-tra.json", "subj49-3T-2mm.json",
-      "subj49-7T-05mm-cor.json", "subj49-7T-05mm-sag.json", "subj49-7T-05mm-tra.json", "subj49-7T-05mm.json",
-      "subj49-7T-1mm-cor.json", "subj49-7T-1mm-sag.json", "subj49-7T-1mm-tra.json", "subj49-7T-1mm.json",
-      "subj49-7T-2mm-cor.json", "subj49-7T-2mm-sag.json", "subj49-7T-2mm-tra.json", "subj49-7T-2mm.json",
-      "subj50-3T-05mm-cor.json", "subj50-3T-05mm-sag.json", "subj50-3T-05mm-tra.json", "subj50-3T-05mm.json",
-      "subj50-3T-1mm-cor.json", "subj50-3T-1mm-sag.json", "subj50-3T-1mm-tra.json", "subj50-3T-1mm.json",
-      "subj50-3T-2mm-cor.json", "subj50-3T-2mm-sag.json", "subj50-3T-2mm-tra.json", "subj50-3T-2mm.json",
-      "subj50-7T-05mm-cor.json", "subj50-7T-05mm-sag.json", "subj50-7T-05mm-tra.json", "subj50-7T-05mm.json",
-      "subj50-7T-1mm-cor.json", "subj50-7T-1mm-sag.json", "subj50-7T-1mm-tra.json", "subj50-7T-1mm.json",
-      "subj50-7T-2mm-cor.json", "subj50-7T-2mm-sag.json", "subj50-7T-2mm-tra.json", "subj50-7T-2mm.json",
-      "subj51-3T-05mm-cor.json", "subj51-3T-05mm-sag.json", "subj51-3T-05mm-tra.json", "subj51-3T-05mm.json",
-      "subj51-3T-1mm-cor.json", "subj51-3T-1mm-sag.json", "subj51-3T-1mm-tra.json", "subj51-3T-1mm.json",
-      "subj51-3T-2mm-cor.json", "subj51-3T-2mm-sag.json", "subj51-3T-2mm-tra.json", "subj51-3T-2mm.json",
-      "subj51-7T-05mm-cor.json", "subj51-7T-05mm-sag.json", "subj51-7T-05mm-tra.json", "subj51-7T-05mm.json",
-      "subj51-7T-1mm-cor.json", "subj51-7T-1mm-sag.json", "subj51-7T-1mm-tra.json", "subj51-7T-1mm.json",
-      "subj51-7T-2mm-cor.json", "subj51-7T-2mm-sag.json", "subj51-7T-2mm-tra.json", "subj51-7T-2mm.json",
-      "subj52-3T-05mm-cor.json", "subj52-3T-05mm-sag.json", "subj52-3T-05mm-tra.json", "subj52-3T-05mm.json",
-      "subj52-3T-1mm-cor.json", "subj52-3T-1mm-sag.json", "subj52-3T-1mm-tra.json", "subj52-3T-1mm.json",
-      "subj52-3T-2mm-cor.json", "subj52-3T-2mm-sag.json", "subj52-3T-2mm-tra.json", "subj52-3T-2mm.json",
-      "subj52-7T-05mm-cor.json", "subj52-7T-05mm-sag.json", "subj52-7T-05mm-tra.json", "subj52-7T-05mm.json",
-      "subj52-7T-1mm-cor.json", "subj52-7T-1mm-sag.json", "subj52-7T-1mm-tra.json", "subj52-7T-1mm.json",
-      "subj52-7T-2mm-cor.json", "subj52-7T-2mm-sag.json", "subj52-7T-2mm-tra.json", "subj52-7T-2mm.json",
-      "subj53-3T-05mm-cor.json", "subj53-3T-05mm-sag.json", "subj53-3T-05mm-tra.json", "subj53-3T-05mm.json",
-      "subj53-3T-1mm-cor.json", "subj53-3T-1mm-sag.json", "subj53-3T-1mm-tra.json", "subj53-3T-1mm.json",
-      "subj53-3T-2mm-cor.json", "subj53-3T-2mm-sag.json", "subj53-3T-2mm-tra.json", "subj53-3T-2mm.json",
-      "subj53-7T-05mm-cor.json", "subj53-7T-05mm-sag.json", "subj53-7T-05mm-tra.json", "subj53-7T-05mm.json",
-      "subj53-7T-1mm-cor.json", "subj53-7T-1mm-sag.json", "subj53-7T-1mm-tra.json", "subj53-7T-1mm.json",
-      "subj53-7T-2mm-cor.json", "subj53-7T-2mm-sag.json", "subj53-7T-2mm-tra.json", "subj53-7T-2mm.json",
-      "subj54-3T-05mm-cor.json", "subj54-3T-05mm-sag.json", "subj54-3T-05mm-tra.json", "subj54-3T-05mm.json",
-      "subj54-3T-1mm-cor.json", "subj54-3T-1mm-sag.json", "subj54-3T-1mm-tra.json", "subj54-3T-1mm.json",
-      "subj54-3T-2mm-cor.json", "subj54-3T-2mm-sag.json", "subj54-3T-2mm-tra.json", "subj54-3T-2mm.json",
-      "subj54-7T-05mm-cor.json", "subj54-7T-05mm-sag.json", "subj54-7T-05mm-tra.json", "subj54-7T-05mm.json",
-      "subj54-7T-1mm-cor.json", "subj54-7T-1mm-sag.json", "subj54-7T-1mm-tra.json", "subj54-7T-1mm.json",
-      "subj54-7T-2mm-cor.json", "subj54-7T-2mm-sag.json", "subj54-7T-2mm-tra.json", "subj54-7T-2mm.json"
-    ]
-  },
-  "breast-phantom": {
+  "duarte-breast-001": {
     "description": "Breast digital twin phantom for 3T and 7T field strengths, both multi-slice and single slice.",
     "keywords": [ "breast", "phantom", "3T", "7T", "2d", "3d" ],
     "authors": [
@@ -186,7 +24,7 @@
       "breast_3T_slice_paper_nofat.json", "breast_7T_inhomB1.json", "breast_7T_slice_paper_inhom_B1.json", "breast_7T_slice_paper_nofat.json"
     ]
   },
-  "brainweb-subj04-3T-0.5mm": {
+  "zaiss-brainweb_subj04_3T_0.5mm-001": {
     "description": "anatomical brain model (subj04) from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T, full 3D volume and single-slice transversal/coronal/sagittal variants.",
     "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T"],
     "authors": [
@@ -198,7 +36,7 @@
       "subj04-3T-05mm.json","subj04-3T-05mm-tra.json","subj04-3T-05mm-cor.json","subj04-3T-05mm-sag.json"
     ]
   },
-  "collection-brainweb": {
+  "endres-brainweb_highres-001": {
     "description": "20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, in three resolutions (0.5/1/2 mm) each as a full 3D volume and single-slice transversal/coronal/sagittal variants, organized as nested groups (subject > field strength/resolution).",
     "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution" ],
     "authors": [
@@ -1168,9 +1006,8 @@
         ]
       }
     ]
-  }
-,
-  "collection-brainweb-1mm": {
+  },
+  "endres-brainweb-001": {
     "description": "1mm and 2mm variants of the 20 anatomical brain models from the BrainWeb Simulated Brain Database (McGill BIC; Aubert-Broche et al., IEEE TMI 2006) at 3T and 7T, downsampled from collection-brainweb's native 0.5mm data by averaging 2x2x2 voxel blocks (1mm is native resolution; 2mm is resampled from it on load). Same nested layout as collection-brainweb (subject > field strength/resolution), without the large native 0.5mm data.",
     "keywords": [ "brain", "brainweb", "anatomical", "2d", "3d", "3T", "7T", "multi-resolution", "downsampled" ],
     "authors": [

@@ -2,14 +2,15 @@ mod eval;
 mod loader;
 mod phantom;
 mod registry;
+mod resample;
 mod volume;
 
 pub use loader::{Phantom, Tissue};
 pub use phantom::{
-    BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, PhantomSystem, PhantomUnits, ResliceTo,
-    TissueProperties, TissueProperty,
+    BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, Patient, PatientPosition, PhantomSystem,
+    PhantomUnits, ResliceTo, TissueProperties, TissueProperty,
 };
-pub use registry::{Author, Collection, PhantomEntry, PhantomGroup, Registry};
+pub use registry::{Author, Catalog, Collection, PhantomEntry, PhantomGroup, Registry};
 pub use volume::{Volume, VolumeData, VolumeDataElement};
 
 #[derive(Debug, thiserror::Error)]

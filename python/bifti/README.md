@@ -27,8 +27,9 @@ bifti import ...`):
 | `NumpyPhantom.load(path)` | Load a phantom JSON + its NIfTIs into `NumpyPhantom(config, tissues)`. |
 | `NumpyTissue` | One tissue as NumPy arrays: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`, `B1_rx`, plus `.shape`/`.affine`. |
 | `BiftiPhantom.load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O) — `BiftiPhantom(units, system, tissues, reslice_to, schema)`. |
-| `load_registry()` | Fetch and parse the public [registry.json](../../registry.json). |
-| `load_registry_phantom(collection, name)` | Download one phantom's JSON + NIfTIs from Zenodo into a local cache; returns the JSON path. |
+| `load_catalog()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
+| `load_registry()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |
+| `load_registry_phantom(collection, name)` | Download one phantom's JSON + NIfTIs from Zenodo into a local cache; returns the JSON path. `collection` is an immutable registry name. |
 
 `NumpyPhantom.load` is what you want for simulation/analysis (arrays); use
 `BiftiPhantom` directly only if you're generating or editing phantom JSONs
@@ -66,8 +67,12 @@ uv add --path bifti-phantoms/python/bifti bifti
 
 ### Requirements
 
-The core package only needs `bifti`'s own dependencies (numpy, nibabel, scipy,
-requests). The examples pull in extra, examples-only dependencies
+The core package only needs `bifti`'s own dependencies (numpy, nibabel,
+requests). Resampling uses `torch` when it is importable — on CPU as well as
+CUDA — and NumPy otherwise; install it with the `torch` extra
+(`pip install "bifti[torch]"`) or force a backend with
+`BIFTI_RESAMPLE_BACKEND=numpy|torch`. The examples pull in extra,
+examples-only dependencies
 (`matplotlib`, `h5py`, `MRzeroCore`, `torch`) declared as a
 [dependency group](https://docs.astral.sh/uv/concepts/projects/dependencies/#dependency-groups)
 rather than real package dependencies:
@@ -86,12 +91,14 @@ uv run --group examples examples/demo.py
 # ...or plot a local phantom JSON directly
 uv run --group examples examples/demo.py examples/data/shapes.json
 uv run --group examples examples/demo.py examples/data/shapes_resliced.json
+uv run --group examples examples/demo.py examples/data/shapes_downsampled.json
 ```
 
-With no argument, `demo.py` fetches the live [`registry.json`](../../registry.json),
-prints its phantoms as a numbered list, and downloads the one you pick (its JSON
-and every NIfTI it references) into `examples/cache/` via `bifti.registry`
-before plotting. Passing a local JSON path skips the registry and plots that
+With no argument, `demo.py` fetches the live [`catalog.json`](../../catalog.json),
+resolves each label to its [`registry.json`](../../registry.json) collection,
+prints their phantoms as a numbered list, and downloads the one you pick (its
+JSON and every NIfTI it references) into `examples/cache/` via `bifti.registry`
+before plotting. Passing a local JSON path skips the catalog and plots that
 file directly (the example data is committed in `examples/data/`).
 
 `demo.py` saves one PNG per tissue into `examples/figures/` and, on a GUI
@@ -118,8 +125,13 @@ byte-identical files. The phantoms together exercise the whole format:
   sharing one grid, a polynomial `dB0` map, a 2-channel `B1+`, a `func` mapping
   (`"x * 0.5 + 10"`), property defaults, and a true 3D volume.
 - **`shapes_resliced.json`** (generated) — the same NIfTIs as `shapes.json` but
-  with a `reslice_to` onto a different grid (40×32×4 → **60×48×4**), so loading
+  with a `reslice_to` onto a finer grid (40×32×4 → **60×48×4**), so loading
   genuinely resamples the 3D volumes.
+- **`shapes_downsampled.json`** (generated) — the same NIfTIs again, resliced
+  onto a *coarser* grid (40×32×4 → **16×12×3**) whose FOV deliberately
+  overhangs the source. Exercises the case plain interpolation gets wrong:
+  output voxels that average many source voxels, and output voxels that
+  straddle the edge of the source FOV.
 
 > **Note:** loading a tissue with a `func` mapping prints a warning — the loader
 > evaluates `func` with `eval` for brevity, so only load phantoms you trust (see

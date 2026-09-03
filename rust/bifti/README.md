@@ -30,8 +30,9 @@ a `Volume`.
 | `Volume` | `{ affine: [[f64; 4]; 3], shape: [usize; 3], data: VolumeData }`. |
 | `VolumeData` | `Float32(Vec<f32>)` / `Float64(Vec<f64>)` of the volume's voxels, row-major (`x*ny*nz + y*nz + z`). |
 | `BiftiPhantom::load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O). |
-| `Registry::load()` | Fetch and parse the public [registry.json](../../registry.json). |
-| `Registry::load_registry_phantom(collection, name, cache_dir)` | Download one phantom's JSON + NIfTIs from Zenodo into `cache_dir`; returns the JSON path. |
+| `Catalog::load()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
+| `Registry::load()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |
+| `Registry::load_registry_phantom(collection, name, cache_dir)` | Download one phantom's JSON + NIfTIs from Zenodo into `cache_dir` (`collection` is an immutable registry name); returns the JSON path. |
 
 ## Installation
 
@@ -72,15 +73,14 @@ timeline view of the same spans.
 
 ## Current limitations
 
-- **No complex NIfTI data.** `VolumeData::Complex32`/`Complex64` exist as
-  variants but nothing produces them yet — a complex-valued `B1+`/`B1-` map
-  (`NiftiType::Complex64`/`Complex128`) fails loudly with
-  `Error::UnsupportedDataType`. (The [Python package](../../python/bifti/)
-  doesn't handle this correctly either — it silently drops the imaginary part
-  instead of erroring, so a hard failure here is arguably the safer gap to
-  have.)
-- **No reslicing for complex data**, for the same reason — `Volume::reslice`
-  only handles the real-valued variants.
+- Complex NIfTI data (a complex-valued `B1+`/`B1-` map) is loaded and resliced
+  as complex throughout. Only `Float128`, `Complex256`, `Rgb24` and `Rgba32`
+  are unsupported, and those fail loudly with `Error::UnsupportedDataType`.
+  (The [Python package](../../python/bifti/) still silently drops the
+  imaginary part instead.)
+- **No implicit reslicing.** Without `reslice_to`, each map keeps its own
+  affine and shape; the Python package instead brings every map onto the
+  density map's grid.
 - Only the default [`units`](../../JSON.md#units) are accepted, matching the
   Python implementation.
 

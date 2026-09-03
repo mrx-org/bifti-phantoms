@@ -1,13 +1,14 @@
-name: Validate registry
+name: Validate registry and phantoms
 
 on:
   pull_request:
   push:
     branches: [ main ]
     paths:
-      - registry.json
-      - bifti-registry.schema.json
+      - '**.json'
       - tools/validate_registry.py
+      - tools/validate_catalog.py
+      - tools/validate_phantoms.py
       - tools/check_registry_immutable.py
       - .github/workflows/validate-registry.yml
 
@@ -21,6 +22,8 @@ jobs:
           python-version: "3.12"
       - run: pip install jsonschema
       - run: python tools/validate_registry.py
+      - run: python tools/validate_catalog.py
+      - run: python tools/validate_phantoms.py
 
       - name: Fetch main for immutability check
         if: github.event_name == 'pull_request'

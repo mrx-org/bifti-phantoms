@@ -14,8 +14,7 @@ A phantom is one **JSON** file defining tissues and their MR properties, referen
 
 > [!NOTE]
 > **Status:** the phantom spec is **v1** (see [SPEC.md](SPEC.md)); the
-> [registry](#registry) format is **alpha** (see [REGISTRY.md](REGISTRY.md))
-> and may still change shape.
+> [registry](#registry) format is **v1** (see [REGISTRY.md](REGISTRY.md))
 
 ## Quick example
 
@@ -66,21 +65,35 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 |------|---------|
 | [SPEC.md](SPEC.md) | Overview and folder layout. |
 | [JSON.md](JSON.md) | The phantom JSON: structure, units, system, tissues. |
-| [NIFTI.md](NIFTI.md) | The NIfTI files: format and coordinate conventions. |
+| [NIFTI.md](NIFTI.md) | The NIfTI files: format, coordinate conventions and patient position. |
 | [REGISTRY.md](REGISTRY.md) | The registry: how phantoms are hosted and shared. |
-| [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry.schema.json](bifti-registry.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json). |
-| [registry.json](registry.json) | The public index of phantoms — see [Registry](#registry). |
+| [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry-v1.schema.json](bifti-registry-v1.schema.json) / [bifti-catalog.schema.json](bifti-catalog.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json) / [catalog.json](catalog.json). |
+| [registry.json](registry.json) | Immutable archive of every published collection — see [Registry](#registry). |
+| [catalog.json](catalog.json) | Living discovery list: which collections tools show, mapped to registry names. |
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |
 | [rust/bifti/](rust/bifti/) | Installable Rust crate + examples. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
-| [tools/](tools/) | CI scripts: schema/registry validation, immutability checks. |
+| [tools/](tools/) | CI scripts: phantom/registry schema validation, immutability checks. |
+
+> [!IMPORTANT]
+> The example implementations for Python and Rust were built with the help of
+> LLMs and not yet reviewed thouroughly. They might contain bugs and currently
+> not live up to the targeted quality standard. This will change in the future.
 
 ## Registry
 
-Example phantoms are available in the public registry: [registry.json](registry.json).
-The registry can also be viewed here: https://mrx-org.github.io/bifti-phantoms/
+Example phantoms are available in the public registry. Every published
+collection has a permanent entry in [registry.json](registry.json) (the
+immutable archive); [catalog.json](catalog.json) is the curated, freely-editable
+list of which of those collections tools surface, each mapped to its immutable
+registry name. Browse the catalog here: https://mrx-org.github.io/bifti-phantoms/
 
-This registry exists for the purpose of making sharing easy and experiments reproducible. Anyone is welcome to add new phantoms to the registry. Phantom files themselves can be hosted for free on [Zenodo](https://zenodo.org/), under any appropriate license and attribution. The registry is a central place to collect those phantoms - add to it with a pull request that extends [registry.json](registry.json) with new entries. See [REGISTRY.md](REGISTRY.md) for the full contribution workflow.
+This exists to make sharing easy and experiments reproducible. Anyone is welcome
+to add new phantoms. Phantom files themselves can be hosted for free on
+[Zenodo](https://zenodo.org/), under any appropriate license and attribution.
+Add one with a pull request that adds an entry to [registry.json](registry.json)
+and a label pointing at it in [catalog.json](catalog.json). See
+[REGISTRY.md](REGISTRY.md) for the full contribution workflow.
 
 ## Reference implementation
 
@@ -105,7 +118,26 @@ The two implementations currently have some discrepancies:
 |---|---|---|
 | Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) |
 | Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Fails with `Error::UnsupportedDataType` |
-| Reslicing (`reslice_to`) | Via `nibabel`/`scipy`, skips resampling when already on the target grid | Own trilinear implementation; always resamples, real-valued data only |
-| Registry access | `load_registry()`, `load_registry_phantom(collection, name)` | `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` |
+| Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex |
+| Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` |
+| Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them |
 | Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) |
 | Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) |
+
+### Reslicing
+
+Both implementations resample the same way. Each output voxel is averaged over the
+whole source region it covers, rather than interpolated from the few voxels nearest
+its centre — so resampling onto a coarser grid actually averages instead of throwing
+most of the data away.
+
+The averaging is **weighted by the tissue's `density`**. Outside the source FOV, and
+in the background between tissues, every map reads `0`, and `T1`/`T2`/`T2'`/`ADC`/
+`dB0`/`B1±` are intensive quantities: averaging them against those zeros would pull
+them towards zero at every edge. Weighting by density excludes the empty voxels
+instead. `density` itself is extensive, so it keeps a plain footprint average and
+correctly falls off where an output voxel is only partly filled.
+
+For axis-aligned grids the average is computed exactly, as a true box average.
+Oblique transforms fall back to quadrature over the output voxel's parallelepiped,
+and axes that are not being downsampled keep plain linear interpolation.

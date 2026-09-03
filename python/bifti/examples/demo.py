@@ -19,7 +19,14 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from bifti import NumpyPhantom, NumpyTissue, flatten_phantoms, load_registry, load_registry_phantom
+from bifti import (
+    NumpyPhantom,
+    NumpyTissue,
+    flatten_phantoms,
+    load_catalog,
+    load_registry,
+    load_registry_phantom,
+)
 
 HERE = Path(__file__).parent
 FIGURES = HERE / "figures"
@@ -71,15 +78,20 @@ def plot_tissue(name: str, tissue: NumpyTissue) -> plt.Figure:
 
 
 def choose_phantom() -> Path:
-    """List the registry's phantoms, ask for one by number, and download it.
+    """List the catalog's phantoms, ask for one by number, and download it.
 
-    Prints each collection as a bullet header with its phantoms numbered
-    continuously across the whole registry; the chosen phantom (JSON + NIfTIs) is
-    downloaded from Zenodo and its local JSON path returned.
+    Prints each catalog collection as a bullet header (its label plus the
+    immutable registry name it resolves to) with its phantoms numbered
+    continuously; the chosen phantom (JSON + NIfTIs) is downloaded from Zenodo by
+    its registry name and its local JSON path returned.
     """
+    registry = load_registry()
     index: list[tuple[str, str]] = []
-    for collection_name, entry in load_registry().items():
-        print(f"- {collection_name}")
+    for label, collection_name in load_catalog().items():
+        entry = registry.get(collection_name)
+        if entry is None:
+            continue
+        print(f"- {label}  ({collection_name})")
         for name in flatten_phantoms(entry["phantoms"]):
             index.append((collection_name, name))
             print(f"    {len(index)}. {name}")

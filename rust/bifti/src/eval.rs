@@ -184,7 +184,7 @@ impl<'a, T: VolumeDataElement> Input<'a, T> {
 // =====================================
 
 use winnow::{
-    ascii::{digit1, multispace0},
+    ascii::{float, multispace0},
     combinator::{alt, delimited, repeat},
     prelude::*,
     token::{literal, one_of},
@@ -197,10 +197,9 @@ fn parens(i: &mut &str) -> winnow::Result<Expr> {
 }
 
 fn value(i: &mut &str) -> winnow::Result<Expr> {
-    digit1
-        .try_map(FromStr::from_str)
-        .map(Expr::Value)
-        .parse_next(i)
+    // ../../JSON.md allows integer, decimal, leading-dot and scientific notation
+    // (`420`, `1.5`, `.5`, `1e-3`), not just runs of digits.
+    float.map(Expr::Value).parse_next(i)
 }
 
 fn input(i: &mut &str) -> winnow::Result<Expr> {

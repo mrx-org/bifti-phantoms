@@ -16,6 +16,7 @@ validated against
   "$schema": "…/bifti-phantom-v1.schema.json",  // older nifti-... is supported as well
   "units":   { … },     // fixed, documentation only
   "system":  { … },     // global MR system parameters
+  "patient": { … },     // optional patient position in the scanner
   "reslice_to": { … },  // optional resampling grid
   "tissues": { … }      // the tissues
 }
@@ -26,10 +27,13 @@ validated against
 | `$schema`    | yes      | string | Identifies the format and version.               |
 | `units`      | yes      | object | Fixed unit table (documentation, see below).     |
 | `system`     | yes      | object | Global parameters shared by all tissues.         |
+| `patient`    | no       | object | How the subject lies in the scanner.             |
 | `reslice_to` | no       | object | Optional target grid to resample all NIfTIs onto.|
 | `tissues`    | yes      | object | One or more named tissues.                       |
 
-No other top-level keys are allowed.
+Unknown top-level keys are permitted: the format is additively extensible, so a
+reader must ignore what it does not recognise (and should warn about it). See
+[SPEC.md](SPEC.md) for the versioning rule.
 
 ### `$schema`
 
@@ -65,6 +69,44 @@ Global scalars for the (virtual) MR system.
 | `B0`   | yes      | number | Main field strength the data was captured for [T]. |
 | `gyro` | yes      | number | Gyromagnetic ratio [MHz/T] (`42.5764` for water).  |
 
+### `patient` (optional)
+
+How the subject is positioned in the scanner. Phantom data is always stored
+subject-aligned in RAS+, while MRI sequences are written in scanner coordinates —
+`patient` is what lets a consumer convert between the two.
+
+| Field      | Required | Type   | Meaning                                              |
+|------------|----------|--------|------------------------------------------------------|
+| `position` | yes      | string | DICOM-style patient position code (see table below). |
+
+```json
+"patient": { "position": "HFS" }
+```
+
+`position` is one of eight codes, spelled in uppercase:
+
+| Code   | Meaning                              |
+|--------|--------------------------------------|
+| `FFS`  | feet first, supine                   |
+| `FFP`  | feet first, prone                    |
+| `FFDR` | feet first, decubitus right          |
+| `FFDL` | feet first, decubitus left           |
+| `HFS`  | head first, supine                   |
+| `HFP`  | head first, prone                    |
+| `HFDR` | head first, decubitus right          |
+| `HFDL` | head first, decubitus left           |
+
+Each code defines a rotation from phantom (RAS+) to scanner coordinates; the
+scanner coordinate system and the matrix belonging to each code are defined in
+[NIFTI.md](NIFTI.md#patient-position).
+
+**If `patient` is omitted, the position is `FFS`** — the identity, i.e. no
+transform at all. A phantom that says nothing about positioning is therefore
+never silently rotated.
+
+`patient` is metadata only. It never changes the stored voxel data, the NIfTI
+affines, or `reslice_to`; those always stay subject-aligned.
+
 ### `reslice_to` (optional)
 
 If omitted, every NIfTI is loaded as-is. If given, **all** NIfTIs are resampled
@@ -77,6 +119,16 @@ changes only how the data is sampled, never the orientation of the phantom.
 | `resolution` | `integer[3]` (≥ 1) | Target matrix size (voxel counts) along the 3 spatial axes.                   |
 
 Both fields are required when `reslice_to` is present.
+
+The exact resampling is implementation defined. The example implementations for
+Python in Rust respect the following recommendations, which all code is highly
+encouraged to do as well:
+- on downsampling use proper area weighing or sub-sampling / integration over
+  the voxel areas. Otherwise aliasing can occur; this is especially evident
+  when building 2D slices from 3D phantoms, which should average over the slice
+- use proton-density weighted averaging. The `reslice_to` volume can extend
+  past the source data. `T1`, `T2` and other properties should not fade to zero
+  on edge voxels but should use the value of the non-zero PD voxels.
 
 ### `tissues`
 
