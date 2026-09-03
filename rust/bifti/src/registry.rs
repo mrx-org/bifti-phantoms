@@ -12,12 +12,16 @@ use std::{
 
 const REGISTRY_URL: &str =
     "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/registry.json";
+const CATALOG_URL: &str =
+    "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/refs/heads/main/catalog.json";
 // A Zenodo version DOI ("10.5281/zenodo.<id>") embeds the record id
 const ZENODO_FILE_URL: &str = "https://zenodo.org/api/records/{record_id}/files/{filename}/content";
 
 static ZENODO_ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"zenodo\.(\d+)$").unwrap());
 
-/// Index of public BIfTI phantoms: maps each collection name to its entry.
+/// Immutable archive of public BIfTI phantoms: maps each permanent
+/// `<author>-<name>-<number>` collection name to its entry. Iteration order is
+/// unspecified (backed by a `HashMap`).
 /// https://github.com/mrx-org/bifti-phantoms/blob/main/bifti-registry.schema.json
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
@@ -27,6 +31,31 @@ impl Deref for Registry {
     type Target = HashMap<String, Collection>;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+/// Living discovery list: maps a human-readable label to an immutable
+/// [`Registry`] collection name. This is what a tool lists when asked to show
+/// the available phantoms; look each value up in the [`Registry`] to reach the
+/// [`Collection`]. Iteration order is unspecified (backed by a `HashMap`).
+/// https://github.com/mrx-org/bifti-phantoms/blob/main/bifti-catalog.schema.json
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(transparent)]
+pub struct Catalog(HashMap<String, String>);
+
+impl Deref for Catalog {
+    type Target = HashMap<String, String>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Catalog {
+    /// Download the latest catalog.json from GitHub and return it parsed.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn load() -> Result<Self, crate::Error> {
+        let bytes = http_get(CATALOG_URL)?;
+        Ok(serde_json::from_slice(&bytes)?)
     }
 }
 
