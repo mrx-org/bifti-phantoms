@@ -1,6 +1,7 @@
 import {
   REPO_URL,
   loadRegistry as fetchRegistry,
+  loadCatalog as fetchCatalog,
   countPhantoms,
   parseZenodoRecordId,
   fetchPhantomJson,
@@ -51,20 +52,28 @@ function renderDownloadButton(recordId, filename) {
 async function loadRegistry() {
   const container = document.getElementById("registry-list");
   try {
-    const data = await fetchRegistry();
-    renderRegistry(container, data);
+    const [registry, catalog] = await Promise.all([fetchRegistry(), fetchCatalog()]);
+    renderRegistry(container, registry, catalog);
   } catch (err) {
     container.innerHTML = `
       <p class="error">
-        Could not load the registry (${err.message}).
-        See <a href="${REPO_URL}/blob/main/registry.json">registry.json</a> on GitHub.
+        Could not load the catalog / registry (${err.message}).
+        See <a href="${REPO_URL}/blob/main/catalog.json">catalog.json</a> and
+        <a href="${REPO_URL}/blob/main/registry.json">registry.json</a> on GitHub.
       </p>`;
   }
 }
 
-function renderRegistry(container, data) {
-  // Reverse of registry.json's order, so the newest-added collections show first.
-  const entries = Object.entries(data).reverse();
+function renderRegistry(container, registry, catalog) {
+  // Only the collections named in catalog.json, in catalog order, each resolved
+  // to its immutable registry entry.
+  const entries = Object.entries(catalog)
+    .map(([label, name]) => {
+      const entry = registry[name];
+      if (!entry) console.warn(`catalog entry "${label}" -> "${name}" is not in the registry`);
+      return [label, name, entry];
+    })
+    .filter(([, , entry]) => entry);
   if (entries.length === 0) {
     container.innerHTML = `<p class="muted">No entries yet.</p>`;
     return;
@@ -73,7 +82,7 @@ function renderRegistry(container, data) {
 
   // Collect all unique tags across all entries, sorted
   const allTags = [...new Set(
-    entries.flatMap(([, e]) => Array.isArray(e.keywords) ? e.keywords : [])
+    entries.flatMap(([, , e]) => Array.isArray(e.keywords) ? e.keywords : [])
   )].sort();
 
   const activeTags = new Set();
@@ -105,8 +114,8 @@ function renderRegistry(container, data) {
   }
   if (allTags.length > 0) container.appendChild(filterBar);
 
-  for (const [name, entry] of entries) {
-    const el = renderEntry(name, entry);
+  for (const [label, name, entry] of entries) {
+    const el = renderEntry(label, name, entry);
     const keywords = Array.isArray(entry.keywords) ? entry.keywords : [];
     cards.push({ el, keywords });
     container.appendChild(el);
@@ -117,7 +126,7 @@ const TISSUE_PROPERTIES = ["T1", "T2", "T2'", "ADC", "dB0", "B1+", "B1-"];
 const ARRAY_PROPERTIES = new Set(["B1+", "B1-"]);
 
 
-function renderEntry(name, entry) {
+function renderEntry(label, name, entry) {
   const phantoms = Array.isArray(entry.phantoms) ? entry.phantoms : [];
   const phantomCount = countPhantoms(phantoms);
   const authors = (entry.authors || [])
@@ -131,13 +140,14 @@ function renderEntry(name, entry) {
   el.className = "card collection";
   el.innerHTML = `
     <summary class="card-summary">
-      <span class="card-title">${escape(name)}</span>
+      <span class="card-title">${escape(label)}</span>
       ${renderTags(entry.keywords)}
       <span class="card-meta">${phantomCount} phantom${phantomCount === 1 ? "" : "s"}</span>
     </summary>
     <div class="card-body">
       ${entry.description ? `<p class="entry-desc">${escape(entry.description)}</p>` : ""}
       <dl class="entry-fields">
+        <dt>Registry name</dt><dd><code>${escape(name)}</code></dd>
         ${authors ? `<dt>Authors</dt><dd>${escape(authors)}</dd>` : ""}
         ${entry.license ? `<dt>License</dt><dd>${escape(entry.license)}</dd>` : ""}
         </dl>

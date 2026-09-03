@@ -1,20 +1,32 @@
-// Registry loading and phantom parsing for the browser. A readable reference
-// for working off registry.json (see ../REGISTRY.md), mirroring the data
-// layer of python/bifti/src/bifti/registry.py and rust/bifti/src/registry.rs
-// - fetch the registry, list/flatten phantoms, resolve a phantom's JSON and
-// the NIfTIs it references. No DOM here; app.js owns rendering.
+// Catalog/registry loading and phantom parsing for the browser. A readable
+// reference for working off catalog.json + registry.json (see ../REGISTRY.md),
+// mirroring the data layer of python/bifti/src/bifti/registry.py and
+// rust/bifti/src/registry.rs - fetch the catalog (the discovery list) and the
+// registry (the immutable archive), list/flatten phantoms, resolve a phantom's
+// JSON and the NIfTIs it references. No DOM here; app.js owns rendering.
 
 export const REGISTRY_URL =
   "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/main/registry.json";
+export const CATALOG_URL =
+  "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/main/catalog.json";
 export const REPO_URL = "https://github.com/mrx-org/bifti-phantoms";
 
 // ===========================================================================
 // Public entry points
 // ===========================================================================
 
-// Download the latest registry.json from GitHub and return it parsed.
+// Download the latest registry.json from GitHub and return it parsed - the
+// immutable archive of every collection, keyed by its permanent name.
 export async function loadRegistry() {
   const res = await fetch(REGISTRY_URL, { cache: "no-cache" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// Download the latest catalog.json from GitHub and return it parsed - the
+// discovery list, mapping a human-readable label to an immutable registry name.
+export async function loadCatalog() {
+  const res = await fetch(CATALOG_URL, { cache: "no-cache" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
