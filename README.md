@@ -14,10 +14,7 @@ A phantom is one **JSON** file defining tissues and their MR properties, referen
 
 > [!NOTE]
 > **Status:** the phantom spec is **v1** (see [SPEC.md](SPEC.md)); the
-> [registry](#registry) format is **alpha** (see [REGISTRY.md](REGISTRY.md))
-> and may still change shape. Sharing is split in two: [registry.json](registry.json)
-> is the immutable archive (permanent `<author>-<name>-<number>` entries),
-> [catalog.json](catalog.json) is the living list of what tools show.
+> [registry](#registry) format is **v1** (see [REGISTRY.md](REGISTRY.md))
 
 ## Quick example
 

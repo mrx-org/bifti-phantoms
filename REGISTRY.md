@@ -1,9 +1,11 @@
 # BIfTI Phantom Registry
 
 > [!NOTE]
-> **Registry status: alpha.** Unlike the phantom spec (see [SPEC.md](SPEC.md)),
-> this format carries no version tag of its own, so it may still change shape.
-> Registry entries stay immutable once merged either way.
+> **Registry version: v1.** The registry is split into an immutable registry.
+> Phantom collections defined here will never change (for reproducibility).
+> The catalog.json allows to remove or update entries of currently "recommended"
+> phantoms. It is meant for lookup only and might change in the future without
+> version bumps of the registry version.
 
 Public phantom sharing is split across two files at the repo root:
 
