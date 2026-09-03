@@ -1,4 +1,4 @@
-use bifti::{Phantom, Registry};
+use bifti::{Catalog, Phantom, Registry};
 use rand::seq::IndexedRandom;
 use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::{EnvFilter, prelude::*};
@@ -19,21 +19,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let registry = Registry::load()?;
+    let catalog = Catalog::load()?;
     let mut rng = rand::rng();
 
-    let (collection, entry) = registry
+    // Pick from the catalog (the discovery list), then resolve to the immutable
+    // registry entry.
+    let (label, collection) = catalog
         .iter()
         .collect::<Vec<_>>()
         .choose(&mut rng)
         .copied()
-        .expect("registry has at least one collection");
+        .expect("catalog has at least one entry");
+    let entry = registry
+        .get(collection)
+        .unwrap_or_else(|| panic!("catalog entry {label:?} -> {collection:?} is not in the registry"));
     let files = entry.phantom_files();
     let phantom_name = files
         .choose(&mut rng)
         .copied()
         .expect("collection has at least one phantom");
 
-    println!("downloading {collection}/{phantom_name}...");
+    println!("downloading {label:?} -> {collection}/{phantom_name}...");
     let cache_dir = std::path::Path::new("cache");
     let json_path = registry.load_registry_phantom(collection, phantom_name, cache_dir)?;
 

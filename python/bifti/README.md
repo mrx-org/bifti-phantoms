@@ -27,8 +27,9 @@ bifti import ...`):
 | `NumpyPhantom.load(path)` | Load a phantom JSON + its NIfTIs into `NumpyPhantom(config, tissues)`. |
 | `NumpyTissue` | One tissue as NumPy arrays: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`, `B1_rx`, plus `.shape`/`.affine`. |
 | `BiftiPhantom.load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O) — `BiftiPhantom(units, system, tissues, reslice_to, schema)`. |
-| `load_registry()` | Fetch and parse the public [registry.json](../../registry.json). |
-| `load_registry_phantom(collection, name)` | Download one phantom's JSON + NIfTIs from Zenodo into a local cache; returns the JSON path. |
+| `load_catalog()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
+| `load_registry()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |
+| `load_registry_phantom(collection, name)` | Download one phantom's JSON + NIfTIs from Zenodo into a local cache; returns the JSON path. `collection` is an immutable registry name. |
 
 `NumpyPhantom.load` is what you want for simulation/analysis (arrays); use
 `BiftiPhantom` directly only if you're generating or editing phantom JSONs
@@ -93,10 +94,11 @@ uv run --group examples examples/demo.py examples/data/shapes_resliced.json
 uv run --group examples examples/demo.py examples/data/shapes_downsampled.json
 ```
 
-With no argument, `demo.py` fetches the live [`registry.json`](../../registry.json),
-prints its phantoms as a numbered list, and downloads the one you pick (its JSON
-and every NIfTI it references) into `examples/cache/` via `bifti.registry`
-before plotting. Passing a local JSON path skips the registry and plots that
+With no argument, `demo.py` fetches the live [`catalog.json`](../../catalog.json),
+resolves each label to its [`registry.json`](../../registry.json) collection,
+prints their phantoms as a numbered list, and downloads the one you pick (its
+JSON and every NIfTI it references) into `examples/cache/` via `bifti.registry`
+before plotting. Passing a local JSON path skips the catalog and plots that
 file directly (the example data is committed in `examples/data/`).
 
 `demo.py` saves one PNG per tissue into `examples/figures/` and, on a GUI

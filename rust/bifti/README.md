@@ -30,8 +30,9 @@ a `Volume`.
 | `Volume` | `{ affine: [[f64; 4]; 3], shape: [usize; 3], data: VolumeData }`. |
 | `VolumeData` | `Float32(Vec<f32>)` / `Float64(Vec<f64>)` of the volume's voxels, row-major (`x*ny*nz + y*nz + z`). |
 | `BiftiPhantom::load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O). |
-| `Registry::load()` | Fetch and parse the public [registry.json](../../registry.json). |
-| `Registry::load_registry_phantom(collection, name, cache_dir)` | Download one phantom's JSON + NIfTIs from Zenodo into `cache_dir`; returns the JSON path. |
+| `Catalog::load()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
+| `Registry::load()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |
+| `Registry::load_registry_phantom(collection, name, cache_dir)` | Download one phantom's JSON + NIfTIs from Zenodo into `cache_dir` (`collection` is an immutable registry name); returns the JSON path. |
 
 ## Installation
 

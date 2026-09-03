@@ -1,16 +1,44 @@
 # BIfTI Phantom Registry
 
 > [!NOTE]
-> **Registry status: alpha.** Unlike the phantom spec (see [SPEC.md](SPEC.md)),
-> this format carries no version tag of its own — see below — so it may still
-> change shape; entries themselves stay immutable once merged either way.
+> **Registry format: v1.** The version discriminator is the `-v1` in
+> [`bifti-registry-v1.schema.json`](bifti-registry-v1.schema.json), as for the
+> phantom schema (see [SPEC.md](SPEC.md)). Like the phantom spec, `registry.json`
+> is **additively extensible**: new *optional* fields may be added within v1, so
+> the version bumps only on a **backwards-incompatible** change (removing or
+> renaming a field, adding a required one, changing the meaning of an existing
+> one). No such change ships without a version bump, and every collection entry
+> stays byte-stable regardless.
+>
+> `catalog.json` carries **no version and no compatibility guarantee** — it is a
+> mutable lookup list and its shape may change at any time without a registry
+> version bump. In practice there is no intention to change it.
 
-[`registry.json`](registry.json) is a public, PR-editable index of BIfTI
-phantoms. It only **references** data — the phantoms are hosted on
-[Zenodo](https://zenodo.org/), and anyone can add one via a pull request. Entries
-are validated against [`bifti-registry.schema.json`](bifti-registry.schema.json).
-The format carries no version tag and entries allow extra properties, so it can
-be migrated in place if it ever needs to change.
+Public phantom sharing is split across two files at the repo root:
+
+| File | Role | Mutable? |
+|------|------|----------|
+| [`registry.json`](registry.json) | **Immutable archive.** Every phantom collection ever published, each keyed by a permanent name. | No — entries frozen once merged. |
+| [`catalog.json`](catalog.json) | **Living discovery list.** Maps a human-readable label to a registry name. Everything a tool shows when you ask it to "list phantoms" comes from here. | Yes — add / update / remove entries freely. |
+
+The registry only **references** data — the phantoms are hosted on
+[Zenodo](https://zenodo.org/) — and anyone can add one via a pull request.
+`registry.json` is validated against
+[`bifti-registry-v1.schema.json`](bifti-registry-v1.schema.json), `catalog.json`
+against [`bifti-catalog.schema.json`](bifti-catalog.schema.json).
+
+## Why two files
+
+An addressable name must resolve to the same bytes forever, or references stop
+being reproducible. But a flat, append-only list is also the thing every tool
+enumerates — and it fills up with superseded, broken, or uninteresting entries
+that you can never take out of view.
+
+So the two jobs are separated. `registry.json` keeps a permanent entry for every
+collection. `catalog.json` decides which of those collections are worth showing;
+it can be reordered, pruned, and repointed at will. A tool lists the catalog,
+then resolves each label to its immutable `registry.json` name — the name you use
+to address that collection from then on.
 
 ## Hosting model
 
@@ -29,46 +57,67 @@ Each entry (keyed by collection name) maps to exactly one record, listing every
 phantom JSON in it. A record's phantoms are never split across entries, and no
 two entries share a `doi`.
 
+## `registry.json` — the immutable archive
+
+### Collection names
+
+Every entry key has the fixed form **`<author>-<name>-<number>`**, matching
+`^[a-z]+-[A-Za-z0-9_.]+-[0-9]{3}$`:
+
+| Part | Rule | Examples |
+|------|------|----------|
+| `author` | lowercase surname, no hyphens | `endres`, `duarte`, `zaiss` |
+| `name` | short slug; letters, digits, `_`, `.`; no hyphens | `breast`, `brainweb_highres`, `brainweb_subj04_3T_0.5mm` |
+| `number` | zero-padded 3 digits, starts at `001` | `001`, `002` |
+
+```
+endres-brainweb-001
+magda-breast-001
+zaiss-brainweb_subj04_3T_0.5mm-001
+```
+
 ### Entry immutability
 
-Once an entry is merged into `main` it is **frozen**: its `doi`, `phantoms`
-list, and all other fields must not be changed or removed. A CI check enforces
+Once an entry is merged into `main` it is **frozen**: its key, its `doi`, its
+`phantoms` list, and every other field must not be changed, removed, or renamed.
+[`tools/check_registry_immutable.py`](tools/check_registry_immutable.py) enforces
 this on every pull request.
 
-To publish a revised or extended dataset, open a PR that **adds a new entry**
-with a distinct name. Append a version, date, or descriptor — the naming scheme
-is flexible:
+To publish a **revised or extended** dataset, open a PR that **adds a new entry**
+with the number bumped:
 
 ```
-brainweb-20-v2
-brainweb-20-7T
-brainweb-20-2025-06
+endres-brainweb-001   →   endres-brainweb-002
 ```
 
-The old entry stays in the registry forever so that any existing reference to it
-continues to resolve.
+The old entry stays in `registry.json` forever, so any existing reference to it
+keeps resolving. Whether users *see* the old or the new one is a separate
+decision — that's what `catalog.json` is for (repoint the label at
+`endres-brainweb-002`).
 
 ### Reproducibility
 
-Because entries are immutable, a collection name on `main` always resolves to
-the same `doi` and therefore the same byte-identical files. To reference a
-specific phantom unambiguously use `<collection>/<file>` — e.g.
-`brainweb-20/subj04.json`. To additionally pin against future new collections,
-record the git commit: `a1b2c3d brainweb-20/subj04.json`.
+A `registry.json` name on `main` always resolves to the same `doi` and therefore
+the same byte-identical files. To reference a specific phantom unambiguously use
+`<collection>/<file>` — e.g. `endres-brainweb-001/subj04-3T-1mm.json`. To
+additionally pin against future new collections, record the git commit:
+`a1b2c3d endres-brainweb-001/subj04-3T-1mm.json`.
 
-## Entry format
+A **catalog label is not a stable reference** — it can be re-pointed or removed.
+Always resolve it to the `registry.json` name (and ideally `<collection>/<file>`)
+before recording a reference.
+
+### Entry format
 
 `registry.json` is a top-level object mapping each collection name to its entry:
 
 ```json
 {
-  "mrx-brain-cohort": { "description": "…", "doi": "10.5281/zenodo.<id>", "phantoms": [ "subj42-3T.json" ] }
+  "duarte-breast-001": { "description": "…", "doi": "10.5281/zenodo.<id>", "phantoms": [ "breast_3T.json" ] }
 }
 ```
 
-The **object key is the collection name**: unique (object keys are), matching
-`^[A-Za-z0-9][A-Za-z0-9_.-]*$`, and it namespaces the entry's files in references
-(`<collection>/<file>`). Each entry value has these fields:
+Each entry value has these fields:
 
 | Field | Req. | Description |
 |-------|------|-------------|
@@ -76,7 +125,7 @@ The **object key is the collection name**: unique (object keys are), matching
 | `authors` | yes | List of `{ name, orcid?, email?, affiliation? }`. |
 | `license` | yes | SPDX id, e.g. `CC-BY-4.0`, `CC0-1.0`. |
 | `doi` | yes | Immutable Zenodo version DOI (`10.5281/zenodo.<id>`). |
-| `phantoms` | yes | JSON filenames in the record (≥ 1), e.g. `subj42-3T.json`. |
+| `phantoms` | yes | JSON filenames in the record (≥ 1), e.g. `breast_3T.json`. |
 | `keywords` | no | Discovery tags (`brain`, `synthetic`, `3d`, …). |
 
 Each `phantoms[]` entry is referenced as `<collection>/<filename>` and pulls in
@@ -113,37 +162,68 @@ unaffected: every filename, no matter how deeply nested, is still referenced
 as `<collection>/<filename>`. This is fully backwards compatible — an entry
 that never uses groups is just a flat array of strings, as before.
 
+## `catalog.json` — the discovery list
+
+A top-level object mapping a **human-readable label** to a **registry collection
+name**:
+
+```json
+{
+  "Bifti demo phantoms": "endres-bifti_demo-001",
+  "Breast phantom": "magda-breast-001",
+  "Brainweb collection (1mm source data)": "endres-brainweb-001"
+}
+```
+
+Rules:
+
+- The **key is a free-text label**, shown by tools as the collection's title.
+  Labels are unique (object keys are). Object key **order is display order**.
+- The **value must be a current key in `registry.json`**.
+  [`tools/validate_catalog.py`](tools/validate_catalog.py) enforces this.
+- **Add, update (re-point), reorder, and remove entries freely.** There is no
+  immutability check on this file. Removing an entry hides a collection from
+  tools; the `registry.json` entry (and any reference to it) keeps working.
+
 ## Contributing a collection
 
 1. Assemble the phantom set (NIfTI + JSON) following [SPEC.md](SPEC.md).
 2. Upload **all files** to a single Zenodo record and publish.
-3. Open a PR that **adds one new entry** to [`registry.json`](registry.json):
-   choose a unique collection name, list every phantom JSON under `phantoms`,
-   and set `doi` to the published version DOI.
+3. Open one PR that:
+   - **adds one new entry** to [`registry.json`](registry.json): pick an
+     `<author>-<name>-<number>` name (bump the number if you are revising an
+     existing collection), list every phantom JSON under `phantoms`, and set
+     `doi` to the published version DOI;
+   - **adds or updates the matching entry** in [`catalog.json`](catalog.json):
+     a label pointing at that new name (for a revision, re-point the existing
+     label).
 
-**Never edit or remove an existing entry.** A CI check blocks any PR that
-modifies an already-merged collection. To publish a revised dataset, add a new
-entry with a new name (e.g. `brainweb-20-v2`).
+**Never edit or remove an existing `registry.json` entry.** A CI check blocks
+any PR that modifies an already-merged collection. Editing `catalog.json` freely,
+on the other hand, is expected.
 
-Run both checks locally before opening a PR:
+Run the checks locally before opening a PR:
 
 ```sh
 pip install jsonschema
-python tools/validate_registry.py        # schema validation
-python tools/check_registry_immutable.py # immutability (needs origin/main)
+python tools/validate_registry.py        # registry schema validation
+python tools/validate_catalog.py         # catalog schema + resolution
+python tools/check_registry_immutable.py # registry immutability (needs origin/main)
 ```
 
 ## Downloading data
 
-The `doi` is all you need: parse the Zenodo record id from it
-(`re.search(r"zenodo\.(\d+)$", doi)`) and pull each file from
-`https://zenodo.org/api/records/<record_id>/files/<filename>/content`.
+The `doi` from the resolved `registry.json` entry is all you need: parse the
+Zenodo record id from it (`re.search(r"zenodo\.(\d+)$", doi)`) and pull each file
+from `https://zenodo.org/api/records/<record_id>/files/<filename>/content`.
 
 [`python/bifti/src/bifti/registry.py`](python/bifti/src/bifti/registry.py) and
 [`rust/bifti/src/registry.rs`](rust/bifti/src/registry.rs) are the reference
-implementations: `load_registry()` fetches and parses this file, and
-`load_registry_phantom(collection, name)` downloads a phantom's JSON plus every
-NIfTI it references into a local cache, ready to load.
+implementations: `load_catalog()` / `Catalog::load()` fetch `catalog.json`,
+`load_registry()` / `Registry::load()` fetch `registry.json`, and
+`load_registry_phantom(collection, name)` (taking an immutable registry name)
+downloads a phantom's JSON plus every NIfTI it references into a local cache,
+ready to load.
 
 ## Config archives
 

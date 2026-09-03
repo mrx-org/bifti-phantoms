@@ -17,6 +17,7 @@ from .loader import (
 )
 from .registry import (
     flatten_phantoms,
+    load_catalog,
     load_registry,
     load_registry_phantom,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "NumpyTissue",
     "to_scanner_affine",
     "flatten_phantoms",
+    "load_catalog",
     "load_registry",
     "load_registry_phantom",
 ]

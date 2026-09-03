@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Check that no existing registry.json entry was modified or removed.
+"""Check that no existing registry.json entry was modified, removed, or renamed.
+
+registry.json is an immutable archive: once a collection is merged its key and
+value are frozen. Discovery and removal happen in catalog.json instead, which is
+freely editable and not checked here.
 
 Compares the working-tree registry.json against origin/main. On main itself
 there is nothing to compare, so the script exits 0 silently.
@@ -37,9 +41,9 @@ def main() -> int:
     errors = []
     for key, value in main_registry.items():
         if key not in pr_registry:
-            errors.append(f"  '{key}': removed — existing entries cannot be deleted")
+            errors.append(f"  '{key}': removed or renamed — registry entries are permanent; hide it in catalog.json instead")
         elif pr_registry[key] != value:
-            errors.append(f"  '{key}': modified — existing entries are frozen; add a new collection instead")
+            errors.append(f"  '{key}': modified — existing entries are frozen; add a new collection (bump the number) instead")
 
     if errors:
         print(f"Registry immutability check FAILED ({len(errors)} violation(s)):")
