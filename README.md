@@ -15,7 +15,9 @@ A phantom is one **JSON** file defining tissues and their MR properties, referen
 > [!NOTE]
 > **Status:** the phantom spec is **v1** (see [SPEC.md](SPEC.md)); the
 > [registry](#registry) format is **alpha** (see [REGISTRY.md](REGISTRY.md))
-> and may still change shape.
+> and may still change shape. Sharing is split in two: [registry.json](registry.json)
+> is the immutable archive (permanent `<author>-<name>-<number>` entries),
+> [catalog.json](catalog.json) is the living list of what tools show.
 
 ## Quick example
 
@@ -68,8 +70,9 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [JSON.md](JSON.md) | The phantom JSON: structure, units, system, tissues. |
 | [NIFTI.md](NIFTI.md) | The NIfTI files: format, coordinate conventions and patient position. |
 | [REGISTRY.md](REGISTRY.md) | The registry: how phantoms are hosted and shared. |
-| [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry.schema.json](bifti-registry.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json). |
-| [registry.json](registry.json) | The public index of phantoms — see [Registry](#registry). |
+| [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry.schema.json](bifti-registry.schema.json) / [bifti-catalog.schema.json](bifti-catalog.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json) / [catalog.json](catalog.json). |
+| [registry.json](registry.json) | Immutable archive of every published collection — see [Registry](#registry). |
+| [catalog.json](catalog.json) | Living discovery list: which collections tools show, mapped to registry names. |
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |
 | [rust/bifti/](rust/bifti/) | Installable Rust crate + examples. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
@@ -82,10 +85,18 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 
 ## Registry
 
-Example phantoms are available in the public registry: [registry.json](registry.json).
-The registry can also be viewed here: https://mrx-org.github.io/bifti-phantoms/
+Example phantoms are available in the public registry. Every published
+collection has a permanent entry in [registry.json](registry.json) (the
+immutable archive); [catalog.json](catalog.json) is the curated, freely-editable
+list of which of those collections tools surface, each mapped to its immutable
+registry name. Browse the catalog here: https://mrx-org.github.io/bifti-phantoms/
 
-This registry exists for the purpose of making sharing easy and experiments reproducible. Anyone is welcome to add new phantoms to the registry. Phantom files themselves can be hosted for free on [Zenodo](https://zenodo.org/), under any appropriate license and attribution. The registry is a central place to collect those phantoms - add to it with a pull request that extends [registry.json](registry.json) with new entries. See [REGISTRY.md](REGISTRY.md) for the full contribution workflow.
+This exists to make sharing easy and experiments reproducible. Anyone is welcome
+to add new phantoms. Phantom files themselves can be hosted for free on
+[Zenodo](https://zenodo.org/), under any appropriate license and attribution.
+Add one with a pull request that adds an entry to [registry.json](registry.json)
+and a label pointing at it in [catalog.json](catalog.json). See
+[REGISTRY.md](REGISTRY.md) for the full contribution workflow.
 
 ## Reference implementation
 
@@ -111,7 +122,7 @@ The two implementations currently have some discrepancies:
 | Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) |
 | Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Fails with `Error::UnsupportedDataType` |
 | Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex |
-| Registry access | `load_registry()`, `load_registry_phantom(collection, name)` | `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` |
+| Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` |
 | Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them |
 | Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) |
 | Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) |
