@@ -1,8 +1,10 @@
-# Fetch the public phantom registry and download phantoms from Zenodo. A readable
-# reference for working off registry.json (see ../REGISTRY.md): list what's
-# available, then pull a phantom's JSON plus every NIfTI it references into a
-# local cache. Demo code - it assumes the registry is well-formed (CI validates
-# it). Deps: requests. See nifti_phantom.py for the data model the JSON parses to.
+# Fetch the public phantom catalog/registry and download phantoms from Zenodo. A
+# readable reference for working off catalog.json + registry.json (see
+# ../REGISTRY.md): list what's discoverable (the catalog), resolve each label to
+# an immutable registry name, then pull a phantom's JSON plus every NIfTI it
+# references into a local cache. Demo code - it assumes both files are well-formed
+# (CI validates them). Deps: requests. See phantom.py for the data model the JSON
+# parses to.
 
 from __future__ import annotations
 
@@ -23,6 +25,10 @@ REGISTRY_URL = (
     "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/"
     "refs/heads/main/registry.json"
 )
+CATALOG_URL = (
+    "https://raw.githubusercontent.com/mrx-org/bifti-phantoms/"
+    "refs/heads/main/catalog.json"
+)
 # A Zenodo version DOI ("10.5281/zenodo.<id>") embeds the record id; that's all
 # we need to pull a file straight from the API.
 ZENODO_FILE_URL = "https://zenodo.org/api/records/{record_id}/files/{filename}/content"
@@ -33,16 +39,33 @@ ZENODO_FILE_URL = "https://zenodo.org/api/records/{record_id}/files/{filename}/c
 # ===========================================================================
 
 
+def load_catalog() -> dict[str, str]:
+    """Download the latest catalog.json from GitHub and return it parsed.
+
+    Maps a human-readable label to an immutable registry collection name. This
+    is the discovery list: what a tool shows when asked to "list phantoms".
+    Resolve each value against ``load_registry()`` to get the collection entry.
+    """
+    return json.loads(_http_get(CATALOG_URL))
+
+
 def load_registry():
-    """Download the latest registry.json from GitHub and return it parsed."""
+    """Download the latest registry.json from GitHub and return it parsed.
+
+    The immutable archive of every published collection, keyed by its permanent
+    ``<author>-<name>-<number>`` name. Use ``load_catalog()`` for the curated,
+    discoverable subset.
+    """
     return json.loads(_http_get(REGISTRY_URL))
 
 
 def load_registry_phantom(collection: str, name: str) -> Path:
     """Download a phantom's JSON and every NIfTI it references into the cache.
 
-    Returns the path to the .json of the downloaded phantom. Re-running this
-    function does nothing as phantoms are immutable and cached.
+    ``collection`` is an immutable registry name (a value from ``load_catalog()``,
+    or a key of ``load_registry()``), not a catalog label. Returns the path to
+    the .json of the downloaded phantom. Re-running this function does nothing as
+    phantoms are immutable and cached.
     """
     doi = load_registry()[collection]["doi"]
 
@@ -175,7 +198,12 @@ def collect_nifti_files(phantom: BiftiPhantom) -> list[str]:
 # ===========================================================================
 
 if __name__ == "__main__":
-    for collection_name, entry in load_registry().items():
-        print(f"{collection_name}  ({entry['doi']})")
+    registry = load_registry()
+    for label, collection_name in load_catalog().items():
+        entry = registry.get(collection_name)
+        if entry is None:
+            print(f"{label}  ->  {collection_name}  (MISSING from registry)")
+            continue
+        print(f"{label}  ->  {collection_name}  ({entry['doi']})")
         for phantom in flatten_phantoms(entry["phantoms"]):
             print(f"    {phantom}")
