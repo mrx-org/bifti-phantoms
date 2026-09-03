@@ -1,11 +1,18 @@
 # BIfTI Phantom Registry
 
 > [!NOTE]
-> **Registry version: v1.** The registry is split into an immutable registry.
-> Phantom collections defined here will never change (for reproducibility).
-> The catalog.json allows to remove or update entries of currently "recommended"
-> phantoms. It is meant for lookup only and might change in the future without
-> version bumps of the registry version.
+> **Registry format: v1.** The version discriminator is the `-v1` in
+> [`bifti-registry-v1.schema.json`](bifti-registry-v1.schema.json), as for the
+> phantom schema (see [SPEC.md](SPEC.md)). Like the phantom spec, `registry.json`
+> is **additively extensible**: new *optional* fields may be added within v1, so
+> the version bumps only on a **backwards-incompatible** change (removing or
+> renaming a field, adding a required one, changing the meaning of an existing
+> one). No such change ships without a version bump, and every collection entry
+> stays byte-stable regardless.
+>
+> `catalog.json` carries **no version and no compatibility guarantee** — it is a
+> mutable lookup list and its shape may change at any time without a registry
+> version bump. In practice there is no intention to change it.
 
 Public phantom sharing is split across two files at the repo root:
 
@@ -17,7 +24,7 @@ Public phantom sharing is split across two files at the repo root:
 The registry only **references** data — the phantoms are hosted on
 [Zenodo](https://zenodo.org/) — and anyone can add one via a pull request.
 `registry.json` is validated against
-[`bifti-registry.schema.json`](bifti-registry.schema.json), `catalog.json`
+[`bifti-registry-v1.schema.json`](bifti-registry-v1.schema.json), `catalog.json`
 against [`bifti-catalog.schema.json`](bifti-catalog.schema.json).
 
 ## Why two files

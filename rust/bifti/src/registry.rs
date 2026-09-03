@@ -22,7 +22,7 @@ static ZENODO_ID_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"zenodo\.
 /// Immutable archive of public BIfTI phantoms: maps each permanent
 /// `<author>-<name>-<number>` collection name to its entry. Iteration order is
 /// unspecified (backed by a `HashMap`).
-/// https://github.com/mrx-org/bifti-phantoms/blob/main/bifti-registry.schema.json
+/// https://github.com/mrx-org/bifti-phantoms/blob/main/bifti-registry-v1.schema.json
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Registry(HashMap<String, Collection>);

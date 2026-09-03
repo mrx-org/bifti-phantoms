@@ -67,7 +67,7 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [JSON.md](JSON.md) | The phantom JSON: structure, units, system, tissues. |
 | [NIFTI.md](NIFTI.md) | The NIfTI files: format, coordinate conventions and patient position. |
 | [REGISTRY.md](REGISTRY.md) | The registry: how phantoms are hosted and shared. |
-| [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry.schema.json](bifti-registry.schema.json) / [bifti-catalog.schema.json](bifti-catalog.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json) / [catalog.json](catalog.json). |
+| [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry-v1.schema.json](bifti-registry-v1.schema.json) / [bifti-catalog.schema.json](bifti-catalog.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json) / [catalog.json](catalog.json). |
 | [registry.json](registry.json) | Immutable archive of every published collection — see [Registry](#registry). |
 | [catalog.json](catalog.json) | Living discovery list: which collections tools show, mapped to registry names. |
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |

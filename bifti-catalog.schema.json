@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/mrx-org/bifti-phantoms/bifti-catalog",
   "title": "BIfTI Phantom Catalog",
-  "description": "Living, freely PR-editable discovery list: a top-level object mapping a human-readable label to an immutable registry collection name ('<author>-<name>-<number>', see bifti-registry.schema.json). Tools list only the collections named here, then resolve each to its registry name for addressing. Adding, updating, and removing entries is all allowed; every value must be a current key in registry.json (enforced by tools/validate_catalog.py). Object key order is display order. See REGISTRY.md.",
+  "description": "Living, freely PR-editable discovery list: a top-level object mapping a human-readable label to an immutable registry collection name ('<author>-<name>-<number>', see bifti-registry-v1.schema.json). Tools list only the collections named here, then resolve each to its registry name for addressing. Adding, updating, and removing entries is all allowed; every value must be a current key in registry.json (enforced by tools/validate_catalog.py). Object key order is display order. See REGISTRY.md.",
   "type": "object",
   "minProperties": 1,
   "propertyNames": { "minLength": 1 },
