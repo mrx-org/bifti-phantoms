@@ -1,4 +1,4 @@
-# BIfTI Phantoms
+![BIfTI phantoms](logo.png)
 
 *Bloch Informatics Technology Initiative* phantom format - a playful riff on **NIfTI**, but specific to MRI simulation data.
 
