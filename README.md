@@ -42,6 +42,14 @@ tissue = phantom.tissues["gm"]  # a NumpyTissue: density, T1, T2, ... as np.ndar
 print(tissue.shape, tissue.T1.mean())
 ```
 
+...from MATLAB or Octave:
+
+```matlab
+phantom = bifti.loadPhantom('subj42.json');
+gm = phantom.tissues(strcmp({phantom.tissues.name}, 'gm'));  % density, T1, T2, ... as arrays
+disp(mean(gm.T1(:)))
+```
+
 ...or from Rust:
 
 ```rust
@@ -72,11 +80,12 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [catalog.json](catalog.json) | Living discovery list: which collections tools show, mapped to registry names. |
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |
 | [rust/bifti/](rust/bifti/) | Installable Rust crate + examples. |
+| [matlab/](matlab/) | MATLAB / Octave package (`bifti` namespace), no toolboxes needed. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
 | [tools/](tools/) | CI scripts: phantom/registry schema validation, immutability checks. |
 
 > [!IMPORTANT]
-> The example implementations for Python and Rust were built with the help of
+> The example implementations for Python, Rust and MATLAB were built with the help of
 > LLMs and not yet reviewed thouroughly. They might contain bugs and currently
 > not live up to the targeted quality standard. This will change in the future.
 
@@ -104,11 +113,14 @@ cargo add --git https://github.com/mrx-org/bifti-phantoms bifti
 pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=python/bifti"
 # Using the uv package manager:
 uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
+# Load bifti phantoms from MATLAB or Octave: clone the repo, then in MATLAB
+#   addpath('bifti-phantoms/matlab')
 ```
 
 For more information, including runnable examples and each package's full
 API, read the README of the [Python `bifti` package](python/bifti/README.md)
-or [Rust `bifti` crate](rust/bifti/README.md).
+or [Rust `bifti` crate](rust/bifti/README.md); the [MATLAB package](matlab/README.md)
+follows the Python behaviour and matches its results to floating-point precision.
 
 ### Python vs Rust
 

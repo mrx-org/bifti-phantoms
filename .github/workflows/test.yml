@@ -5,8 +5,8 @@ on:
   push:
     branches: [ main ]
 
-# No `paths` filter: the Rust integration tests read the example phantoms under
-# python/bifti/examples/data/, so a "Python-only" change still has to run the Rust job.
+# No `paths` filter: the Rust and MATLAB tests read the example phantoms under
+# python/bifti/examples/data/, so a "Python-only" change still has to run their jobs.
 
 jobs:
   rust:
@@ -26,6 +26,30 @@ jobs:
           workspaces: rust/bifti
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+  # Free on GitHub-hosted runners for public repositories, no license needed.
+  matlab:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported release and the latest one.
+        release: [R2021a, latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: matlab-actions/setup-matlab@v2
+        with:
+          release: ${{ matrix.release }}
+      - uses: matlab-actions/run-command@v2
+        with:
+          command: cd matlab; addpath(pwd); addpath(fullfile(pwd, 'tests')); runTests
+
+  octave:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends octave
+      - run: octave --no-gui --eval "cd matlab; addpath(pwd); addpath(fullfile(pwd, 'tests')); runTests"
 
   python:
     runs-on: ubuntu-latest
