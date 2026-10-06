@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main ]
 
-# No `paths` filter: the Rust and MATLAB tests read the example phantoms under
+# No `paths` filter: the Rust, Julia and MATLAB tests read the example phantoms under
 # python/bifti/examples/data/, so a "Python-only" change still has to run their jobs.
 
 jobs:
@@ -26,6 +26,25 @@ jobs:
           workspaces: rust/bifti
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+  julia:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The oldest supported version (compat bound) and the latest release.
+        version: ['1.10', '1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+        with:
+          project: julia/Bifti
+      - uses: julia-actions/julia-runtest@v1
+        with:
+          project: julia/Bifti
 
   # Free on GitHub-hosted runners for public repositories, no license needed.
   matlab:

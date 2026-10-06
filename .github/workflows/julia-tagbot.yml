@@ -1,0 +1,37 @@
+name: Julia TagBot
+
+# After the General registry merges a Bifti.jl release, JuliaTagBot comments on the
+# registration issue; this creates the matching git tag and GitHub release. With a
+# subdir, the tag is `Bifti-v<version>`, so it never collides with the format's `v*` tags.
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      lookback:
+        description: Days to look back for registrations that were not tagged yet
+        default: "3"
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  deployments: read
+  issues: read
+  discussions: read
+  packages: read
+  pages: read
+  pull-requests: read
+  repository-projects: read
+  security-events: read
+  statuses: read
+
+jobs:
+  tagbot:
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: JuliaRegistries/TagBot@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          subdir: julia/Bifti
