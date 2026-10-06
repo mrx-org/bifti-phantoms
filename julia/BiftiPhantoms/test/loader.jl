@@ -73,8 +73,8 @@ load_example(name) = load_bifti(joinpath(DATA, "$name.json"))
 
     @testset "scanner affine follows the patient position" begin
         affine = native.tissues["disk"].affine
-        @test native.config.patient == Patient(Bifti.HFS)
-        @test scanner_affine(native, "disk") == [scanner_matrix(Bifti.HFS) * affine; 0 0 0 1]
+        @test native.config.patient == Patient(BiftiPhantoms.HFS)
+        @test scanner_affine(native, "disk") == [scanner_matrix(BiftiPhantoms.HFS) * affine; 0 0 0 1]
         # Without a patient position (FFS) the affine is unchanged.
         @test scanner_affine(affine, nothing) == [affine; 0 0 0 1]
     end
@@ -82,7 +82,7 @@ load_example(name) = load_bifti(joinpath(DATA, "$name.json"))
     @testset "invalid references fail loudly" begin
         config = read_bifti(joinpath(DATA, "shapes.json"))
         tissue = config.tissues["disk"]
-        broken = BiftiPhantom(; tissues=Bifti.OrderedDict("disk" => BiftiTissue(; density=NiftiRef(tissue.density.file, 3))))
+        broken = BiftiPhantom(; tissues=BiftiPhantoms.OrderedDict("disk" => BiftiTissue(; density=NiftiRef(tissue.density.file, 3))))
         @test_throws ArgumentError load_bifti(broken, DATA)
     end
 end

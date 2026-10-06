@@ -1,11 +1,11 @@
-# Bifti.jl
+# BiftiPhantoms.jl
 
 A Julia package for the [BIfTI phantom format](../../SPEC.md): parse/serialize the
 phantom JSON, load a phantom into plain arrays, and fetch phantoms from the public
 [registry](../../REGISTRY.md).
 
 ```julia
-using Bifti
+using BiftiPhantoms
 
 phantom = load_bifti("subj42-3T.json")
 tissue = phantom.tissues["gm"]  # a VoxelTissue: density, T1, T2, ... as Array{Float64,3}
@@ -41,7 +41,7 @@ B1± relative.
 ### Registry
 
 ```julia
-using Bifti
+using BiftiPhantoms
 
 registry = load_registry()
 for (label, collection) in load_catalog()
@@ -60,7 +60,7 @@ resolves to the same bytes, cached files are never downloaded again.
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/mrx-org/bifti-phantoms", subdir="julia/Bifti")
+Pkg.add(url="https://github.com/mrx-org/bifti-phantoms", subdir="julia/BiftiPhantoms")
 ```
 
 Requires Julia 1.10 or newer.
@@ -91,7 +91,7 @@ The tests load the example phantoms in [`python/bifti/examples/data/`](../../pyt
 so run them from a checkout of this repository:
 
 ```sh
-cd julia/Bifti
+cd julia/BiftiPhantoms
 julia --project -e 'using Pkg; Pkg.test()'
 ```
 
@@ -99,18 +99,23 @@ Set `BIFTI_TEST_NETWORK=true` to also download a phantom from Zenodo.
 
 ## Releasing
 
-Bifti.jl lives in the `julia/Bifti` subdirectory and is versioned independently of
-the format (its tags are `Bifti-v*`, the format's are `v*`).
+BiftiPhantoms.jl lives in the `julia/BiftiPhantoms` subdirectory and is versioned independently of
+the format (its tags are `BiftiPhantoms-v*`, the format's are `v*`).
 
 1. Bump `version` in [`Project.toml`](Project.toml) (semver; while `0.x`, a minor
-   bump marks a breaking change) and merge it to `main` with the Test workflow green.
-2. On GitHub, comment on that commit on `main`:
+   bump marks a breaking change), add its section to [`CHANGELOG.md`](CHANGELOG.md)
+   and merge both to `main` with the Test workflow green.
+2. On GitHub, comment on that commit on `main`, pasting the new changelog section
+   as release notes (they go into the registry PR and the GitHub release):
    ```
-   @JuliaRegistrator register subdir=julia/Bifti
+   @JuliaRegistrator register subdir=julia/BiftiPhantoms
+
+   Release notes:
+
+   <the version's CHANGELOG.md section>
    ```
-   Add `Release notes:` and a list below it to fill the GitHub release text.
 3. Registrator opens a PR to [General](https://github.com/JuliaRegistries/General).
    AutoMerge merges it once its checks pass (after 3 days for the first release,
    about 15 minutes for later ones).
 4. The [Julia TagBot workflow](../../.github/workflows/julia-tagbot.yml) then creates
-   the `Bifti-v<version>` tag and GitHub release on its own.
+   the `BiftiPhantoms-v<version>` tag and GitHub release on its own.

@@ -1,8 +1,8 @@
 name: Julia TagBot
 
-# After the General registry merges a Bifti.jl release, JuliaTagBot comments on the
+# After the General registry merges a BiftiPhantoms.jl release, JuliaTagBot comments on the
 # registration issue; this creates the matching git tag and GitHub release. With a
-# subdir, the tag is `Bifti-v<version>`, so it never collides with the format's `v*` tags.
+# subdir, the tag is `BiftiPhantoms-v<version>`, so it never collides with the format's `v*` tags.
 on:
   issue_comment:
     types: [created]
@@ -34,4 +34,4 @@ jobs:
       - uses: JuliaRegistries/TagBot@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          subdir: julia/Bifti
+          subdir: julia/BiftiPhantoms
