@@ -42,6 +42,16 @@ tissue = phantom.tissues["gm"]  # a NumpyTissue: density, T1, T2, ... as np.ndar
 print(tissue.shape, tissue.T1.mean())
 ```
 
+...from Julia:
+
+```julia
+using Bifti
+
+phantom = load_bifti("subj42.json")
+tissue = phantom.tissues["gm"]  # a VoxelTissue: density, T1, T2, ... as arrays
+println(size(tissue), " ", sum(tissue.T1) / length(tissue.T1))
+```
+
 ...or from Rust:
 
 ```rust
@@ -72,11 +82,12 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [catalog.json](catalog.json) | Living discovery list: which collections tools show, mapped to registry names. |
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |
 | [rust/bifti/](rust/bifti/) | Installable Rust crate + examples. |
+| [julia/Bifti/](julia/Bifti/) | Installable Julia package. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
 | [tools/](tools/) | CI scripts: phantom/registry schema validation, immutability checks. |
 
 > [!IMPORTANT]
-> The example implementations for Python and Rust were built with the help of
+> The example implementations for Python, Rust and Julia were built with the help of
 > LLMs and not yet reviewed thouroughly. They might contain bugs and currently
 > not live up to the targeted quality standard. This will change in the future.
 
@@ -104,25 +115,29 @@ cargo add --git https://github.com/mrx-org/bifti-phantoms bifti
 pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=python/bifti"
 # Using the uv package manager:
 uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
+# Load bifti phantoms from Julia
+julia -e 'using Pkg; Pkg.add(url="https://github.com/mrx-org/bifti-phantoms", subdir="julia/Bifti")'
 ```
 
 For more information, including runnable examples and each package's full
-API, read the README of the [Python `bifti` package](python/bifti/README.md)
-or [Rust `bifti` crate](rust/bifti/README.md).
+API, read the README of the [Python `bifti` package](python/bifti/README.md),
+[Rust `bifti` crate](rust/bifti/README.md) or [Julia `Bifti` package](julia/Bifti/README.md).
 
-### Python vs Rust
+### Python vs Rust vs Julia
 
-The two implementations currently have some discrepancies:
+The implementations currently have some discrepancies:
 
-| | Python (`python/bifti`) | Rust (`rust/bifti`) |
-|---|---|---|
-| Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) |
-| Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Fails with `Error::UnsupportedDataType` |
-| Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex |
-| Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` |
-| Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them |
-| Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) |
-| Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) |
+| | Python (`python/bifti`) | Rust (`rust/bifti`) | Julia (`julia/Bifti`) |
+|---|---|---|---|
+| Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) | `VoxelPhantom.tissues: OrderedDict{String, VoxelTissue}` — `Array`s |
+| Grid without `reslice_to` | Every map is brought onto the density map's grid | Every map keeps its own native grid | Every map is brought onto the density map's grid |
+| Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Loaded and resliced as complex | `B1+`/`B1-` loaded and resliced as `ComplexF64`; an error for other properties |
+| Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex | Same approach, own implementation; matches Python to floating-point precision |
+| `func` evaluation | Python `eval` (only load trusted phantoms) | Parsed with the spec grammar | Parsed with the spec grammar |
+| Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` (cached in a scratch space) |
+| Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them | Warned about at every level; kept for the phantom and its tissues so `write_bifti` round-trips them |
+| Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) | Usage snippets in [julia/Bifti/README.md](julia/Bifti/README.md) |
+| Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) | - |
 
 ### Reslicing
 

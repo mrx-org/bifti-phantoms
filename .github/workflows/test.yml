@@ -5,8 +5,8 @@ on:
   push:
     branches: [ main ]
 
-# No `paths` filter: the Rust integration tests read the example phantoms under
-# python/bifti/examples/data/, so a "Python-only" change still has to run the Rust job.
+# No `paths` filter: the Rust and Julia tests read the example phantoms under
+# python/bifti/examples/data/, so a "Python-only" change still has to run their jobs.
 
 jobs:
   rust:
@@ -26,6 +26,25 @@ jobs:
           workspaces: rust/bifti
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+  julia:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The oldest supported version (compat bound) and the latest release.
+        version: ['1.10', '1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+        with:
+          project: julia/Bifti
+      - uses: julia-actions/julia-runtest@v1
+        with:
+          project: julia/Bifti
 
   python:
     runs-on: ubuntu-latest
