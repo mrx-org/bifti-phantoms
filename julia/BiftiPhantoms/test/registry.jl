@@ -15,9 +15,9 @@ file_url(name) = "file://" * abspath(joinpath(REPO, name))
     nested = Any["a.json", Dict("group" => "g", "phantoms" => Any["b.json", Dict("group" => "h", "phantoms" => ["c.json"])]), "d.json"]
     @test flatten_phantoms(nested) == ["a.json", "b.json", "c.json", "d.json"]
 
-    @test Bifti.zenodo_record_id("10.5281/zenodo.20384437") == "20384437"
-    @test_throws ArgumentError Bifti.zenodo_record_id("10.1000/xyz")
-    @test Bifti.escape_uri("subj42_B1+ v2.nii.gz") == "subj42_B1%2B%20v2.nii.gz"
+    @test BiftiPhantoms.zenodo_record_id("10.5281/zenodo.20384437") == "20384437"
+    @test_throws ArgumentError BiftiPhantoms.zenodo_record_id("10.1000/xyz")
+    @test BiftiPhantoms.escape_uri("subj42_B1+ v2.nii.gz") == "subj42_B1%2B%20v2.nii.gz"
 
     # Downloads from Zenodo only when explicitly enabled, so the suite runs offline.
     if get(ENV, "BIFTI_TEST_NETWORK", "false") == "true"
