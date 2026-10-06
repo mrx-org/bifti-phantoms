@@ -52,6 +52,14 @@ tissue = phantom.tissues["gm"]  # a VoxelTissue: density, T1, T2, ... as arrays
 println(size(tissue), " ", sum(tissue.T1) / length(tissue.T1))
 ```
 
+...from MATLAB or Octave:
+
+```matlab
+phantom = bifti.loadPhantom('subj42.json');
+gm = phantom.tissues(strcmp({phantom.tissues.name}, 'gm'));  % density, T1, T2, ... as arrays
+disp(mean(gm.T1(:)))
+```
+
 ...or from Rust:
 
 ```rust
@@ -83,11 +91,12 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [python/bifti/](python/bifti/) | Installable Python package + examples. |
 | [rust/bifti/](rust/bifti/) | Installable Rust crate + examples. |
 | [julia/BiftiPhantoms/](julia/BiftiPhantoms/) | Installable Julia package. |
+| [matlab/](matlab/) | MATLAB / Octave package (`bifti` namespace), no toolboxes needed. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
 | [tools/](tools/) | CI scripts: phantom/registry schema validation, immutability checks. |
 
 > [!IMPORTANT]
-> The example implementations for Python, Rust and Julia were built with the help of
+> The example implementations for Python, Rust, Julia and MATLAB were built with the help of
 > LLMs and not yet reviewed thouroughly. They might contain bugs and currently
 > not live up to the targeted quality standard. This will change in the future.
 
@@ -117,27 +126,30 @@ pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=pyth
 uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
 # Load bifti phantoms from Julia
 julia -e 'using Pkg; Pkg.add(url="https://github.com/mrx-org/bifti-phantoms", subdir="julia/BiftiPhantoms")'
+# Load bifti phantoms from MATLAB or Octave: clone the repo, then in MATLAB
+#   addpath('bifti-phantoms/matlab')
 ```
 
 For more information, including runnable examples and each package's full
 API, read the README of the [Python `bifti` package](python/bifti/README.md),
-[Rust `bifti` crate](rust/bifti/README.md) or [Julia `BiftiPhantoms` package](julia/BiftiPhantoms/README.md).
+[Rust `bifti` crate](rust/bifti/README.md), [Julia `BiftiPhantoms` package](julia/BiftiPhantoms/README.md)
+or [MATLAB `bifti` package](matlab/README.md).
 
-### Python vs Rust vs Julia
+### Python vs Rust vs Julia vs MATLAB
 
 The implementations currently have some discrepancies:
 
-| | Python (`python/bifti`) | Rust (`rust/bifti`) | Julia (`julia/BiftiPhantoms`) |
-|---|---|---|---|
-| Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) | `VoxelPhantom.tissues: OrderedDict{String, VoxelTissue}` — `Array`s |
-| Grid without `reslice_to` | Every map is brought onto the density map's grid | Every map keeps its own native grid | Every map is brought onto the density map's grid |
-| Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Loaded and resliced as complex | `B1+`/`B1-` loaded and resliced as `ComplexF64`; an error for other properties |
-| Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex | Same approach, own implementation; matches Python to floating-point precision |
-| `func` evaluation | Python `eval` (only load trusted phantoms) | Parsed with the spec grammar | Parsed with the spec grammar |
-| Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` (cached in a scratch space) |
-| Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them | Warned about at every level; kept for the phantom and its tissues so `write_bifti` round-trips them |
-| Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) | Usage snippets in [julia/BiftiPhantoms/README.md](julia/BiftiPhantoms/README.md) |
-| Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) | - |
+| | Python (`python/bifti`) | Rust (`rust/bifti`) | Julia (`julia/BiftiPhantoms`) | MATLAB (`matlab/+bifti`) |
+|---|---|---|---|---|
+| Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) | `VoxelPhantom.tissues: OrderedDict{String, VoxelTissue}` — `Array`s | `phantom.tissues` struct array of 3-D arrays (`bifti.loadPhantom`) |
+| Grid without `reslice_to` | Every map is brought onto the density map's grid | Every map keeps its own native grid | Every map is brought onto the density map's grid | Every map is brought onto the density map's grid |
+| Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Loaded and resliced as complex | `B1+`/`B1-` loaded and resliced as `ComplexF64`; an error for other properties | `B1+`/`B1-` loaded and resliced as complex; an error for other properties |
+| Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex | Same approach, own implementation; matches Python to floating-point precision | Same approach, own implementation; matches Python to floating-point precision |
+| `func` evaluation | Python `eval` (only load trusted phantoms) | Parsed with the spec grammar | Parsed with the spec grammar | Parsed with the spec grammar |
+| Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` (cached in a scratch space) | `bifti.loadCatalog()`, `bifti.loadRegistry()`, `bifti.loadRegistryPhantom(collection, name)` (cached in `~/.cache/bifti`) |
+| Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them | Warned about at every level; kept for the phantom and its tissues so `write_bifti` round-trips them | Warned about at every level; kept for the phantom and its tissues so `bifti.writePhantom` round-trips them |
+| Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) | Usage snippets in [julia/BiftiPhantoms/README.md](julia/BiftiPhantoms/README.md) | Usage snippets in [matlab/README.md](matlab/README.md) |
+| Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) | - | - |
 
 ### Reslicing
 
