@@ -136,7 +136,7 @@ function read_subvolume(cache, base_dir, ref::NiftiRef)
     path = isabspath(ref.file) ? ref.file : normpath(joinpath(base_dir, ref.file))
     data, affine = get!(() -> read_nifti(path), cache, path)
     0 <= ref.index < size(data, 4) ||
-        throw(BoundsError("$(ref.file) has $(size(data, 4)) sub-volumes, cannot read [$(ref.index)]"))
+        throw(ArgumentError("$(ref.file) has $(size(data, 4)) sub-volumes, cannot read [$(ref.index)]"))
     return data[:, :, :, ref.index+1], affine
 end
 

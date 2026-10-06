@@ -66,9 +66,11 @@ function load_registry_phantom(collection, name; registry=load_registry(), cache
 
     json_path = download_json(dir, record_id, name)
     for file in nifti_files(read_bifti(json_path))
-        filename = basename(file)
-        dest = joinpath(dir, filename)
-        isfile(dest) || download_atomic(zenodo_file_url(record_id, filename), dest)
+        # NIfTIs are stored next to the JSON (../../JSON.md) and Zenodo records are flat,
+        # so a path with directories could not be downloaded to where the loader reads it.
+        basename(file) == file || throw(ArgumentError("NIfTI reference $(repr(file)) must be a plain filename next to the phantom JSON"))
+        dest = joinpath(dir, file)
+        isfile(dest) || download_atomic(zenodo_file_url(record_id, file), dest)
     end
     return json_path
 end

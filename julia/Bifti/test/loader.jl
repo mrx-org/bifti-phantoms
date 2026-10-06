@@ -83,6 +83,6 @@ load_example(name) = load_bifti(joinpath(DATA, "$name.json"))
         config = read_bifti(joinpath(DATA, "shapes.json"))
         tissue = config.tissues["disk"]
         broken = BiftiPhantom(; tissues=Bifti.OrderedDict("disk" => BiftiTissue(; density=NiftiRef(tissue.density.file, 3))))
-        @test_throws BoundsError load_bifti(broken, DATA)
+        @test_throws ArgumentError load_bifti(broken, DATA)
     end
 end
