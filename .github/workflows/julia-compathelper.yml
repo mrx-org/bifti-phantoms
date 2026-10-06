@@ -1,6 +1,6 @@
 name: Julia CompatHelper
 
-# Opens a PR whenever a new major version of a Bifti.jl dependency falls outside its
+# Opens a PR whenever a new major version of a BiftiPhantoms.jl dependency falls outside its
 # [compat] bound. The General registry requires a bound for every dependency, so
 # without this the package silently stops getting dependency updates.
 on:
@@ -20,7 +20,7 @@ jobs:
         with:
           version: '1'
       - run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
-      - run: julia -e 'using CompatHelper; CompatHelper.main(; subdirs=["julia/Bifti"])'
+      - run: julia -e 'using CompatHelper; CompatHelper.main(; subdirs=["julia/BiftiPhantoms"])'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional deploy key: PRs opened with GITHUB_TOKEN do not trigger the Test workflow.

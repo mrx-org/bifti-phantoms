@@ -9,7 +9,7 @@ phantom_json(extra="", tissue="\"T1\": 1.5") = """{
     "tissues": {"gm": {"density": "x.nii.gz[0]", $tissue}}
 }"""
 
-parse_phantom(json) = Bifti.BiftiPhantom(Bifti.JSON.parse(json))
+parse_phantom(json) = BiftiPhantoms.BiftiPhantom(BiftiPhantoms.JSON.parse(json))
 
 function round_trip(phantom)
     path = joinpath(mktempdir(), "phantom.json")
@@ -20,8 +20,8 @@ end
 @testset "phantom config" begin
     @testset "patient positions" begin
         # FFS is the identity, and an unpositioned phantom is never transformed.
-        @test scanner_matrix(Bifti.FFS) == [1 0 0; 0 1 0; 0 0 1]
-        @test scanner_matrix(BiftiPhantom()) == scanner_matrix(Bifti.FFS)
+        @test scanner_matrix(BiftiPhantoms.FFS) == [1 0 0; 0 1 0; 0 0 1]
+        @test scanner_matrix(BiftiPhantom()) == scanner_matrix(BiftiPhantoms.FFS)
         for position in instances(PatientPosition)
             P = scanner_matrix(position)
             # Every position is a proper rotation ...
@@ -33,7 +33,7 @@ end
             @test parse(PatientPosition, string(position)) == position
         end
         # HFS is FFS turned by 180° about the vertical axis.
-        @test scanner_matrix(Bifti.HFS) == [-1 0 0; 0 1 0; 0 0 -1]
+        @test scanner_matrix(BiftiPhantoms.HFS) == [-1 0 0; 0 1 0; 0 0 -1]
         # Codes are case-sensitive, and non-MR DICOM codes are not supported.
         @test_throws ArgumentError parse(PatientPosition, "hfs")
         @test_throws ArgumentError parse(PatientPosition, "SITTING")
@@ -41,10 +41,10 @@ end
 
     @testset "patient is optional and round-trips" begin
         @test isnothing(parse_phantom(phantom_json()).patient)
-        @test !haskey(Bifti.to_dict(parse_phantom(phantom_json())), "patient")
+        @test !haskey(BiftiPhantoms.to_dict(parse_phantom(phantom_json())), "patient")
         positioned = parse_phantom(phantom_json("\"patient\": {\"position\": \"HFDR\"},"))
-        @test positioned.patient == Patient(Bifti.HFDR)
-        @test scanner_matrix(positioned) == scanner_matrix(Bifti.HFDR)
+        @test positioned.patient == Patient(BiftiPhantoms.HFDR)
+        @test scanner_matrix(positioned) == scanner_matrix(BiftiPhantoms.HFDR)
         @test round_trip(positioned).patient == positioned.patient
     end
 
@@ -66,7 +66,7 @@ end
     @testset "every example phantom round-trips" begin
         for name in ("shapes", "shapes_resliced", "shapes_downsampled", "subj42-3T")
             phantom = read_bifti(joinpath(DATA, "$name.json"))
-            @test Bifti.to_dict(round_trip(phantom)) == Bifti.to_dict(phantom)
+            @test BiftiPhantoms.to_dict(round_trip(phantom)) == BiftiPhantoms.to_dict(phantom)
         end
     end
 
