@@ -96,3 +96,21 @@ julia --project -e 'using Pkg; Pkg.test()'
 ```
 
 Set `BIFTI_TEST_NETWORK=true` to also download a phantom from Zenodo.
+
+## Releasing
+
+Bifti.jl lives in the `julia/Bifti` subdirectory and is versioned independently of
+the format (its tags are `Bifti-v*`, the format's are `v*`).
+
+1. Bump `version` in [`Project.toml`](Project.toml) (semver; while `0.x`, a minor
+   bump marks a breaking change) and merge it to `main` with the Test workflow green.
+2. On GitHub, comment on that commit on `main`:
+   ```
+   @JuliaRegistrator register subdir=julia/Bifti
+   ```
+   Add `Release notes:` and a list below it to fill the GitHub release text.
+3. Registrator opens a PR to [General](https://github.com/JuliaRegistries/General).
+   AutoMerge merges it once its checks pass (after 3 days for the first release,
+   about 15 minutes for later ones).
+4. The [Julia TagBot workflow](../../.github/workflows/julia-tagbot.yml) then creates
+   the `Bifti-v<version>` tag and GitHub release on its own.
