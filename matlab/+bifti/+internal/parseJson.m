@@ -78,7 +78,13 @@ function [value, pos] = parseString(text, pos)
     end
     pos = pos + 1;
     value = '';
-    while text(pos) ~= '"'
+    while true
+        if pos > numel(text)
+            error('bifti:json', 'Unterminated string');
+        end
+        if text(pos) == '"'
+            break
+        end
         if text(pos) == '\'
             switch text(pos + 1)
                 case 'b', c = char(8);

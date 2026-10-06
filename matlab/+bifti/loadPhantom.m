@@ -2,7 +2,8 @@ function phantom = loadPhantom(source, baseDir)
 %LOADPHANTOM Load a BIfTI phantom with all of its NIfTI data.
 %   phantom = bifti.loadPhantom(path) reads the phantom JSON and every NIfTI it
 %   references (relative to the JSON's folder). phantom = bifti.loadPhantom(config,
-%   baseDir) loads an already parsed, possibly edited, config (see bifti.readPhantom).
+%   baseDir) loads an already parsed, possibly edited, config (see bifti.readPhantom);
+%   relative NIfTI paths are resolved against BASEDIR (default: the current folder).
 %
 %   phantom.config is the parsed config; phantom.tissues is a struct array in
 %   file order with the fields name, density, T1, T2, T2dash, ADC, dB0 (3-D
@@ -18,11 +19,16 @@ function phantom = loadPhantom(source, baseDir)
 %   mappings apply to the resampled values.
 %
 %   See also bifti.readPhantom, bifti.scannerAffine, bifti.loadRegistryPhantom.
-    if ischar(source)
+    if ischar(source) || isstring(source)
+        source = char(source);
         config = bifti.readPhantom(source);
         baseDir = fileparts(absolutePath(source));
     else
         config = source;
+        if nargin < 2
+            baseDir = pwd;
+        end
+        baseDir = char(baseDir);
     end
     % One NIfTI usually holds a property for several tissues: read each file once.
     cache = containers.Map();

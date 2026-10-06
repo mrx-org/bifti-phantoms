@@ -5,6 +5,14 @@ phantom JSON, load a phantom into plain arrays, and fetch phantoms from the
 public [registry](../REGISTRY.md). It needs **no toolboxes** and runs in
 **MATLAB R2021a or newer** and **GNU Octave 8 or newer**.
 
+> [!NOTE]
+> This package is tested in CI on MATLAB and Octave, but we do not use MATLAB
+> much ourselves, so it may be less well maintained than the Python, Rust and
+> Julia packages. Feel free to open an
+> [issue](https://github.com/mrx-org/bifti-phantoms/issues) or a
+> [pull request](https://github.com/mrx-org/bifti-phantoms/pulls) for fixes and
+> updates.
+
 ```matlab
 phantom = bifti.loadPhantom('subj42-3T.json');
 gm = phantom.tissues(strcmp({phantom.tissues.name}, 'gm'));

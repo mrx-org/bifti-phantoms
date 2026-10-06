@@ -64,9 +64,9 @@ function w = axisMatrix(nOut, nSrc, scale, offset)
     if abs(scale) > 1
         lo = min(scale * (i - 0.5), scale * (i + 0.5)) + offset;
         hi = max(scale * (i - 0.5), scale * (i + 0.5)) + offset;
-        w = max(bsxfun(@min, hi, j + 0.5) - bsxfun(@max, lo, j - 0.5), 0) / abs(scale);
+        w = max(min(hi, j + 0.5) - max(lo, j - 0.5), 0) / abs(scale);
     else
-        w = max(1 - abs(bsxfun(@minus, scale * i + offset, j)), 0);
+        w = max(1 - abs(scale * i + offset - j), 0);
     end
     w(w < weightEps) = 0;
 end

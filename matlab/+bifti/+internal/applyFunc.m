@@ -29,7 +29,7 @@ function tokens = tokenize(func)
         t = tokens{k};
         if any(regexp(t, '^[A-Za-z_]')) && ~any(strcmp(t, {'x', 'x_min', 'x_max', 'x_mean', 'x_std'}))
             error('bifti:func', 'Invalid func "%s": unknown variable %s', func, t);
-        elseif isempty(regexp(t, '^([\d.]|[A-Za-z_]|[-+*/()])', 'once'))
+        elseif isempty(regexp(t, '^(\d|\.\d|[A-Za-z_]|[-+*/()])', 'once'))
             error('bifti:func', 'Invalid func "%s": unexpected character "%s"', func, t);
         end
     end

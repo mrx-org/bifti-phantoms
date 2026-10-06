@@ -29,8 +29,8 @@ function y = contractOblique(r, x)
     [d1, d2, d3] = ndgrid(offsets(r.substeps(1)), offsets(r.substeps(2)), offsets(r.substeps(3)));
     y = zeros(size(output, 2), 1);
     for q = 1:numel(d1)
-        source = r.m(1:3, 1:3) * bsxfun(@plus, output, [d1(q); d2(q); d3(q)]);
-        y = y + trilinear(x, bsxfun(@plus, source, r.m(1:3, 4)));
+        source = r.m(1:3, 1:3) * (output + [d1(q); d2(q); d3(q)]);
+        y = y + trilinear(x, source + r.m(1:3, 4));
     end
     y = reshape(y / numel(d1), r.shape);
 end
@@ -43,9 +43,9 @@ function v = trilinear(x, c)
     v = zeros(size(c, 2), 1);
     for corner = 0:7
         delta = bitget(corner, 1:3)';
-        index = bsxfun(@plus, base, delta) + 1;
-        weight = prod(bsxfun(@times, delta, frac) + bsxfun(@times, 1 - delta, 1 - frac), 1)';
-        inside = all(index >= 1 & bsxfun(@le, index, shape'), 1)';
+        index = base + delta + 1;
+        weight = prod(delta .* frac + (1 - delta) .* (1 - frac), 1)';
+        inside = all(index >= 1 & index <= shape', 1)';
         linear = sub2ind(shape, index(1, inside), index(2, inside), index(3, inside));
         v(inside) = v(inside) + weight(inside) .* x(linear(:));
     end

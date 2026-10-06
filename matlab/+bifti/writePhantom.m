@@ -22,7 +22,7 @@ function writePhantom(path, config)
     json = mergeMembers(addMember(json, 'tissues', tissues), config.unknown);
 
     folder = fileparts(path);
-    if ~isempty(folder) && ~exist(folder, 'dir')
+    if ~isempty(folder) && ~isfolder(folder)
         mkdir(folder);
     end
     fid = fopen(path, 'w');

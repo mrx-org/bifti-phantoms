@@ -17,6 +17,8 @@ function path = loadRegistryPhantom(collection, name, varargin)
     options.addParameter('CacheDir', defaultCacheDir());
     options.addParameter('ZenodoApi', 'https://zenodo.org/api/records');
     options.parse(varargin{:});
+    collection = char(collection);
+    name = char(name);
     registry = options.Results.Registry;
     if isempty(registry)
         registry = bifti.loadRegistry();
@@ -32,8 +34,8 @@ function path = loadRegistryPhantom(collection, name, varargin)
         error('bifti:registry', 'Not a Zenodo DOI: "%s"', doi);
     end
     fileUrl = @(file) sprintf('%s/%s/files/%s/content', options.Results.ZenodoApi, recordId{1}, escapeUri(file));
-    folder = fullfile(options.Results.CacheDir, [collection '-' strrep(doi, '/', '_')]);
-    if ~exist(folder, 'dir')
+    folder = fullfile(char(options.Results.CacheDir), [collection '-' strrep(doi, '/', '_')]);
+    if ~isfolder(folder)
         mkdir(folder);
     end
 
@@ -41,7 +43,7 @@ function path = loadRegistryPhantom(collection, name, varargin)
     for file = bifti.niftiFiles(bifti.readPhantom(path))
         [~, base, ext] = fileparts(file{1});
         dest = fullfile(folder, [base ext]);
-        if ~exist(dest, 'file')
+        if ~isfile(dest)
             bifti.internal.download(fileUrl([base ext]), dest);
         end
     end
@@ -51,7 +53,7 @@ end
 % else the record's configs.tar.
 function dest = downloadJson(folder, fileUrl, name, recordId)
     dest = fullfile(folder, name);
-    if exist(dest, 'file')
+    if isfile(dest)
         return
     end
     try
@@ -60,14 +62,14 @@ function dest = downloadJson(folder, fileUrl, name, recordId)
     catch
     end
     archive = fullfile(folder, 'configs.tar');
-    if ~exist(archive, 'file')
+    if ~isfile(archive)
         bifti.internal.download(fileUrl('configs.tar'), archive);
     end
     extracted = tempname;
     mkdir(extracted);
     cleanup = onCleanup(@() rmdir(extracted, 's'));
     untar(archive, extracted);
-    if ~exist(fullfile(extracted, name), 'file')
+    if ~isfile(fullfile(extracted, name))
         error('bifti:registry', '"%s" is neither a file of Zenodo record %s nor in its configs.tar', name, recordId);
     end
     copyfile(fullfile(extracted, name), dest);

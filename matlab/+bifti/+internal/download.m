@@ -15,7 +15,7 @@ function download(url, dest)
             websave(tmp, url, weboptions('Timeout', 60));
         end
     catch err
-        if exist(tmp, 'file')
+        if isfile(tmp)
             delete(tmp);
         end
         error('bifti:download', 'Downloading %s failed: %s', url, err.message);

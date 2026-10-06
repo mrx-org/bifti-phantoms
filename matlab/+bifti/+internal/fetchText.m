@@ -1,6 +1,6 @@
 function text = fetchText(source)
 %FETCHTEXT Text of a local file, a file:// URL or an http(s) URL.
-    if exist(source, 'file')
+    if isfile(source)
         text = fileread(source);
     else
         tmp = [tempname '.txt'];
@@ -11,7 +11,7 @@ function text = fetchText(source)
 end
 
 function deleteIfExists(path)
-    if exist(path, 'file')
+    if isfile(path)
         delete(path);
     end
 end

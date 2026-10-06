@@ -9,6 +9,7 @@ function runTests()
         @patientIsOptionalAndRoundTrips
         @tissuePropertiesAndDefaults
         @everyExamplePhantomRoundTrips
+        @jsonWritesShortestNumbersAndNull
         @unknownFieldsAreKeptNotRejected
         @unsupportedFilesAreRejected
         @referencedNiftiFiles
@@ -29,6 +30,7 @@ function runTests()
         @downsamplingAveragesInsteadOfPointSampling
         @multiChannelB1AndFuncOnAReslicedGrid
         @scannerAffineFollowsThePatientPosition
+        @loadPhantomAcceptsStringsAndAParsedConfig
         @invalidReferencesFailLoudly
         @catalogLabelsResolveInTheRegistry
         @registryPhantomDownloadsAndCaches
@@ -177,8 +179,17 @@ function everyExamplePhantomRoundTrips()
     end
 end
 
+function jsonWritesShortestNumbersAndNull()
+    check(strcmp(bifti.internal.writeJson(0.1), '0.1'), '0.1 written as %s', bifti.internal.writeJson(0.1));
+    check(strcmp(bifti.internal.writeJson(42.576), '42.576'), '42.576 written as %s', bifti.internal.writeJson(42.576));
+    check(str2double(bifti.internal.writeJson(1/3)) == 1/3, '1/3 does not round-trip');
+    check(strcmp(bifti.internal.writeJson([]), 'null'), 'null');
+    check(strcmp(bifti.internal.writeJson({}), '[]'), 'empty array');
+    checkError(@() bifti.internal.parseJson('{"a": "b'), 'bifti:json');
+end
+
 function unknownFieldsAreKeptNotRejected()
-    json = phantomJson('"from_the_future": {"a": 1},', '"T1": 1.5, "T22": 0.1');
+    json = phantomJson('"from_the_future": {"a": 1, "b": null, "c": []},', '"T1": 1.5, "T22": 0.1');
     lastwarn('');
     config = bifti.internal.parseConfig(bifti.internal.parseJson(json));
     [message, id] = lastwarn();
@@ -222,7 +233,7 @@ end
 
 function funcRejectsAnythingElse()
     % Nothing outside the grammar is evaluated.
-    for func = {'x ^ 2', '2x', 'sin(x)', 'y', 'x +', '(x', 'x)', 'system(''ls'')', 'x; x'}
+    for func = {'x ^ 2', '2x', 'sin(x)', 'y', 'x +', '(x', 'x)', 'system(''ls'')', 'x; x', 'x + .', '.'}
         checkError(@() bifti.internal.applyFunc(func{1}, 1), 'bifti:func');
     end
 end
@@ -395,6 +406,17 @@ function scannerAffineFollowsThePatientPosition()
     check(strcmp(p.config.patient, 'HFS'), 'shapes.json is HFS');
     check(isequal(bifti.scannerAffine(p, 'disk'), [diag([-1 1 -1]) * affine; 0 0 0 1]), 'HFS scanner affine');
     check(isequal(bifti.scannerAffine(affine, ''), [affine; 0 0 0 1]), 'no position leaves the affine');
+end
+
+function loadPhantomAcceptsStringsAndAParsedConfig()
+    expected = bifti.loadPhantom(dataPath('shapes.json'));
+    if exist('string', 'builtin') || exist('string', 'file')  % MATLAB string scalars
+        check(isequal(bifti.loadPhantom(string(dataPath('shapes.json'))), expected), 'string path');
+    end
+    % Without a baseDir, relative NIfTI paths resolve against the current folder.
+    previous = cd(fileparts(dataPath('shapes.json')));
+    restore = onCleanup(@() cd(previous));
+    check(isequal(bifti.loadPhantom(expected.config), expected), 'parsed config without baseDir');
 end
 
 function invalidReferencesFailLoudly()

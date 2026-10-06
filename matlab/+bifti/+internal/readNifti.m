@@ -46,7 +46,10 @@ function [data, affine] = readNifti(path)
         data = complex(data(1:2:end), data(2:2:end));
     end
     data = reshape(data, shape);
-    if slope ~= 0
+    if isfinite(slope) && slope ~= 0
+        if ~isfinite(inter)
+            inter = 0;
+        end
         data = data * slope + inter;
     end
 end
