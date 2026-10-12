@@ -4,7 +4,7 @@ All notable changes to BiftiPhantoms.jl are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
-## [Unreleased]
+## [0.2.0] - 2026-10-12
 
 ### Added
 
