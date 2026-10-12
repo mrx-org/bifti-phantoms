@@ -419,10 +419,12 @@ function savedPhantomsReloadToTheSameValues()
             end
         end
         reloaded = bifti.loadPhantom(jsonPath);
-        check(isequal({reloaded.tissues.name}, {original.tissues.name}), '%s: tissue order', name{1});
+        % Saved tissues are in sorted-name order, so match them by name.
+        check(isequal(sort({reloaded.tissues.name}), sort({original.tissues.name})), '%s: tissue names', name{1});
+        check(issorted_cellstr({reloaded.tissues.name}), '%s: saved tissues must be sorted by name', name{1});
         for k = 1:numel(original.tissues)
             a = original.tissues(k);
-            b = reloaded.tissues(k);
+            b = tissue(reloaded, a.name);
             for field = {'density', 'T1', 'T2', 'T2dash', 'ADC', 'dB0'}
                 check(isequal(a.(field{1}), b.(field{1})), '%s %s %s differs', name{1}, a.name, field{1});
             end
@@ -477,6 +479,10 @@ function savedPhantomsAreByteDeterministic()
     check(all(header(5:8) == 0) && header(10) == 255, 'gzip mtime and OS must be fixed');
     rmdir(a, 's');
     rmdir(b, 's');
+end
+
+function tf = issorted_cellstr(names)
+    tf = isequal(names, sort(names));
 end
 
 function bytes = readAll(path)
