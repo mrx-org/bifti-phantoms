@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -13,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import nibabel
 
+from ._nifti_write import write_stack
 from .resample import Resampler, density_weight, warn_grid_mismatch
 from .phantom import (
     BiftiPhantom,
@@ -61,6 +63,73 @@ class NumpyPhantom:
                 for name, tissue in config.tissues.items()
             },
         )
+
+    def save(self, out_dir: Path | str, json_name: str = "phantom.json") -> Path:
+        """Save the phantom as a self-contained directory and return the JSON's path.
+
+        This writes what :meth:`load` produced, so loading with a ``reslice_to`` and then
+        saving is how a phantom is resliced on disk. The saved phantom has no
+        ``reslice_to`` and **no** ``func`` **mappings**: every mapping was already applied
+        to the resampled data and its reference becomes a plain one.
+
+        Layout: one gzip-compressed float64 NIfTI per property (``density.nii.gz``,
+        ``T1.nii.gz``, ``B1plus_0.nii.gz``, ...) with the tissues stacked along the 4th
+        dimension in order of their sorted names. Properties that are constants in the
+        phantom stay constants in the JSON. The output is deterministic: the same phantom
+        always gives the same bytes.
+
+        .. warning::
+           The result can be considerably **larger than the input**. Tissues that
+           referenced the same map (with or without different ``func``) each get their own
+           copy of it, unless the copies are bit-identical, in which case they share one
+           volume. When reslicing, intensive properties are weighted by each tissue's own
+           density, so copies of one source map usually differ between tissues. Data is
+           stored as float64 whatever the type of the source NIfTIs.
+        """
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        config = copy.deepcopy(self.config)
+        config.reslice_to = None
+        names = sorted(config.tissues)
+        missing = [n for n in names if n not in self.tissues]
+        if missing:
+            raise ValueError(f"tissues {missing} are in the config but were not loaded")
+        config.tissues = {name: config.tissues[name] for name in names}
+
+        for prop in _PROPERTIES:
+            n_channels = max(
+                (prop.n_channels(config.tissues[n]) for n in names), default=0
+            )
+            for channel in range(n_channels):
+                # Constants stay in the JSON; only maps get a NIfTI.
+                members = [
+                    n for n in names if prop.is_map(config.tissues[n], channel)
+                ]
+                if not members:
+                    continue
+                affines = {
+                    tuple(map(tuple, self.tissues[n].affine)) for n in members
+                }
+                if len(affines) > 1:
+                    raise ValueError(
+                        f"{prop.stem(channel)}: tissues have different affines, "
+                        "cannot stack them into one NIfTI"
+                    )
+                file_name = Path(f"{prop.stem(channel)}.nii.gz")
+                slots = write_stack(
+                    out_dir / file_name,
+                    [prop.volume(self.tissues[n], channel) for n in members],
+                    self.tissues[members[0]].affine,
+                )
+                for name, slot in zip(members, slots):
+                    prop.set_ref(
+                        config.tissues[name], channel, NiftiRef(file_name, slot)
+                    )
+
+        json_path = out_dir / json_name
+        config.save(json_path)
+        return json_path
 
     def scanner_affine(self, tissue: str) -> np.ndarray:
         """The 4x4 voxel -> scanner affine of one tissue.
@@ -123,6 +192,63 @@ class NumpyTissue:
     @property
     def affine(self) -> list[list[float]]:
         return self.resliced.affine
+
+
+# ===========================================================================
+# Saving: which per-tissue maps a phantom has, and how they map to files
+# ===========================================================================
+
+
+@dataclass(frozen=True)
+class _Property:
+    """One per-tissue map of a phantom, as :meth:`NumpyPhantom.save` groups them into files.
+
+    ``attr`` names the field on both :class:`BiftiTissue` (the reference) and
+    :class:`NumpyTissue` (the data); ``channels`` marks the ``B1+``/``B1-`` lists.
+    """
+
+    attr: str
+    file_stem: str
+    channels: bool = False
+
+    def stem(self, channel: int) -> str:
+        return f"{self.file_stem}_{channel}" if self.channels else self.file_stem
+
+    def n_channels(self, tissue: BiftiTissue) -> int:
+        return len(getattr(tissue, self.attr)) if self.channels else 1
+
+    def _config(self, tissue: BiftiTissue, channel: int):
+        value = getattr(tissue, self.attr)
+        if not self.channels:
+            return value
+        return value[channel] if channel < len(value) else None
+
+    def is_map(self, tissue: BiftiTissue, channel: int) -> bool:
+        if self.attr == "density":
+            return True
+        return isinstance(self._config(tissue, channel), (NiftiRef, NiftiMapping))
+
+    def volume(self, tissue: NumpyTissue, channel: int) -> np.ndarray:
+        data = getattr(tissue, self.attr)
+        return data[channel] if self.channels else data
+
+    def set_ref(self, tissue: BiftiTissue, channel: int, ref: NiftiRef) -> None:
+        if self.channels:
+            getattr(tissue, self.attr)[channel] = ref
+        else:
+            setattr(tissue, self.attr, ref)
+
+
+_PROPERTIES = (
+    _Property("density", "density"),
+    _Property("T1", "T1"),
+    _Property("T2", "T2"),
+    _Property("T2dash", "T2dash"),
+    _Property("ADC", "ADC"),
+    _Property("dB0", "dB0"),
+    _Property("B1_tx", "B1plus", channels=True),
+    _Property("B1_rx", "B1minus", channels=True),
+)
 
 
 # ===========================================================================

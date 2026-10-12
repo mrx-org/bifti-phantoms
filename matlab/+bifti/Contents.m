@@ -4,6 +4,7 @@
 %   readPhantom          - Parse a phantom JSON (no NIfTI data).
 %   writePhantom         - Write a phantom config back to JSON.
 %   loadPhantom          - Load a phantom with all of its NIfTI maps.
+%   savePhantom          - Save a loaded phantom as a folder of NIfTIs + JSON.
 %   niftiFiles           - NIfTI files a phantom config references.
 %
 % Coordinates

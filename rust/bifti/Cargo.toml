@@ -7,6 +7,7 @@ edition = "2024"
 tracing = ["dep:tracing"]
 
 [dependencies]
+flate2 = "1"
 nifti = { version = "0.17.0", default-features = false }
 num-complex = "0.4.6"
 regex = "1.13.1"

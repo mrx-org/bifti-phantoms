@@ -26,6 +26,7 @@ bifti import ...`):
 |------|------------|
 | `NumpyPhantom.load(path)` | Load a phantom JSON + its NIfTIs into `NumpyPhantom(config, tissues)`. |
 | `NumpyTissue` | One tissue as NumPy arrays: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`, `B1_rx`, plus `.shape`/`.affine`. |
+| `NumpyPhantom.save(dir, json_name="phantom.json")` | Save a loaded phantom as a self-contained folder (float64 NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../../README.md#saving). Returns the JSON path. |
 | `BiftiPhantom.load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O) — `BiftiPhantom(units, system, tissues, reslice_to, schema)`. |
 | `load_catalog()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
 | `load_registry()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |

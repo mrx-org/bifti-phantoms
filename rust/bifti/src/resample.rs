@@ -260,6 +260,10 @@ impl Resampler {
         weight: &[f64],
         weight_sum: &[f64],
     ) -> Vec<T> {
+        if matches!(self, Self::Identity) {
+            // An exact copy, instead of `(x·W)/W`, which can be off by an ulp.
+            return data.to_vec();
+        }
         // Form weight·value in accumulator space first: for integer maps, multiplying in
         // the native type would round every tap away.
         let src: Vec<T::Acc> = data

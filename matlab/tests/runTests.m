@@ -31,6 +31,9 @@ function runTests()
         @multiChannelB1AndFuncOnAReslicedGrid
         @scannerAffineFollowsThePatientPosition
         @loadPhantomAcceptsStringsAndAParsedConfig
+        @savedPhantomsReloadToTheSameValues
+        @savedPhantomsKeepConstantsAndShareIdenticalVolumes
+        @savedPhantomsAreByteDeterministic
         @invalidReferencesFailLoudly
         @catalogLabelsResolveInTheRegistry
         @registryPhantomDownloadsAndCaches
@@ -398,6 +401,94 @@ function multiChannelB1AndFuncOnAReslicedGrid()
     [source, ~] = bifti.internal.readNifti(dataPath('subj42_dB0.nii.gz'));
     shifted = tissue(p, 'fat').dB0(:) + 420;
     check(min(shifted) >= min(source(:)) - 1e-9 && max(shifted) <= max(source(:)) + 1e-9, 'fat dB0 offset');
+end
+
+function savedPhantomsReloadToTheSameValues()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    for name = {'shapes', 'shapes_resliced', 'subj42-3T'}
+        original = bifti.loadPhantom(dataPath([name{1} '.json']));
+        folder = tempname;
+        jsonPath = bifti.savePhantom(folder, original);
+        check(strcmp(jsonPath, fullfile(folder, 'phantom.json')), 'returned path');
+        saved = bifti.readPhantom(jsonPath);
+        check(isempty(saved.resliceTo), '%s: reslice_to must be cleared', name{1});
+        for t = saved.tissues
+            for field = {'T1', 'T2', 'T2dash', 'ADC', 'dB0'}
+                check(~(isstruct(t.(field{1})) && isfield(t.(field{1}), 'func')), '%s: func must be baked in', name{1});
+            end
+        end
+        reloaded = bifti.loadPhantom(jsonPath);
+        % Saved tissues are in sorted-name order, so match them by name.
+        check(isequal(sort({reloaded.tissues.name}), sort({original.tissues.name})), '%s: tissue names', name{1});
+        check(issorted_cellstr({reloaded.tissues.name}), '%s: saved tissues must be sorted by name', name{1});
+        for k = 1:numel(original.tissues)
+            a = original.tissues(k);
+            b = tissue(reloaded, a.name);
+            for field = {'density', 'T1', 'T2', 'T2dash', 'ADC', 'dB0'}
+                check(isequal(a.(field{1}), b.(field{1})), '%s %s %s differs', name{1}, a.name, field{1});
+            end
+            for ch = {'B1_tx', 'B1_rx'}
+                check(numel(a.(ch{1})) == numel(b.(ch{1})), '%s %s channels', name{1}, ch{1});
+                check(all(cellfun(@isequal, a.(ch{1}), b.(ch{1}))), '%s %s %s differs', name{1}, a.name, ch{1});
+            end
+            checkClose(b.affine, a.affine, 1e-5, 'affine');
+        end
+        rmdir(folder, 's');
+    end
+end
+
+function savedPhantomsKeepConstantsAndShareIdenticalVolumes()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    config = bifti.readPhantom(dataPath('shapes.json'));
+    ring = config.tissues(strcmp({config.tissues.name}, 'ring'));
+    ring.name = 'ring2';
+    config.tissues(end + 1) = ring;
+    original = bifti.loadPhantom(config, fileparts(dataPath('shapes.json')));
+    folder = tempname;
+    saved = bifti.readPhantom(bifti.savePhantom(folder, original));
+    byName = @(n) saved.tissues(strcmp({saved.tissues.name}, n));
+    check(isequal(byName('disk').T1, 1), 'a constant must stay a constant');
+    check(~isfile(fullfile(folder, 'T1.nii.gz')), 'no NIfTI for a constant property');
+    check(isequal(byName('ring').dB0, byName('ring2').dB0), 'identical maps must share one reference');
+    [data, ~] = bifti.internal.readNifti(fullfile(folder, 'dB0.nii.gz'));
+    check(size(data, 4) == 2, 'dB0 stack holds disk and ring, not three copies');
+    rmdir(folder, 's');
+end
+
+function savedPhantomsAreByteDeterministic()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    original = bifti.loadPhantom(dataPath('shapes_resliced.json'));
+    shuffled = original;
+    shuffled.config.tissues = original.config.tissues(end:-1:1);
+    shuffled.tissues = original.tissues(end:-1:1);
+    a = tempname;
+    b = tempname;
+    bifti.savePhantom(a, original);
+    bifti.savePhantom(b, shuffled);
+    files = dir(a);
+    files = {files(~[files.isdir]).name};
+    check(any(strcmp(files, 'phantom.json')) && any(strcmp(files, 'density.nii.gz')), 'files written');
+    for k = 1:numel(files)
+        check(isequal(readAll(fullfile(a, files{k})), readAll(fullfile(b, files{k}))), '%s differs', files{k});
+    end
+    header = readAll(fullfile(a, 'density.nii.gz'));
+    check(isequal(header(1:2), uint8([31; 139])) && header(4) == 0, 'gzip magic, no file name');
+    check(all(header(5:8) == 0) && header(10) == 255, 'gzip mtime and OS must be fixed');
+    rmdir(a, 's');
+    rmdir(b, 's');
+end
+
+function tf = issorted_cellstr(names)
+    tf = isequal(names, sort(names));
+end
+
+function bytes = readAll(path)
+    fid = fopen(path, 'r');
+    closer = onCleanup(@() fclose(fid));
+    bytes = fread(fid, Inf, '*uint8');
 end
 
 function scannerAffineFollowsThePatientPosition()

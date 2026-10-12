@@ -10,5 +10,6 @@ const DATA = joinpath(@__DIR__, "..", "..", "..", "python", "bifti", "examples",
     include("func.jl")
     include("resample.jl")
     include("loader.jl")
+    include("save.jl")
     include("registry.jl")
 end

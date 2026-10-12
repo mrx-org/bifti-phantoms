@@ -323,6 +323,7 @@ class BiftiPhantom:
         os.makedirs(path.parent, exist_ok=True)
         with open(path, "w") as f:
             json.dump(self.to_dict(), f, indent=2, allow_nan=False)
+            f.write("\n")
 
     @classmethod
     def from_dict(cls, config: dict):
