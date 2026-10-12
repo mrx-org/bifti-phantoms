@@ -8,6 +8,7 @@ use nifti::{NiftiObject, NiftiVolume, ReaderStreamedOptions};
 
 use crate::{
     BiftiPhantom, BiftiTissue, NiftiRef, ResliceTo,
+    nifti_write::write_stack,
     phantom::TissueProperty,
     resample::Resampler,
     volume::{Volume, VolumeData, map_variant},
@@ -47,6 +48,196 @@ impl Phantom {
             );
         }
         Ok(Self { config, tissues })
+    }
+
+    /// Save the phantom as a self-contained directory: the NIfTIs plus the phantom JSON
+    /// `out_dir/json_name`, whose path is returned.
+    ///
+    /// This writes what [`Phantom::load`] produced, so loading with a `reslice_to` and then
+    /// saving is how a phantom is resliced on disk. The saved phantom has no `reslice_to`
+    /// and **no `func` mappings**: every mapping was already applied to the resampled data,
+    /// and its reference becomes a plain one.
+    ///
+    /// Layout: one gzip-compressed NIfTI per property (`density.nii.gz`, `T1.nii.gz`,
+    /// `B1plus_0.nii.gz`, ...) with the tissues stacked along the 4th dimension in order of
+    /// their sorted names. Properties that are constants in the phantom stay constants in
+    /// the JSON. Output is deterministic: the same phantom always gives the same bytes.
+    ///
+    /// # Size
+    ///
+    /// The result can be considerably **larger than the input**. Tissues that referenced
+    /// the same map (with or without different `func`s) each get their own copy of it,
+    /// unless the copies are bit-identical, in which case they share one volume. When
+    /// reslicing, intensive properties are weighted by each tissue's own density, so
+    /// copies of one source map usually differ between tissues. Mixed element types within
+    /// one property are promoted to `Float64` (`Complex128` if any is complex).
+    pub fn save<P: AsRef<Path>>(
+        &self,
+        out_dir: P,
+        json_name: &str,
+    ) -> Result<PathBuf, crate::Error> {
+        let out_dir = out_dir.as_ref();
+        std::fs::create_dir_all(out_dir)?;
+
+        let mut config = self.config.clone();
+        config.reslice_to = None;
+
+        let mut names: Vec<String> = config.tissues.keys().cloned().collect();
+        names.sort();
+        if let Some(missing) = names.iter().find(|n| !self.tissues.contains_key(*n)) {
+            return Err(crate::Error::SaveError(format!(
+                "tissue {missing:?} is in the config but was not loaded"
+            )));
+        }
+
+        let channels = |select: fn(&BiftiTissue) -> usize| {
+            names
+                .iter()
+                .map(|n| select(&config.tissues[n]))
+                .max()
+                .unwrap_or(0)
+        };
+        let n_tx = channels(|t| t.properties.b1_tx.len());
+        let n_rx = channels(|t| t.properties.b1_rx.len());
+        let fields = [
+            Field::Density,
+            Field::T1,
+            Field::T2,
+            Field::T2dash,
+            Field::Adc,
+            Field::Db0,
+        ]
+        .into_iter()
+        .chain((0..n_tx).map(Field::B1Tx))
+        .chain((0..n_rx).map(Field::B1Rx));
+
+        for field in fields {
+            // Constants stay in the JSON; only maps get a NIfTI.
+            let members: Vec<&String> = names
+                .iter()
+                .filter(|n| field.is_map(&config.tissues[*n]))
+                .collect();
+            if members.is_empty() {
+                continue;
+            }
+            let volumes = members
+                .iter()
+                .map(|n| {
+                    field.volume(&self.tissues[*n]).ok_or_else(|| {
+                        crate::Error::SaveError(format!(
+                            "tissue {n:?} has no loaded {}",
+                            field.stem()
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let file_name = PathBuf::from(format!("{}.nii.gz", field.stem()));
+            let slots = write_stack(&out_dir.join(&file_name), &volumes)?;
+            for (name, slot) in members.into_iter().zip(slots) {
+                let tissue = config
+                    .tissues
+                    .get_mut(name)
+                    .expect("name comes from the config");
+                field.set_ref(
+                    tissue,
+                    NiftiRef {
+                        file_name: file_name.clone(),
+                        tissue_index: slot,
+                    },
+                );
+            }
+        }
+
+        let json_path = out_dir.join(json_name);
+        config.save(&json_path)?;
+        Ok(json_path)
+    }
+}
+
+/// One per-tissue map of a phantom, as [`Phantom::save`] groups them into files.
+#[derive(Clone, Copy)]
+enum Field {
+    Density,
+    T1,
+    T2,
+    T2dash,
+    Adc,
+    Db0,
+    B1Tx(usize),
+    B1Rx(usize),
+}
+
+impl Field {
+    /// File name stem; the filename-safe spelling of the JSON key.
+    fn stem(self) -> String {
+        match self {
+            Self::Density => "density".into(),
+            Self::T1 => "T1".into(),
+            Self::T2 => "T2".into(),
+            Self::T2dash => "T2dash".into(),
+            Self::Adc => "ADC".into(),
+            Self::Db0 => "dB0".into(),
+            Self::B1Tx(k) => format!("B1plus_{k}"),
+            Self::B1Rx(k) => format!("B1minus_{k}"),
+        }
+    }
+
+    fn property(self, tissue: &BiftiTissue) -> Option<&TissueProperty> {
+        let p = &tissue.properties;
+        match self {
+            Self::Density => None,
+            Self::T1 => Some(&p.t1),
+            Self::T2 => Some(&p.t2),
+            Self::T2dash => Some(&p.t2dash),
+            Self::Adc => Some(&p.adc),
+            Self::Db0 => Some(&p.db0),
+            Self::B1Tx(k) => p.b1_tx.get(k),
+            Self::B1Rx(k) => p.b1_rx.get(k),
+        }
+    }
+
+    /// Whether the tissue's property is backed by a NIfTI (rather than a constant or absent).
+    fn is_map(self, tissue: &BiftiTissue) -> bool {
+        match self {
+            Self::Density => true,
+            _ => matches!(
+                self.property(tissue),
+                Some(TissueProperty::Ref(_) | TissueProperty::Mapping(_))
+            ),
+        }
+    }
+
+    fn volume(self, tissue: &Tissue) -> Option<&Volume> {
+        match self {
+            Self::Density => Some(&tissue.density),
+            Self::T1 => Some(&tissue.t1),
+            Self::T2 => Some(&tissue.t2),
+            Self::T2dash => Some(&tissue.t2dash),
+            Self::Adc => Some(&tissue.adc),
+            Self::Db0 => Some(&tissue.db0),
+            Self::B1Tx(k) => tissue.b1_tx.get(k),
+            Self::B1Rx(k) => tissue.b1_rx.get(k),
+        }
+    }
+
+    /// Point the tissue's property at `nifti_ref`, replacing any `func` mapping.
+    fn set_ref(self, tissue: &mut BiftiTissue, nifti_ref: NiftiRef) {
+        let p = &mut tissue.properties;
+        let slot = match self {
+            Self::Density => {
+                tissue.density = nifti_ref;
+                return;
+            }
+            Self::T1 => &mut p.t1,
+            Self::T2 => &mut p.t2,
+            Self::T2dash => &mut p.t2dash,
+            Self::Adc => &mut p.adc,
+            Self::Db0 => &mut p.db0,
+            Self::B1Tx(k) => &mut p.b1_tx[k],
+            Self::B1Rx(k) => &mut p.b1_rx[k],
+        };
+        *slot = TissueProperty::Ref(nifti_ref);
     }
 }
 

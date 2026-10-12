@@ -270,6 +270,9 @@ class Resampler:
         through a single contraction.
         """
         vol, squeeze = _with_channels(data)
+        if self.is_identity:
+            # An exact copy, instead of `(x*W)/W`, which can be off by an ulp.
+            return vol[0].copy() if squeeze else vol.copy()
         num = self._contract(vol * np.asarray(weight, dtype=np.float64)[None])
         # weight_sum <= 0 means not one in-bounds tap: nothing to say about the value.
         out = np.divide(num, weight_sum[None], out=np.zeros_like(num), where=weight_sum > 0)

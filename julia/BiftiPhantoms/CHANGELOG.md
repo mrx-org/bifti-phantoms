@@ -4,6 +4,13 @@ All notable changes to BiftiPhantoms.jl are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [Unreleased]
+
+### Added
+
+- `save_bifti` / `save_nifti`: save a loaded `VoxelPhantom` as a deterministic, self-contained
+  folder (stacked NIfTI-1 files plus JSON; `func` mappings baked in, no `reslice_to`).
+
 ## [0.1.0] - 2026-10-06
 
 Initial release.

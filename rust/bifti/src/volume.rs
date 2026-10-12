@@ -85,6 +85,7 @@ macro_rules! map_variant {
     };
 }
 
+pub(crate) use for_each_variant;
 pub(crate) use map_variant;
 
 impl VolumeData {

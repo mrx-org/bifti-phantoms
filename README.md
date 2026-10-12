@@ -148,6 +148,7 @@ The implementations currently have some discrepancies:
 | `func` evaluation | Python `eval` (only load trusted phantoms) | Parsed with the spec grammar | Parsed with the spec grammar | Parsed with the spec grammar |
 | Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` (cached in a scratch space) | `bifti.loadCatalog()`, `bifti.loadRegistry()`, `bifti.loadRegistryPhantom(collection, name)` (cached in `~/.cache/bifti`) |
 | Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them | Warned about at every level; kept for the phantom and its tissues so `write_bifti` round-trips them | Warned about at every level; kept for the phantom and its tissues so `bifti.writePhantom` round-trips them |
+| Saving (`load` → `save`) | `NumpyPhantom.save(dir)` — float64 NIfTIs | `Phantom::save(dir, json_name)` — NIfTIs keep their element type (mixed types in one file are promoted) | `save_bifti(dir, phantom)` — float64 / complex NIfTIs | `bifti.savePhantom(dir, phantom)` — double / complex NIfTIs |
 | Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) | Usage snippets in [julia/BiftiPhantoms/README.md](julia/BiftiPhantoms/README.md) | Usage snippets in [matlab/README.md](matlab/README.md) |
 | Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) | - | - |
 
@@ -168,3 +169,30 @@ correctly falls off where an output voxel is only partly filled.
 For axis-aligned grids the average is computed exactly, as a true box average.
 Oblique transforms fall back to quadrature over the output voxel's parallelepiped,
 and axes that are not being downsampled keep plain linear interpolation.
+
+### Saving
+
+Every implementation can write a loaded phantom back to a folder: load it (which
+reslices it when the phantom has a `reslice_to`), then save it. This is how a
+phantom is resliced on disk, and how a phantom you built or edited in memory is
+exported.
+
+The saved phantom is self-contained and **never has a `reslice_to` or a `func`**:
+mappings are applied to the resampled data before it is written and become plain
+references. It has one NIfTI per property (`density.nii.gz`, `T1.nii.gz`,
+`B1plus_0.nii.gz`, ...), with the tissues stacked along the 4th dimension in order of
+their sorted names, as [NIFTI.md](NIFTI.md) describes. Constants stay constants in
+the JSON, and tissues whose maps are bit-identical share one volume.
+
+The output is deterministic: the NIfTI-1 headers are fixed (sform only, little-endian,
+no extensions), gzip headers carry no timestamp or file name, and the JSON does not
+depend on the order the tissues were inserted in. Saving the same phantom twice gives
+the same bytes, so the folder can be hashed. (The NIfTI headers are byte-identical
+across the implementations; the stored element types and the compressed bytes are not,
+so only compare hashes within one implementation and zlib build.)
+
+> [!WARNING]
+> The saved phantom can be much **larger than the original**. A `func` is baked in per
+> tissue, and tissues that shared a map each get a copy of it. When reslicing,
+> intensive properties are weighted by each tissue's own density, so those copies
+> usually differ and cannot be shared.

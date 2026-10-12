@@ -388,12 +388,19 @@ impl BiftiPhantom {
         self.patient.unwrap_or_default().position.to_scanner()
     }
 
+    /// Write the phantom JSON to `path`, creating the parent directory if needed.
+    ///
+    /// The output is deterministic: it goes through a [`serde_json::Value`], whose maps are
+    /// sorted by key, so the `HashMap` of tissues cannot reorder it between runs.
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), crate::Error> {
         // If there is a directory specified, try to create it first
         if let Some(dir) = path.as_ref().parent() {
             std::fs::create_dir_all(dir)?;
         }
-        serde_json::to_writer(std::io::BufWriter::new(std::fs::File::create(path)?), self)?;
+        let value = serde_json::to_value(self)?;
+        let mut writer = std::io::BufWriter::new(std::fs::File::create(path)?);
+        serde_json::to_writer_pretty(&mut writer, &value)?;
+        std::io::Write::write_all(&mut writer, b"\n")?;
         Ok(())
     }
 

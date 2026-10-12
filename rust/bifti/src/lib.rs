@@ -1,5 +1,6 @@
 mod eval;
 mod loader;
+mod nifti_write;
 mod phantom;
 mod registry;
 mod resample;
@@ -29,6 +30,8 @@ pub enum Error {
     UnsupportedDataType(String),
     #[error("eval error: failed to parse '{func}': {error}")]
     EvalError { func: String, error: String },
+    #[error("save error: {0}")]
+    SaveError(String),
     #[error("ureq error: {0}")]
     UreqError(#[from] ureq::Error),
     #[error("registry error: collection {0} does not exist")]
