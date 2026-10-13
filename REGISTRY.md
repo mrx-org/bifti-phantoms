@@ -187,6 +187,8 @@ Rules:
 
 ## Contributing a collection
 
+> Short on time? See the quick guide: [ADD_PHANTOMS.md](ADD_PHANTOMS.md).
+
 1. Assemble the phantom set (NIfTI + JSON) following [SPEC.md](SPEC.md).
 2. Upload **all files** to a single Zenodo record and publish.
 3. Open one PR that:
