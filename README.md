@@ -88,9 +88,10 @@ if let VolumeData::Float64(t1) = &tissue.t1.data {
 > 3. **[catalog.json](catalog.json):** add a line with a display label to make it discoverable.
 >
 > Step-by-step guide with copy-paste snippets: **[ADD_PHANTOMS.md](ADD_PHANTOMS.md)**.
-> When opening the PR, append `?template=add_phantom_collection.md` to the
-> PR URL to get the [collection template](.github/PULL_REQUEST_TEMPLATE/add_phantom_collection.md)
-> with its checklist.
+> When opening the PR, use the
+> [collection template](https://github.com/mrx-org/bifti-phantoms/compare/main...main?quick_pull=1&template=add_phantom_collection.md)
+> (checklist included): pick your branch (or fork) in the compare view, then create the PR.
+> Already have a PR open? Append `?template=add_phantom_collection.md` to the PR creation URL.
 
 ## What's in this repo
 

@@ -1,7 +1,6 @@
-# Add your phantoms to the registry
+# How to add your phantoms to the registry
 
-Three steps, one pull request. You don't need to know anything about the
-tooling beyond a text editor and a Zenodo account.
+Follow these steps, then create a PR. You need: a text editor and a [Zenodo](https://zenodo.org/) account.
 
 | Step | Where | What you do |
 |------|-------|-------------|
@@ -18,7 +17,7 @@ Background on why there are two files: [REGISTRY.md](REGISTRY.md).
 2. On Zenodo, create a **new upload** and add *all* phantom JSONs and *all* the
    NIfTI files they reference to the **same record**.
    - More than ~100 files? Bundle the JSONs into a single `configs.tar`
-     (never mix loose JSONs and `configs.tar`; see [REGISTRY.md](REGISTRY.md#config-archives)).
+     (don't mix loose JSONs and `configs.tar`; see [REGISTRY.md](REGISTRY.md#config-archives)).
 3. Fill in title, authors, and a license (e.g. `CC-BY-4.0`, `CC0-1.0`), then **Publish**.
 4. Copy the **version DOI** (shown as `10.5281/zenodo.<id>`). Use the specific
    version DOI, not the "all versions" concept DOI.
@@ -59,19 +58,14 @@ Add one line: a human-readable label mapped to your new registry key.
 "Liver phantom": "smith-liver-001"
 ```
 
-The order of lines is the display order. This file may be edited freely later
-(rename, reorder, re-point, remove).
+This file may be edited freely later (rename, reorder, re-point, remove).
+You cannot update a collection in the `registry.json` because those are immutable, but you can create a new collection and update the "recommendation" to the new entry in `catalog.json`.
 
-## 4. Check and open the PR
+## 4. Open the PR
 
-```sh
-pip install jsonschema
-python tools/validate_registry.py
-python tools/validate_catalog.py
-python tools/check_registry_immutable.py   # needs origin/main fetched
-```
+To update the official registry, create a pull request from your fork or branch:
 
-Then open a PR. The template will walk you through the checklist.
+https://github.com/mrx-org/bifti-phantoms/compare/main...main?quick_pull=1&template=add_phantom_collection.md
 
 ## Revising a collection
 
