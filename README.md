@@ -12,9 +12,9 @@ A phantom is one **JSON** file defining tissues and their MR properties, referen
 > - _easy to extend:_ General approach supports future extensions
 > - _easy to implement:_ JSON and NIfTI are widely supported
 
-> [!NOTE]
-> **Status:** the phantom spec is **v1** (see [SPEC.md](SPEC.md)); the
-> [registry](#registry) format is **v1** (see [REGISTRY.md](REGISTRY.md))
+> [!INFO] Status
+> phantom spec: **v1** (see [SPEC.md](SPEC.md))\
+> [registry format](#registry): **v1** (see [REGISTRY.md](REGISTRY.md))
 
 ## Quick example
 
@@ -32,7 +32,10 @@ A minimal phantom is a JSON sidecar next to its NIfTI(s) — one tissue,
 }
 ```
 
-Loading it — from Python:
+Loading phantoms from...
+
+<details>
+<summary>Python</summary>
 
 ```python
 from bifti import NumpyPhantom
@@ -41,8 +44,9 @@ phantom = NumpyPhantom.load("subj42.json")
 tissue = phantom.tissues["gm"]  # a NumpyTissue: density, T1, T2, ... as np.ndarray
 print(tissue.shape, tissue.T1.mean())
 ```
-
-...from Julia:
+</details>
+<details>
+<summary>Julia</summary>
 
 ```julia
 using BiftiPhantoms
@@ -51,16 +55,18 @@ phantom = load_bifti("subj42.json")
 tissue = phantom.tissues["gm"]  # a VoxelTissue: density, T1, T2, ... as arrays
 println(size(tissue), " ", sum(tissue.T1) / length(tissue.T1))
 ```
-
-...from MATLAB or Octave:
+</details>
+<details>
+<summary>MATLAB or Octave</summary>
 
 ```matlab
 phantom = bifti.loadPhantom('subj42.json');
 gm = phantom.tissues(strcmp({phantom.tissues.name}, 'gm'));  % density, T1, T2, ... as arrays
 disp(mean(gm.T1(:)))
 ```
-
-...or from Rust:
+</details>
+<details>
+<summary>Rust</summary>
 
 ```rust
 use bifti::{Phantom, VolumeData};
@@ -71,11 +77,21 @@ if let VolumeData::Float64(t1) = &tissue.t1.data {
     println!("{:?} {}", tissue.density.shape, t1.iter().sum::<f64>() / t1.len() as f64);
 }
 ```
+</details>
 
-A property (`T1`, `dB0`, `B1+`, ...) can also be a reference to a NIfTI
-sub-volume, or a NIfTI reference with a per-voxel expression applied — see
-[JSON.md](JSON.md) for the full picture, or the worked examples in
-[python/bifti/examples/data/](python/bifti/examples/data/).
+## Add your own phantoms
+
+> [!TIP]
+> **Sharing a phantom in three simple steps:**
+> 1. **Zenodo:** upload your NIfTI + JSON files and publish it.
+> 2. **[registry.json](registry.json):** add a new entry with the Zenodo DOI (permanent archive).
+> 3. **[catalog.json](catalog.json):** add a line with a display label to make it discoverable.
+>
+> Step-by-step guide with copy-paste snippets: **[ADD_PHANTOMS.md](ADD_PHANTOMS.md)**.
+> When opening the PR, use the
+> [collection template](https://github.com/mrx-org/bifti-phantoms/compare/main...main?quick_pull=1&template=add_phantom_collection.md)
+> (checklist included): pick your branch (or fork) in the compare view, then create the PR.
+> Already have a PR open? Append `?template=add_phantom_collection.md` to the PR creation URL.
 
 ## What's in this repo
 
@@ -84,6 +100,7 @@ sub-volume, or a NIfTI reference with a per-voxel expression applied — see
 | [SPEC.md](SPEC.md) | Overview and folder layout. |
 | [JSON.md](JSON.md) | The phantom JSON: structure, units, system, tissues. |
 | [NIFTI.md](NIFTI.md) | The NIfTI files: format, coordinate conventions and patient position. |
+| [ADD_PHANTOMS.md](ADD_PHANTOMS.md) | Quick guide: add your phantoms to the registry. |
 | [REGISTRY.md](REGISTRY.md) | The registry: how phantoms are hosted and shared. |
 | [bifti-phantom-v1.schema.json](bifti-phantom-v1.schema.json) / [bifti-registry-v1.schema.json](bifti-registry-v1.schema.json) / [bifti-catalog.schema.json](bifti-catalog.schema.json) | JSON Schemas validating a phantom JSON / [registry.json](registry.json) / [catalog.json](catalog.json). |
 | [registry.json](registry.json) | Immutable archive of every published collection — see [Registry](#registry). |
@@ -113,6 +130,7 @@ to add new phantoms. Phantom files themselves can be hosted for free on
 [Zenodo](https://zenodo.org/), under any appropriate license and attribution.
 Add one with a pull request that adds an entry to [registry.json](registry.json)
 and a label pointing at it in [catalog.json](catalog.json). See
+[ADD_PHANTOMS.md](ADD_PHANTOMS.md) for the quick guide and
 [REGISTRY.md](REGISTRY.md) for the full contribution workflow.
 
 ## Reference implementation
