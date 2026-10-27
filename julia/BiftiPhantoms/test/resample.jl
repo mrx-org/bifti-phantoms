@@ -70,11 +70,32 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     @testset "oblique grids use quadrature" begin
         c, s = 0.8, 0.6
         dst_affine = [2c -2s 0 1; 2s 2c 0 1; 0 0 2 0.5]
-        r = BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), (8, 8, 8), dst_affine, (4, 4, 4))
+        r = @test_logs (:warn, r"midpoint quadrature \(2x2x2") BiftiPhantoms.Resampler(
+            grid_affine((1, 1, 1)), (8, 8, 8), dst_affine, (4, 4, 4))
         @test r isa BiftiPhantoms.ObliqueResampler
         out = uniform_weighted(r, fill(2.5, 8, 8, 8))
         @test any(≈(2.5), out)
         @test all(<=(2.5 + 1e-9), out)
+    end
+
+    # The caller must learn when the oblique path is under-sampled: a 10 mm oblique voxel
+    # over a 1 mm source wants 10 substeps per axis and gets the cap of 8.
+    @testset "oblique warning says when the substep cap bites" begin
+        c, s = 0.8, 0.6
+        m(size) = [size*c -size*s 0 0; size*s size*c 0 0; 0 0 size 0]
+        @test BiftiPhantoms.oblique_substeps(m(2), 8) == ((2, 2, 2), false)
+        @test BiftiPhantoms.oblique_substeps(m(10), 8) == ((8, 8, 8), true)
+        @test BiftiPhantoms.oblique_substeps(m(10), 10) == ((10, 10, 10), false)
+        @test BiftiPhantoms.oblique_substeps(m(0.5), 1) == ((1, 1, 1), false)
+        @test_logs (:warn, r"under-sampled") BiftiPhantoms.Resampler(
+            grid_affine((1, 1, 1)), (16, 16, 16), m(10), (2, 2, 2))
+    end
+
+    # The exact paths stay silent, or the warning is noise on every normal load.
+    @testset "axis-aligned grids do not warn" begin
+        dst_affine, dst_shape = coarse_grid(8, 4)
+        @test_logs BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), (8, 8, 8), dst_affine, dst_shape)
+        @test_logs BiftiPhantoms.Resampler(dst_affine, dst_shape, dst_affine, dst_shape)
     end
 
     # B1 maps average as complex numbers: opposite phases cancel instead of reinforcing.
