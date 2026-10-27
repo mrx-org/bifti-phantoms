@@ -63,13 +63,6 @@ jobs:
         with:
           command: cd matlab; addpath(pwd); addpath(fullfile(pwd, 'tests')); runTests
 
-  octave:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends octave
-      - run: octave --no-gui --eval "cd matlab; addpath(pwd); addpath(fullfile(pwd, 'tests')); runTests"
-
   python:
     runs-on: ubuntu-latest
     defaults:
