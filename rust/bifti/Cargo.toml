@@ -1,6 +1,6 @@
 [package]
 name = "bifti"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Load, save and resample BIfTI MRI simulation phantoms (JSON + NIfTI)"
 license = "MIT"

@@ -4,6 +4,16 @@ All notable changes to BiftiPhantoms.jl are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.2.1] - 2026-10-27
+
+### Changed
+
+- Reslicing onto an oblique `reslice_to` now logs a warning: the result is averaged by
+  approximate midpoint quadrature instead of the exact box average used for axis-aligned
+  grids. The warning says when the quadrature's cap of 8 substeps per axis leaves it
+  under-sampled, so the result may alias. Each distinct warning is logged once per session
+  ([#23](https://github.com/mrx-org/bifti-phantoms/issues/23)).
+
 ## [0.2.0] - 2026-10-12
 
 ### Added
