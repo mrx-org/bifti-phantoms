@@ -22,7 +22,9 @@ For axis-aligned grids - which is every affine ``../../JSON.md``'s ``reslice_to`
 with in practice - the footprint average factorises into three 1-D passes, each a matrix
 contraction, and is computed *exactly*: a true box average with no quadrature error and no
 substep cap. Oblique transforms fall back to midpoint quadrature over the output voxel's
-parallelepiped.
+parallelepiped, which is approximate; :meth:`Resampler.build` warns with an
+:class:`ObliqueResampleWarning` whenever it takes that path, and says so when
+``max_substeps`` leaves the quadrature under-sampled.
 """
 
 from __future__ import annotations
@@ -47,6 +49,10 @@ AXIS_ALIGNED_TOL = 1e-9
 # tap makes the total weight non-zero, and the weighted mean then divides a crumb by a
 # crumb and reports that lone voxel's value as if it were the average of the footprint.
 WEIGHT_EPS = 1e-12
+
+
+class ObliqueResampleWarning(UserWarning):
+    """The target grid is oblique to the source grid, so resampling is only approximate."""
 
 
 def _as_4x4(affine) -> np.ndarray:
@@ -118,13 +124,41 @@ def decompose_axis_aligned(m: np.ndarray):
     return src_axis, scale, offset
 
 
-def _oblique_substeps(m: np.ndarray, max_substeps: int) -> tuple[int, int, int]:
-    """How finely to sample each output voxel along each axis, for the oblique path."""
-    steps = []
+def _oblique_substeps(m: np.ndarray, max_substeps: int) -> tuple[tuple[int, int, int], bool]:
+    """How finely to sample each output voxel along each axis, for the oblique path.
+
+    One substep per source voxel the footprint spans is the point at which the quadrature
+    stops skipping source data. The second value reports whether ``max_substeps`` held any
+    axis below that, i.e. whether the result is knowingly under-sampled.
+    """
+    steps, capped = [], False
     for a in range(3):
         span = float(np.linalg.norm(m[:3, a]))
-        steps.append(1 if span <= 1.0 else min(max_substeps, max(1, int(np.ceil(span)))))
-    return tuple(steps)
+        needed = 1 if span <= 1.0 else int(np.ceil(span))
+        steps.append(1 if span <= 1.0 else min(max_substeps, needed))
+        capped |= needed > max_substeps
+    return tuple(steps), capped
+
+
+def _warn_oblique(substeps: tuple[int, int, int], capped: bool, max_substeps: int) -> None:
+    samples = "x".join(str(n) for n in substeps)
+    if capped:
+        message = (
+            "reslice_to is oblique to the source grid, and its voxels span more source "
+            f"voxels than max_substeps={max_substeps} samples: the midpoint quadrature "
+            f"({samples} samples per voxel) is under-sampled and may alias. Raise "
+            "max_substeps (Resampler.build), or align the target grid with the source axes "
+            "for the exact separable average"
+        )
+    else:
+        message = (
+            "reslice_to is oblique to the source grid, so each output voxel is averaged by "
+            f"midpoint quadrature ({samples} samples per voxel, one per source voxel spanned) "
+            "instead of the exact separable box average; align the target grid with the "
+            "source axes for an exact result"
+        )
+    # stacklevel 3: the caller of Resampler.build.
+    warnings.warn(message, ObliqueResampleWarning, stacklevel=3)
 
 
 class Resampler:
@@ -152,6 +186,14 @@ class Resampler:
         max_substeps: int = DEFAULT_MAX_SUBSTEPS,
         backend: Backend | None = None,
     ) -> Resampler:
+        """Precompute the resampling from the source grid onto the target grid.
+
+        ``kind`` on the result says which algorithm runs: ``"identity"``, ``"separable"``
+        (exact) or ``"oblique"`` (midpoint quadrature, with ``substeps`` samples per output
+        voxel along each axis). The oblique path emits an :class:`ObliqueResampleWarning`,
+        and sets ``capped`` when ``max_substeps`` kept it below one sample per source voxel
+        spanned - raise ``max_substeps`` to fix that.
+        """
         backend = backend or get_backend()
         src_affine = _as_4x4(src_affine)
         dst_affine = _as_4x4(dst_affine)
@@ -166,13 +208,16 @@ class Resampler:
 
         decomposed = decompose_axis_aligned(m)
         if decomposed is None:
+            substeps, capped = _oblique_substeps(m, max_substeps)
+            _warn_oblique(substeps, capped, max_substeps)
             return cls(
                 "oblique",
                 src_shape,
                 dst_shape,
                 backend,
                 m=m,
-                substeps=_oblique_substeps(m, max_substeps),
+                substeps=substeps,
+                capped=capped,
             )
 
         src_axis, scale, offset = decomposed

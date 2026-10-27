@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
 from bifti._backend import Backend, get_backend
-from bifti.resample import Resampler, density_weight
+from bifti.resample import ObliqueResampleWarning, Resampler, density_weight
 
 
 def affine(spacing, origin) -> list[list[float]]:
@@ -168,7 +170,8 @@ def test_oblique_affine_uses_the_quadrature_path():
     c, s = 0.8, 0.6  # a 37 degree rotation about z
     dst_affine = [[2 * c, -2 * s, 0, 1], [2 * s, 2 * c, 0, 1], [0, 0, 2, 0.5]]
 
-    r = Resampler.build(src_affine, src_shape, dst_affine, [4, 4, 4])
+    with pytest.warns(ObliqueResampleWarning):
+        r = Resampler.build(src_affine, src_shape, dst_affine, [4, 4, 4])
     assert r.kind == "oblique"
 
     # A constant field survives resampling wherever it is fully covered, and is never
@@ -177,6 +180,33 @@ def test_oblique_affine_uses_the_quadrature_path():
     assert np.isfinite(out).all()
     assert np.isclose(out.max(), 2.5, atol=1e-9)
     assert (out <= 2.5 + 1e-9).all()
+
+
+def test_oblique_warning_says_when_the_substep_cap_bites():
+    """Silent approximation is the problem: the caller must learn which path ran."""
+    src_affine, src_shape = affine([1, 1, 1], [0, 0, 0]), (16, 16, 16)
+    c, s = 0.8, 0.6  # a 37 degree rotation about z, 10 mm voxels: 10 substeps wanted
+    dst_affine = [[10 * c, -10 * s, 0, 0], [10 * s, 10 * c, 0, 0], [0, 0, 10, 0]]
+
+    with pytest.warns(ObliqueResampleWarning, match="under-sampled") as caught:
+        r = Resampler.build(src_affine, src_shape, dst_affine, [2, 2, 2])
+    assert len(caught) == 1
+    assert r.capped and r.substeps == (8, 8, 8)
+
+    with pytest.warns(ObliqueResampleWarning) as caught:
+        r = Resampler.build(src_affine, src_shape, dst_affine, [2, 2, 2], max_substeps=10)
+    assert len(caught) == 1
+    assert "under-sampled" not in str(caught[0].message)
+    assert not r.capped and r.substeps == (10, 10, 10)
+
+
+def test_axis_aligned_grids_do_not_warn():
+    """The exact paths must stay silent, or the warning is noise on every normal load."""
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 4)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert Resampler.build(src_affine, src_shape, dst_affine, dst_shape).kind == "separable"
+        assert Resampler.build(src_affine, src_shape, src_affine, src_shape).kind == "identity"
 
 
 def test_channels_resample_together():
