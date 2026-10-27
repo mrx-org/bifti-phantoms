@@ -71,7 +71,10 @@ phantom = bifti.loadPhantom(path);
   phantom has one, otherwise the tissue's density grid. Scalars are expanded.
 - **Reslicing** is the density-weighted footprint averaging shared with the
   Python, Rust and Julia implementations (see the [top-level README](../README.md#reslicing)).
-  The results match the Python package to floating-point precision.
+  The results match the Python package to floating-point precision. An oblique
+  `reslice_to` is averaged by approximate quadrature and warns with
+  `bifti:obliqueResample`, or `bifti:obliqueResampleCapped` when the quadrature
+  is under-sampled (silence the first with `warning('off', 'bifti:obliqueResample')`).
 - **Complex data.** Complex `B1+`/`B1-` maps are loaded and resampled as complex;
   every other property must be real.
 - **`func` expressions** are parsed with the exact grammar of

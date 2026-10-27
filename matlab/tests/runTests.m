@@ -21,6 +21,8 @@ function runTests()
         @upsamplingMatchesTrilinearInterpolation
         @identicalGridsAreAnExactIdentity
         @obliqueGridsUseQuadrature
+        @obliqueWarningSaysWhenTheSubstepCapBites
+        @axisAlignedGridsDoNotWarn
         @complexDataAveragesInTheComplexPlane
         @voxelOnlyTouchingTheSourceGetsNoWeight
         @nativePhantomKeepsTheDensityGrid
@@ -128,6 +130,13 @@ function y = uniformWeighted(r, x)
     weightSum = bifti.internal.contract(r, weight);
     y = bifti.internal.contract(r, x .* weight) ./ weightSum;
     y(weightSum == 0) = 0;  % outside the source: no taps, nothing to average
+end
+
+% The identifier of the last warning f() issues, '' if none.
+function id = lastWarningOf(f)
+    lastwarn('', '');
+    f();
+    [~, id] = lastwarn();
 end
 
 function s = shape3(x)
@@ -299,10 +308,35 @@ end
 function obliqueGridsUseQuadrature()
     % A rotated grid cannot separate; a constant survives wherever it is fully covered.
     [c, s] = deal(0.8, 0.6);
+    lastwarn('', '');
     r = bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], [2*c -2*s 0 1; 2*s 2*c 0 1; 0 0 2 0.5], [4 4 4]);
+    [~, id] = lastwarn();
     check(strcmp(r.kind, 'oblique'), 'a rotated grid must take the quadrature path');
+    check(strcmp(id, 'bifti:obliqueResample'), 'the quadrature path must warn, got "%s"', id);
     y = uniformWeighted(r, 2.5 * ones(8, 8, 8));
     check(any(abs(y(:) - 2.5) < 1e-9) && all(y(:) <= 2.5 + 1e-9), 'constant field not preserved');
+end
+
+function obliqueWarningSaysWhenTheSubstepCapBites()
+    % A 10 mm oblique voxel over a 1 mm source wants 10 substeps per axis; the
+    % cap of 8 leaves it under-sampled, and the caller must learn that.
+    [c, s] = deal(0.8, 0.6);
+    lastwarn('', '');
+    r = bifti.internal.resampler(gridAffine([1 1 1]), [16 16 16], ...
+        [10*c -10*s 0 0; 10*s 10*c 0 0; 0 0 10 0], [2 2 2]);
+    [~, id] = lastwarn();
+    check(strcmp(id, 'bifti:obliqueResampleCapped'), 'expected the capped warning, got "%s"', id);
+    check(r.capped && isequal(r.substeps, [8 8 8]), 'substeps must be capped at 8');
+end
+
+function axisAlignedGridsDoNotWarn()
+    % The exact paths stay silent, or the warning is noise on every normal load.
+    id = lastWarningOf(@() bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], ...
+        gridAffine([4 4 4], [1.5 1.5 1.5]), [2 2 2]));
+    check(isempty(id), 'a separable resampling warned: %s', id);
+    id = lastWarningOf(@() bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], ...
+        gridAffine([1 1 1]), [8 8 8]));
+    check(isempty(id), 'an identity resampling warned: %s', id);
 end
 
 function complexDataAveragesInTheComplexPlane()
