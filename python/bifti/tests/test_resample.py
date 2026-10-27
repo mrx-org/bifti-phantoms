@@ -227,6 +227,66 @@ def test_channels_resample_together():
         )
 
 
+@pytest.mark.parametrize("oblique", [False, True])
+def test_per_channel_weights_match_per_channel_calls(oblique):
+    """A 4-D weight lines up channel-for-channel - one density per tissue of a 4-D NIfTI."""
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 2)
+    if oblique:
+        c, s = 0.8, 0.6
+        dst_affine = [[2 * c, -2 * s, 0, 1], [2 * s, 2 * c, 0, 1], [0, 0, 2, 0.5]]
+    rng = np.random.default_rng(3)
+    data = rng.random((3, *src_shape))
+    density = rng.random((3, *src_shape))
+    density[1] = 0.0  # one tissue absent: its eps fallback must not leak into the others
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ObliqueResampleWarning)
+        r = Resampler.build(src_affine, src_shape, dst_affine, dst_shape)
+    weight = np.stack([density_weight(d) for d in density])
+    ws = r.weight_sum(weight)
+    assert ws.shape == (3, *dst_shape)
+
+    together = r.resample_weighted(data, weight, ws)
+    for i in range(3):
+        alone = r.resample_weighted(data[i], weight[i], r.weight_sum(weight[i]))
+        np.testing.assert_allclose(together[i], alone, atol=1e-12)
+
+
+def test_identical_per_channel_weights_match_a_shared_weight():
+    """Backwards compatible: stacking one weight per channel changes nothing."""
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 4)
+    rng = np.random.default_rng(4)
+    data = rng.random((2, *src_shape))
+    weight = density_weight(rng.random(src_shape))
+    stacked = np.stack([weight, weight])
+
+    r = Resampler.build(src_affine, src_shape, dst_affine, dst_shape)
+    np.testing.assert_allclose(
+        r.resample_weighted(data, stacked, r.weight_sum(stacked)),
+        r.resample_weighted(data, weight, r.weight_sum(weight)),
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("identity", [False, True])
+def test_mismatched_weights_are_rejected(identity):
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 2)
+    if identity:
+        dst_affine, dst_shape = src_affine, src_shape
+    r = Resampler.build(src_affine, src_shape, dst_affine, dst_shape)
+    data = np.ones((3, *src_shape))
+    weight = np.ones((2, *src_shape))
+
+    with pytest.raises(ValueError, match="channels"):
+        r.resample_weighted(data, weight, r.weight_sum(weight))
+    with pytest.raises(ValueError, match="expected a weight"):
+        r.weight_sum(np.ones((4, 4, 4)))
+    with pytest.raises(ValueError, match="weight_sum"):
+        # A shared denominator for a per-channel weight.
+        three = np.ones((3, *src_shape))
+        r.resample_weighted(data, three, r.weight_sum(three[0]))
+
+
 def test_numpy_and_torch_backends_agree():
     pytest.importorskip("torch")
     src_affine, src_shape, dst_affine, dst_shape = grids(8, 2)

@@ -295,9 +295,12 @@ class Resampler:
         """``sum_j w_j * weight_j`` per output voxel.
 
         This is the denominator every property of a tissue shares, so compute it once and
-        hand it to :meth:`resample_weighted`.
+        hand it to :meth:`resample_weighted`. A ``(X, Y, Z)`` weight gives one ``(X, Y, Z)``
+        denominator; a ``(C, X, Y, Z)`` weight gives one per channel.
         """
-        return self._contract(np.asarray(weight, dtype=np.float64)[None])[0]
+        w = _channel_weight(weight, self.src_shape)
+        out = self._contract(w)
+        return out[0] if np.ndim(weight) == 3 else out
 
     def resample_plain(self, data: np.ndarray) -> np.ndarray:
         """Unweighted footprint average - the correct rule for ``density``, which is
@@ -311,16 +314,28 @@ class Resampler:
     ) -> np.ndarray:
         """Density-weighted footprint average - the correct rule for intensive properties.
 
-        Accepts ``(X, Y, Z)`` or ``(C, X, Y, Z)``; all channels of a ``B1+``/``B1-`` map go
-        through a single contraction.
+        Accepts ``(X, Y, Z)`` or ``(C, X, Y, Z)`` data; all channels go through a single
+        contraction. ``weight`` is either ``(X, Y, Z)``, shared by every channel (the coil
+        channels of a ``B1+``/``B1-`` map share one density), or ``(C, X, Y, Z)``, one per
+        channel (the tissues of a 4-D phantom NIfTI each have their own density).
+        ``weight_sum`` is :meth:`weight_sum` of that same ``weight``.
         """
         vol, squeeze = _with_channels(data)
+        w = _channel_weight(weight, self.src_shape, vol.shape[0])
+        ws = np.asarray(weight_sum, dtype=np.float64)
+        ws = ws[None] if ws.ndim == 3 else ws
+        if ws.shape != (w.shape[0], *self.out_shape):
+            raise ValueError(
+                f"weight_sum has shape {np.shape(weight_sum)}, but a weight of shape "
+                f"{np.shape(weight)} needs Resampler.weight_sum(weight) of shape "
+                f"{(*np.shape(weight)[:-3], *self.out_shape)}"
+            )
         if self.is_identity:
             # An exact copy, instead of `(x*W)/W`, which can be off by an ulp.
             return vol[0].copy() if squeeze else vol.copy()
-        num = self._contract(vol * np.asarray(weight, dtype=np.float64)[None])
+        num = self._contract(vol * w)
         # weight_sum <= 0 means not one in-bounds tap: nothing to say about the value.
-        out = np.divide(num, weight_sum[None], out=np.zeros_like(num), where=weight_sum > 0)
+        out = np.divide(num, ws, out=np.zeros_like(num), where=ws > 0)
         return out[0] if squeeze else out
 
 
@@ -357,6 +372,28 @@ def _with_channels(data: np.ndarray) -> tuple[np.ndarray, bool]:
     raise ValueError(f"expected a 3D or (C, X, Y, Z) array, got shape {data.shape}")
 
 
+def _channel_weight(weight, src_shape, n_channels: int | None = None) -> np.ndarray:
+    """``weight`` as a ``(1 or C, X, Y, Z)`` array that lines up with ``(C, X, Y, Z)`` data.
+
+    A 3-D weight broadcasts over every channel; a 4-D one pairs up channel-for-channel.
+    Anything else is rejected here rather than broadcast into something silently wrong.
+    """
+    w = np.asarray(weight, dtype=np.float64)
+    if w.ndim == 3 and w.shape == tuple(src_shape):
+        return w[None]
+    if w.ndim == 4 and w.shape[1:] == tuple(src_shape):
+        if n_channels is None or w.shape[0] == n_channels:
+            return w
+        raise ValueError(
+            f"weight has {w.shape[0]} channels but the data has {n_channels}; a 4-D weight "
+            "needs one channel per data channel (or pass a 3-D weight to share it)"
+        )
+    raise ValueError(
+        f"expected a weight of shape {tuple(src_shape)} (shared by every channel) or "
+        f"(C, {', '.join(map(str, src_shape))}) (one per channel), got {w.shape}"
+    )
+
+
 def density_weight(density: np.ndarray) -> np.ndarray:
     """``density + eps``: the weight intensive properties are averaged by.
 
@@ -364,6 +401,11 @@ def density_weight(density: np.ndarray) -> np.ndarray:
     falls back to the unweighted mean of the in-bounds taps rather than 0/0. It is scaled
     by the density's own magnitude because a ``density`` map need not be a [0, 1] float
     map: the spec allows any NIfTI numeric type.
+
+    Handed a ``(C, X, Y, Z)`` stack, ``eps`` comes from the peak of the *whole* stack. The
+    loader weights each tissue by its own density's peak, so to reproduce it exactly, weight
+    each channel separately: ``np.stack([density_weight(d) for d in densities])``. The two
+    differ only at the level of ``eps`` itself - the weighting's own sensitivity to it.
     """
     density = np.asarray(density, dtype=np.float64)
     peak = float(density.max()) if density.size else 0.0
