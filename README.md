@@ -179,7 +179,7 @@ The implementations currently have some discrepancies:
 
 ### Reslicing
 
-Both implementations resample the same way. Each output voxel is averaged over the
+All four implementations resample the same way. Each output voxel is averaged over the
 whole source region it covers, rather than interpolated from the few voxels nearest
 its centre — so resampling onto a coarser grid actually averages instead of throwing
 most of the data away.
@@ -193,7 +193,11 @@ correctly falls off where an output voxel is only partly filled.
 
 For axis-aligned grids the average is computed exactly, as a true box average.
 Oblique transforms fall back to quadrature over the output voxel's parallelepiped,
-and axes that are not being downsampled keep plain linear interpolation.
+and axes that are not being downsampled keep plain linear interpolation. The
+quadrature is approximate, so an oblique `reslice_to` always warns, and says so
+when the output voxels span more source voxels than the quadrature samples (the
+cap is 8 per axis) and the result may alias. Aligning `reslice_to` with the source
+axes gives the exact result.
 
 ### Saving
 
