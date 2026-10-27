@@ -1,0 +1,79 @@
+name: Release Rust crate
+
+# Pushing a `rust-v<version>` tag publishes rust/bifti to crates.io (see RELEASING.md).
+# The prefix keeps the crate's tags apart from the format's `v*` and Julia's
+# `BiftiPhantoms-v*` tags.
+#
+# Uploads use crates.io Trusted Publishing (OIDC), so the repository holds no API token.
+# Only the `publish` job can mint the OIDC token, and only from the `crates-io` environment.
+# crates.io cannot trust a publisher for a crate that does not exist yet, so the very
+# first version has to be published by hand.
+on:
+  push:
+    tags: ['rust-v*']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: rust/bifti
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Check the tag matches the version in Cargo.toml
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [ "rust-v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $version"
+            exit 1
+          fi
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      # Builds the packaged crate on its own, as crates.io will see it.
+      - run: cargo publish --dry-run
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: crates-io
+      url: https://crates.io/crates/bifti
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: rust/bifti
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      # Exchanges the OIDC token for a crates.io token valid for 30 minutes.
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: |
+          version=${GITHUB_REF_NAME#rust-v}
+          gh release create "$GITHUB_REF_NAME" \
+            --title "bifti (Rust) $version" \
+            --notes "Published to crates.io: https://crates.io/crates/bifti/$version"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}

@@ -111,6 +111,7 @@ if let VolumeData::Float64(t1) = &tissue.t1.data {
 | [matlab/](matlab/) | MATLAB / Octave package (`bifti` namespace), no toolboxes needed. |
 | [docs/](docs/) | Source of the registry browser at https://mrx-org.github.io/bifti-phantoms/. |
 | [tools/](tools/) | CI scripts: phantom/registry schema validation, immutability checks. |
+| [RELEASING.md](RELEASING.md) | How the packages are published to PyPI, crates.io and the Julia registry. |
 
 > [!IMPORTANT]
 > The example implementations for Python, Rust, Julia and MATLAB were built with the help of
@@ -137,16 +138,22 @@ and a label pointing at it in [catalog.json](catalog.json). See
 
 ```bash
 # Load bifti phantoms from rust
-cargo add --git https://github.com/mrx-org/bifti-phantoms bifti
+cargo add bifti
 # Load bifti phantoms from Python
-pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=python/bifti"
+pip install bifti
 # Using the uv package manager:
-uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
+uv add bifti
 # Load bifti phantoms from Julia
-julia -e 'using Pkg; Pkg.add(url="https://github.com/mrx-org/bifti-phantoms", subdir="julia/BiftiPhantoms")'
+julia -e 'using Pkg; Pkg.add("BiftiPhantoms")'
 # Load bifti phantoms from MATLAB or Octave: clone the repo, then in MATLAB
 #   addpath('bifti-phantoms/matlab')
 ```
+
+The packages are published on [PyPI](https://pypi.org/project/bifti/),
+[crates.io](https://crates.io/crates/bifti) and in Julia's
+[General registry](https://juliahub.com/ui/Packages/General/BiftiPhantoms). To use
+unreleased changes, install from git instead (shown in each package's README).
+Maintainers: see [RELEASING.md](RELEASING.md).
 
 For more information, including runnable examples and each package's full
 API, read the README of the [Python `bifti` package](python/bifti/README.md),

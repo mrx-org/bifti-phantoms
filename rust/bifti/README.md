@@ -1,8 +1,8 @@
 # bifti
 
-A Rust crate for the [BIfTI phantom format](../../SPEC.md): parse/serialize the
+A Rust crate for the [BIfTI phantom format](https://github.com/mrx-org/bifti-phantoms/blob/main/SPEC.md): parse/serialize the
 phantom JSON, load a phantom into plain arrays, and fetch phantoms from the
-public [registry](../../REGISTRY.md).
+public [registry](https://github.com/mrx-org/bifti-phantoms/blob/main/REGISTRY.md).
 
 ```rust
 use bifti::{Phantom, VolumeData};
@@ -17,8 +17,8 @@ if let VolumeData::Float64(t1) = &tissue.t1.data {
 ```
 
 `phantom.config` is the parsed `BiftiPhantom` (the raw JSON structure: units,
-system, tissue definitions) — see [`phantom.rs`](src/phantom.rs) for the full
-data model and [`loader.rs`](src/loader.rs) for how each property resolves to
+system, tissue definitions) — see [`phantom.rs`](https://github.com/mrx-org/bifti-phantoms/blob/main/rust/bifti/src/phantom.rs) for the full
+data model and [`loader.rs`](https://github.com/mrx-org/bifti-phantoms/blob/main/rust/bifti/src/loader.rs) for how each property resolves to
 a `Volume`.
 
 ## API at a glance
@@ -29,20 +29,22 @@ a `Volume`.
 | `Tissue` | One tissue as `Volume`s: `density`, `t1`, `t2`, `t2dash`, `adc`, `db0`, `b1_tx: Vec<Volume>`, `b1_rx: Vec<Volume>`. |
 | `Volume` | `{ affine: [[f64; 4]; 3], shape: [usize; 3], data: VolumeData }`. |
 | `VolumeData` | `Float32(Vec<f32>)` / `Float64(Vec<f64>)` of the volume's voxels, row-major (`x*ny*nz + y*nz + z`). |
-| `phantom.save(dir, json_name)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../../README.md#saving). Returns the JSON path. |
+| `phantom.save(dir, json_name)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#saving). Returns the JSON path. |
 | `Volume::save_nifti(path)` / `Volume::save_nifti_stack(volumes, path)` | Write one volume, or several stacked along the 4th dimension, as a deterministic NIfTI-1 file. |
 | `BiftiPhantom::load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O). |
-| `Catalog::load()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
-| `Registry::load()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |
+| `Catalog::load()` | Fetch and parse the public [catalog.json](https://github.com/mrx-org/bifti-phantoms/blob/main/catalog.json) — the discovery list, mapping a label to an immutable registry name. |
+| `Registry::load()` | Fetch and parse the public [registry.json](https://github.com/mrx-org/bifti-phantoms/blob/main/registry.json) — the immutable archive of every collection. |
 | `Registry::load_registry_phantom(collection, name, cache_dir)` | Download one phantom's JSON + NIfTIs from Zenodo into `cache_dir` (`collection` is an immutable registry name); returns the JSON path. |
 
 ## Installation
 
+From [crates.io](https://crates.io/crates/bifti):
+
 ```sh
-cargo add --git https://github.com/mrx-org/bifti-phantoms bifti
+cargo add bifti
 ```
 
-Or manually in `Cargo.toml`:
+Or the latest unreleased version from git:
 
 ```toml
 [dependencies]
@@ -78,13 +80,13 @@ timeline view of the same spans.
 - Complex NIfTI data (a complex-valued `B1+`/`B1-` map) is loaded and resliced
   as complex throughout. Only `Float128`, `Complex256`, `Rgb24` and `Rgba32`
   are unsupported, and those fail loudly with `Error::UnsupportedDataType`.
-  (The [Python package](../../python/bifti/) still silently drops the
+  (The [Python package](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/) still silently drops the
   imaginary part instead.)
 - **No implicit reslicing.** Without `reslice_to`, each map keeps its own
   affine and shape; the Python package instead brings every map onto the
   density map's grid.
-- Only the default [`units`](../../JSON.md#units) are accepted, matching the
+- Only the default [`units`](https://github.com/mrx-org/bifti-phantoms/blob/main/JSON.md#units) are accepted, matching the
   Python implementation.
 
-See [the top-level README](../../README.md#python-vs-rust) for a fuller
+See [the top-level README](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#python-vs-rust) for a fuller
 comparison against the Python package.
