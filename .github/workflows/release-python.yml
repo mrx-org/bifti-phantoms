@@ -1,0 +1,80 @@
+name: Release Python package
+
+# Pushing a `python-v<version>` tag publishes python/bifti to PyPI (see RELEASING.md).
+# The prefix keeps the package's tags apart from the format's `v*` and Julia's
+# `BiftiPhantoms-v*` tags.
+#
+# Uploads use PyPI Trusted Publishing (OIDC), so the repository holds no API token. Only
+# the `publish` job can mint the OIDC token, and only from the `pypi` environment.
+on:
+  push:
+    tags: ['python-v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: python/bifti
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+      - name: Check the tag matches the version in pyproject.toml
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ "python-v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match pyproject.toml version $version"
+            exit 1
+          fi
+      - run: uv sync --frozen --group dev
+      - run: uv run --frozen --group dev pytest -q
+      - run: uv build
+      # Install each distribution on its own, outside the project, so a file missing
+      # from the sdist or wheel fails here rather than for users.
+      - name: Smoke test the wheel
+        run: uv run --isolated --no-project --with dist/*.whl python -c "import bifti; bifti.NumpyPhantom"
+      - name: Smoke test the sdist
+        run: uv run --isolated --no-project --with dist/*.tar.gz python -c "import bifti; bifti.NumpyPhantom"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: python/bifti/dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/bifti/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      # Also uploads PEP 740 attestations, tying each file to this workflow run.
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: |
+          version=${GITHUB_REF_NAME#python-v}
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "bifti (Python) $version" \
+            --notes "Published to PyPI: https://pypi.org/project/bifti/$version/"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}

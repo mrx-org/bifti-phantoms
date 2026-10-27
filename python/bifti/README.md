@@ -1,8 +1,8 @@
 # bifti
 
-A Python package for the [BIfTI phantom format](../../SPEC.md): parse/serialize
+A Python package for the [BIfTI phantom format](https://github.com/mrx-org/bifti-phantoms/blob/main/SPEC.md): parse/serialize
 the phantom JSON, load a phantom into plain NumPy arrays, and fetch phantoms
-from the public [registry](../../REGISTRY.md).
+from the public [registry](https://github.com/mrx-org/bifti-phantoms/blob/main/REGISTRY.md).
 
 ```python
 from bifti import NumpyPhantom
@@ -13,8 +13,8 @@ print(tissue.shape, tissue.T1.mean())
 ```
 
 `phantom.config` is the parsed `BiftiPhantom` (the raw JSON structure: units,
-system, tissue definitions) — see [phantom.py](src/bifti/phantom.py) for the
-full data model, and [loader.py](src/bifti/loader.py) for how each property
+system, tissue definitions) — see [phantom.py](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/src/bifti/phantom.py) for the
+full data model, and [loader.py](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/src/bifti/loader.py) for how each property
 resolves to an array.
 
 ## API at a glance
@@ -26,29 +26,37 @@ bifti import ...`):
 |------|------------|
 | `NumpyPhantom.load(path)` | Load a phantom JSON + its NIfTIs into `NumpyPhantom(config, tissues)`. |
 | `NumpyTissue` | One tissue as NumPy arrays: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`, `B1_rx`, plus `.shape`/`.affine`. |
-| `NumpyPhantom.save(dir, json_name="phantom.json")` | Save a loaded phantom as a self-contained folder (float64 NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../../README.md#saving). Returns the JSON path. |
+| `NumpyPhantom.save(dir, json_name="phantom.json")` | Save a loaded phantom as a self-contained folder (float64 NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#saving). Returns the JSON path. |
 | `BiftiPhantom.load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O) — `BiftiPhantom(units, system, tissues, reslice_to, schema)`. |
-| `load_catalog()` | Fetch and parse the public [catalog.json](../../catalog.json) — the discovery list, mapping a label to an immutable registry name. |
-| `load_registry()` | Fetch and parse the public [registry.json](../../registry.json) — the immutable archive of every collection. |
+| `load_catalog()` | Fetch and parse the public [catalog.json](https://github.com/mrx-org/bifti-phantoms/blob/main/catalog.json) — the discovery list, mapping a label to an immutable registry name. |
+| `load_registry()` | Fetch and parse the public [registry.json](https://github.com/mrx-org/bifti-phantoms/blob/main/registry.json) — the immutable archive of every collection. |
 | `load_registry_phantom(collection, name)` | Download one phantom's JSON + NIfTIs from Zenodo into a local cache; returns the JSON path. `collection` is an immutable registry name. |
 
 `NumpyPhantom.load` is what you want for simulation/analysis (arrays); use
 `BiftiPhantom` directly only if you're generating or editing phantom JSONs
-without touching pixel data (e.g. [`examples/make_numerical_brain_cropped_bifti.py`](examples/make_numerical_brain_cropped_bifti.py)).
+without touching pixel data (e.g. [`examples/make_numerical_brain_cropped_bifti.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/make_numerical_brain_cropped_bifti.py)).
 
 ## Installation
 
+From [PyPI](https://pypi.org/project/bifti/):
+
 ```sh
 # using uv (recommended):
-uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
+uv add bifti
 # or using pip:
-pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=python/bifti"
+pip install bifti
+```
 
+Or the latest unreleased version from git:
+
+```sh
+uv add --git https://github.com/mrx-org/bifti-phantoms --subdirectory python/bifti bifti
+pip install "git+https://github.com/mrx-org/bifti-phantoms.git#subdirectory=python/bifti"
 ```
 
 ## Examples
 
-[`examples/`](examples/) has a small, self-contained demo that **loads a BIfTI
+[`examples/`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/) has a small, self-contained demo that **loads a BIfTI
 phantom and plots every tissue's data** — a starting point for seeing the
 package in action. 
 
@@ -59,12 +67,12 @@ uv add --path bifti-phantoms/python/bifti bifti
 
 | File | Purpose |
 |------|---------|
-| [`examples/demo.py`](examples/demo.py) | Load a phantom and plot one figure per tissue. |
-| [`examples/nifti_to_koma.py`](examples/nifti_to_koma.py) | Convert a phantom to a KomaMRI `.phantom` HDF5 file. |
-| [`examples/mrzero_sim.py`](examples/mrzero_sim.py) | Simulate a Pulseq sequence on a phantom with MR-zero. |
-| [`examples/make_numerical_brain_cropped_bifti.py`](examples/make_numerical_brain_cropped_bifti.py) | Port the legacy MRzero test phantom to BIfTI. |
-| [`examples/data/`](examples/data/) | Phantom JSONs + the NIfTIs they reference. |
-| [`examples/data/generate.py`](examples/data/generate.py) | Regenerates the example data in `examples/data/` (reproducible). |
+| [`examples/demo.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/demo.py) | Load a phantom and plot one figure per tissue. |
+| [`examples/nifti_to_koma.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/nifti_to_koma.py) | Convert a phantom to a KomaMRI `.phantom` HDF5 file. |
+| [`examples/mrzero_sim.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/mrzero_sim.py) | Simulate a Pulseq sequence on a phantom with MR-zero. |
+| [`examples/make_numerical_brain_cropped_bifti.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/make_numerical_brain_cropped_bifti.py) | Port the legacy MRzero test phantom to BIfTI. |
+| [`examples/data/`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/data/) | Phantom JSONs + the NIfTIs they reference. |
+| [`examples/data/generate.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/data/generate.py) | Regenerates the example data in `examples/data/` (reproducible). |
 
 ### Requirements
 
@@ -95,8 +103,8 @@ uv run --group examples examples/demo.py examples/data/shapes_resliced.json
 uv run --group examples examples/demo.py examples/data/shapes_downsampled.json
 ```
 
-With no argument, `demo.py` fetches the live [`catalog.json`](../../catalog.json),
-resolves each label to its [`registry.json`](../../registry.json) collection,
+With no argument, `demo.py` fetches the live [`catalog.json`](https://github.com/mrx-org/bifti-phantoms/blob/main/catalog.json),
+resolves each label to its [`registry.json`](https://github.com/mrx-org/bifti-phantoms/blob/main/registry.json) collection,
 prints their phantoms as a numbered list, and downloads the one you pick (its
 JSON and every NIfTI it references) into `examples/cache/` via `bifti.registry`
 before plotting. Passing a local JSON path skips the catalog and plots that
@@ -111,7 +119,7 @@ left at their default (e.g. `T1 = inf`) are blanked out.
 ## The example data
 
 The NIfTIs in `examples/data/` are committed, but they are all produced by
-[`examples/data/generate.py`](examples/data/generate.py) — re-run it
+[`examples/data/generate.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/examples/data/generate.py) — re-run it
 (`uv run --group examples examples/data/generate.py`) to regenerate them. It
 derives everything from a fixed seed and simple `meshgrid` functions (smooth
 bumps, low-order polynomials, a little noise), so re-running reproduces
@@ -136,20 +144,20 @@ byte-identical files. The phantoms together exercise the whole format:
 
 > **Note:** loading a tissue with a `func` mapping prints a warning — the loader
 > evaluates `func` with `eval` for brevity, so only load phantoms you trust (see
-> the note in [`bifti/loader.py`](src/bifti/loader.py)).
+> the note in [`bifti/loader.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/src/bifti/loader.py)).
 
 ## Known limitations
 
 - **Complex-valued NIfTI data isn't handled.** A complex `B1+`/`B1-` map gets
   cast with `np.asarray(..., dtype=np.float64)` in
-  [`loader.py`](src/bifti/loader.py), which silently discards the imaginary
+  [`loader.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/src/bifti/loader.py), which silently discards the imaginary
   part (numpy emits a `ComplexWarning`, easy to miss). The
-  [Rust crate](../../rust/bifti/) fails loudly instead in this case.
-- Only the default [`units`](../../JSON.md#units) are accepted.
+  [Rust crate](https://github.com/mrx-org/bifti-phantoms/blob/main/rust/bifti/) fails loudly instead in this case.
+- Only the default [`units`](https://github.com/mrx-org/bifti-phantoms/blob/main/JSON.md#units) are accepted.
 
 ## See also
 
-- [../../README.md](../../README.md) — repo overview, format spec, and the
+- [../../README.md](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md) — repo overview, format spec, and the
   registry.
-- [../../rust/bifti/](../../rust/bifti/) — the Rust crate, including how it
+- [../../rust/bifti/](https://github.com/mrx-org/bifti-phantoms/blob/main/rust/bifti/) — the Rust crate, including how it
   differs from this package.

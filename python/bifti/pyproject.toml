@@ -1,10 +1,20 @@
 [project]
 name = "bifti"
 version = "1.0.0"
-description = "Add your description here"
+description = "Load, save and resample BIfTI MRI simulation phantoms (JSON + NIfTI)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "J-Endres", email = "jonathan.endres01@gmail.com" }
+]
+keywords = ["mri", "phantom", "simulation", "nifti", "bifti"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -12,6 +22,13 @@ dependencies = [
     "numpy>=2.5.1",
     "requests>=2.34.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mrx-org/bifti-phantoms"
+Documentation = "https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/README.md"
+Repository = "https://github.com/mrx-org/bifti-phantoms"
+Issues = "https://github.com/mrx-org/bifti-phantoms/issues"
+Registry = "https://mrx-org.github.io/bifti-phantoms/"
 
 [project.optional-dependencies]
 # Resampling uses torch when it is importable and NumPy otherwise; see bifti._backend.

@@ -2,6 +2,16 @@
 name = "bifti"
 version = "0.1.0"
 edition = "2024"
+description = "Load, save and resample BIfTI MRI simulation phantoms (JSON + NIfTI)"
+license = "MIT"
+repository = "https://github.com/mrx-org/bifti-phantoms"
+homepage = "https://mrx-org.github.io/bifti-phantoms/"
+readme = "README.md"
+keywords = ["mri", "phantom", "simulation", "nifti", "bifti"]
+categories = ["science", "parser-implementations"]
+# The tests read the example phantoms in python/bifti/examples/data/, outside the
+# crate, so they cannot run from the published package.
+exclude = ["tests/"]
 
 [features]
 tracing = ["dep:tracing"]

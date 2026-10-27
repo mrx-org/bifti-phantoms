@@ -60,8 +60,16 @@ resolves to the same bytes, cached files are never downloaded again.
 
 ## Installation
 
+From the [General registry](https://juliahub.com/ui/Packages/General/BiftiPhantoms):
+
 ```julia
 using Pkg
+Pkg.add("BiftiPhantoms")
+```
+
+Or the latest unreleased version from git:
+
+```julia
 Pkg.add(url="https://github.com/mrx-org/bifti-phantoms", subdir="julia/BiftiPhantoms")
 ```
 
