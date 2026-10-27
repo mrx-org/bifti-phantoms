@@ -19,6 +19,14 @@
 //! outside the source contribute nothing to *either* sum, so they are excluded rather than
 //! averaged in. Where a footprint is entirely empty the `eps` terms are uniform and the
 //! result falls back to the unweighted mean of the in-bounds taps, so it is never `NaN`.
+//!
+//! Axis-aligned grids are averaged exactly. Oblique ones fall back to midpoint quadrature,
+//! which is approximate, so taking that path is warned about (see `warn_oblique`).
+
+use std::{
+    collections::BTreeSet,
+    sync::{Mutex, PoisonError},
+};
 
 use crate::{ResliceTo, volume::VolumeDataElement};
 
@@ -132,17 +140,55 @@ fn decompose_axis_aligned(m: [[f64; 4]; 3]) -> Option<([usize; 3], [f64; 3], [f6
 }
 
 /// Per-axis substep counts for the oblique path: how finely to sample each output voxel.
-fn oblique_substeps(m: [[f64; 4]; 3], max_substeps: usize) -> [usize; 3] {
+///
+/// One substep per source voxel the footprint spans is the point at which the quadrature
+/// stops skipping source data. The returned flag says whether `max_substeps` held any axis
+/// below that, i.e. whether the result is knowingly under-sampled.
+fn oblique_substeps(m: [[f64; 4]; 3], max_substeps: usize) -> ([usize; 3], bool) {
     let mut steps = [1usize; 3];
+    let mut capped = false;
     for a in 0..3 {
         let span = (m[0][a] * m[0][a] + m[1][a] * m[1][a] + m[2][a] * m[2][a]).sqrt();
-        steps[a] = if span <= 1.0 {
-            1
-        } else {
-            max_substeps.min((span.ceil() as usize).max(1))
-        };
+        if span > 1.0 {
+            let needed = span.ceil() as usize;
+            steps[a] = max_substeps.min(needed);
+            capped |= needed > max_substeps;
+        }
     }
-    steps
+    (steps, capped)
+}
+
+/// The oblique path is approximate, and the caller cannot tell from the result, so say so -
+/// and say when the substep cap leaves it under-sampled. Each distinct message is printed
+/// once per process (like Python's `warnings`), so the tissues of one phantom, which
+/// usually share a grid, do not repeat it.
+fn warn_oblique([sx, sy, sz]: [usize; 3], capped: bool) {
+    static WARNED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+    let msg = if capped {
+        format!(
+            "reslice_to is oblique to the source grid, and its voxels span more source voxels \
+             than the {DEFAULT_MAX_SUBSTEPS} substeps the quadrature is capped at: the result \
+             ({sx}x{sy}x{sz} samples per voxel) is under-sampled and may alias. Align \
+             reslice_to with the source axes for the exact separable average"
+        )
+    } else {
+        format!(
+            "reslice_to is oblique to the source grid, so each output voxel is averaged by \
+             midpoint quadrature ({sx}x{sy}x{sz} samples per voxel, one per source voxel \
+             spanned) instead of the exact separable box average; align reslice_to with the \
+             source axes for an exact result"
+        )
+    };
+    let first = WARNED
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(msg.clone());
+    if first {
+        #[cfg(feature = "tracing")]
+        tracing::warn!("{msg}");
+        #[cfg(not(feature = "tracing"))]
+        eprintln!("bifti: {msg}");
+    }
 }
 
 /// A precomputed source-grid -> target-grid resampler, shared by every map of a tissue.
@@ -197,11 +243,15 @@ impl Resampler {
                     out_shape,
                 }
             }
-            None => Self::Oblique {
-                m,
-                substeps: oblique_substeps(m, DEFAULT_MAX_SUBSTEPS),
-                out_shape,
-            },
+            None => {
+                let (substeps, capped) = oblique_substeps(m, DEFAULT_MAX_SUBSTEPS);
+                warn_oblique(substeps, capped);
+                Self::Oblique {
+                    m,
+                    substeps,
+                    out_shape,
+                }
+            }
         }
     }
 
@@ -685,6 +735,31 @@ mod tests {
         assert!(out.iter().all(|v| v.is_finite()));
         assert!(out.iter().any(|v| (v - 2.5).abs() < 1e-9));
         assert!(out.iter().all(|&v| v <= 2.5 + 1e-9));
+    }
+
+    /// The oblique path reports when the substep cap leaves it under-sampled: a 10 mm
+    /// oblique voxel over a 1 mm source wants 10 substeps per axis and gets the cap.
+    #[test]
+    fn oblique_substeps_report_when_the_cap_bites() {
+        let (c, s) = (0.8f64, 0.6f64);
+        let m = |size: f64| {
+            [
+                [size * c, -size * s, 0.0, 0.0],
+                [size * s, size * c, 0.0, 0.0],
+                [0.0, 0.0, size, 0.0],
+            ]
+        };
+        assert_eq!(
+            oblique_substeps(m(2.0), DEFAULT_MAX_SUBSTEPS),
+            ([2, 2, 2], false)
+        );
+        assert_eq!(
+            oblique_substeps(m(10.0), DEFAULT_MAX_SUBSTEPS),
+            ([8, 8, 8], true)
+        );
+        assert_eq!(oblique_substeps(m(10.0), 10), ([10, 10, 10], false));
+        // Upsampling needs a single sample per voxel, whatever the cap.
+        assert_eq!(oblique_substeps(m(0.5), 1), ([1, 1, 1], false));
     }
 
     /// Complex maps (`B1+`/`B1-`) must average as complex numbers, not magnitudes: two
