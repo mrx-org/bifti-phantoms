@@ -6,6 +6,21 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package
 package is not published anywhere; the version is recorded in `+bifti/Contents.m`, so
 `ver bifti` reports it.
 
+## [0.3.0] - 2026-10-28
+
+### Added
+
+- `bifti.savePhantom(..., 'ConstantThreshold', t)`: store a map as a constant when its RMS
+  deviation from the real part of its mean (its standard deviation, for a real map) is at
+  most the threshold. `[]` (the default) or a negative value disables it; `density` always
+  stays a map.
+
+### Changed
+
+- **Breaking:** `bifti.savePhantom` prefixes every NIfTI with the name of the JSON file
+  (`phantom_density.nii.gz`, `phantom_B1plus_0.nii.gz`, ... for `phantom.json`), so several
+  phantoms can be saved into one folder without overwriting each other's maps.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added

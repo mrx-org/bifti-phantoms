@@ -37,6 +37,9 @@ function runTests()
         @savedPhantomsReloadToTheSameValues
         @savedPhantomsKeepConstantsAndShareIdenticalVolumes
         @savedPhantomsAreByteDeterministic
+        @savedFileNamesArePrefixedWithThePhantomName
+        @constantThresholdStoresNearConstantMapsAsConstants
+        @complexMapsRoundTrip
         @invalidReferencesFailLoudly
         @catalogLabelsResolveInTheRegistry
         @registryPhantomDownloadsAndCaches
@@ -490,9 +493,9 @@ function savedPhantomsKeepConstantsAndShareIdenticalVolumes()
     saved = bifti.readPhantom(bifti.savePhantom(folder, original));
     byName = @(n) saved.tissues(strcmp({saved.tissues.name}, n));
     check(isequal(byName('disk').T1, 1), 'a constant must stay a constant');
-    check(~isfile(fullfile(folder, 'T1.nii.gz')), 'no NIfTI for a constant property');
+    check(~isfile(fullfile(folder, 'phantom_T1.nii.gz')), 'no NIfTI for a constant property');
     check(isequal(byName('ring').dB0, byName('ring2').dB0), 'identical maps must share one reference');
-    [data, ~] = bifti.internal.readNifti(fullfile(folder, 'dB0.nii.gz'));
+    [data, ~] = bifti.internal.readNifti(fullfile(folder, 'phantom_dB0.nii.gz'));
     check(size(data, 4) == 2, 'dB0 stack holds disk and ring, not three copies');
     rmdir(folder, 's');
 end
@@ -510,15 +513,98 @@ function savedPhantomsAreByteDeterministic()
     bifti.savePhantom(b, shuffled);
     files = dir(a);
     files = {files(~[files.isdir]).name};
-    check(any(strcmp(files, 'phantom.json')) && any(strcmp(files, 'density.nii.gz')), 'files written');
+    check(any(strcmp(files, 'phantom.json')) && any(strcmp(files, 'phantom_density.nii.gz')), 'files written');
     for k = 1:numel(files)
         check(isequal(readAll(fullfile(a, files{k})), readAll(fullfile(b, files{k}))), '%s differs', files{k});
     end
-    header = readAll(fullfile(a, 'density.nii.gz'));
+    header = readAll(fullfile(a, 'phantom_density.nii.gz'));
     check(isequal(header(1:2), uint8([31; 139])) && header(4) == 0, 'gzip magic, no file name');
     check(all(header(5:8) == 0) && header(10) == 255, 'gzip mtime and OS must be fixed');
     rmdir(a, 's');
     rmdir(b, 's');
+end
+
+function savedFileNamesArePrefixedWithThePhantomName()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    folder = tempname;
+    names = {'shapes', 'subj42-3T'};
+    prefixes = {'a', 'b'};
+    for k = 1:2
+        bifti.savePhantom(folder, bifti.loadPhantom(dataPath([names{k} '.json'])), [prefixes{k} '.json']);
+    end
+    for k = 1:2
+        jsonPath = fullfile(folder, [prefixes{k} '.json']);
+        saved = bifti.readPhantom(jsonPath);
+        for t = saved.tissues
+            check(strncmp(t.density.file, [prefixes{k} '_'], 2), '%s: %s is not prefixed', names{k}, t.density.file);
+        end
+        original = bifti.loadPhantom(dataPath([names{k} '.json']));
+        reloaded = bifti.loadPhantom(jsonPath);
+        for a = original.tissues
+            check(isequal(a.dB0, tissue(reloaded, a.name).dB0), '%s %s dB0 differs', names{k}, a.name);
+        end
+    end
+    rmdir(folder, 's');
+end
+
+function constantThresholdStoresNearConstantMapsAsConstants()
+    phantom = bifti.loadPhantom(dataPath('shapes.json'));
+    k = find(strcmp({phantom.tissues.name}, 'disk'));
+    dB0 = 3 * ones(size(phantom.tissues(k).dB0));
+    dB0(1) = dB0(1) + 1e-3;
+    phantom.tissues(k).dB0 = dB0;
+    phantom.tissues(k).B1_tx{2} = ones(size(dB0));  % exactly constant
+    sigma = std(dB0(:), 1);
+
+    folder = tempname;
+    disk = savedDisk(folder, phantom);
+    check(isstruct(disk.dB0) && isstruct(disk.B1_tx{2}), 'disabled by default');
+    disk = savedDisk(folder, phantom, 'ConstantThreshold', 0);
+    check(isstruct(disk.dB0) && isequal(disk.B1_tx{2}, 1), 'threshold 0 collapses exact constants only');
+    disk = savedDisk(folder, phantom, 'phantom.json', 'ConstantThreshold', 2 * sigma);
+    check(abs(disk.dB0 - mean(dB0(:))) < 1e-12 && isequal(disk.B1_tx{2}, 1), 'near constants collapse');
+    check(isstruct(disk.density), 'density stays a map');
+    check(~isfile(fullfile(folder, 'phantom_B1plus_1.nii.gz')), 'no NIfTI for a collapsed channel');
+    disk = savedDisk(folder, phantom, 'ConstantThreshold', -1);
+    check(isstruct(disk.B1_tx{2}), 'a negative threshold disables it');
+end
+
+function disk = savedDisk(folder, phantom, varargin)
+    if isfolder(folder)
+        rmdir(folder, 's');
+    end
+    saved = bifti.readPhantom(bifti.savePhantom(folder, phantom, varargin{:}));
+    disk = saved.tissues(strcmp({saved.tissues.name}, 'disk'));
+end
+
+function complexMapsRoundTrip()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    grid = tissue(bifti.loadPhantom(dataPath('shapes.json')), 'disk');
+    [nx, ny, nz] = size(grid.density);
+    phase = repmat(3 * (1:nx)' / nx, [1, ny, nz]);
+    folder = tempname;
+    mkdir(folder);
+    b1 = fullfile(folder, 'b1.nii.gz');
+    bifti.internal.writeNifti(b1, {exp(1i * phase), exp(-2i * phase)}, grid.affine);
+    for name = {'shapes', 'shapes_resliced'}
+        config = bifti.readPhantom(dataPath([name{1} '.json']));
+        k = find(strcmp({config.tissues.name}, 'disk'));
+        config.tissues(k).B1_tx = {struct('file', b1, 'index', 0), 1};
+        config.tissues(k).B1_rx = {struct('file', b1, 'index', 1, 'func', 'x * 2')};
+        phantom = bifti.loadPhantom(config, fileparts(dataPath('shapes.json')));
+        loaded = tissue(phantom, 'disk');
+        check(~isreal(loaded.B1_tx{1}) && max(abs(imag(loaded.B1_tx{1}(:)))) > 0.5, '%s: B1+ must stay complex', name{1});
+        if strcmp(name{1}, 'shapes')
+            checkClose(loaded.B1_rx{1}, 2 * exp(-2i * phase), 1e-12, 'B1- with func');
+        end
+        out = fullfile(folder, name{1});
+        reloaded = tissue(bifti.loadPhantom(bifti.savePhantom(out, phantom)), 'disk');
+        check(isequal(reloaded.B1_tx, loaded.B1_tx) && isequal(reloaded.B1_rx, loaded.B1_rx), ...
+            '%s: complex maps must round-trip', name{1});
+    end
+    rmdir(folder, 's');
 end
 
 function tf = issorted_cellstr(names)

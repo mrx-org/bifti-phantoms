@@ -23,7 +23,7 @@ model and [`loader.jl`](src/loader.jl) for how each property resolves to an arra
 | `load_bifti(path; max_substeps=8)` | Load a phantom JSON + its NIfTIs into a `VoxelPhantom(config, tissues)`. `max_substeps` caps the quadrature samples per axis when an oblique `reslice_to` is resampled; raise it when the warning says the result is under-sampled. |
 | `load_bifti(config, base_dir)` | Same, for an already parsed (possibly edited) `BiftiPhantom`. |
 | `VoxelTissue` | One tissue as arrays on one grid: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`/`B1_rx` (one array per channel), plus `affine` and `size(tissue)`. |
-| `save_bifti(dir, phantom)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../../README.md#saving). Returns the JSON path. |
+| `save_bifti(dir, phantom; json_name="phantom.json", constant_threshold=nothing)` | Save a loaded phantom as a self-contained folder (NIfTIs named after the JSON + JSON, no `reslice_to`, no `func`; near-constant maps become constants with `constant_threshold`); see [Saving](../../README.md#saving). Returns the JSON path. |
 | `save_nifti(path, volumes, affine)` | Write 3-D volumes stacked along the 4th dimension as a deterministic NIfTI-1 file. |
 | `read_bifti(path)` / `write_bifti(path, config)` | Parse/serialize just the JSON side (no NIfTI I/O) as a `BiftiPhantom`. |
 | `BiftiPhantom`, `BiftiTissue`, `NiftiRef`, `NiftiMapping`, `PhantomSystem`, `Patient`, `ResliceTo` | The JSON data model; construct them with keywords to build phantoms in code. |

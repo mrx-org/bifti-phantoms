@@ -113,7 +113,23 @@ is_map(::NiftiMapping) = true
 is_map(::Float64) = false
 
 """
-    save_bifti(dir, phantom::VoxelPhantom; json_name="phantom.json") -> String
+    as_constant(volume, threshold) -> Union{Float64,Nothing}
+
+The real constant `volume` can be stored as, or `nothing` if it must stay a map: the real
+part of its mean, if the RMS deviation from it is at most `threshold`. An exactly
+constant real volume gives its value even at threshold 0.
+"""
+function as_constant(volume, threshold)
+    (threshold === nothing || threshold < 0 || isempty(volume)) && return nothing
+    first_value = first(volume)
+    imag(first_value) == 0 && all(==(first_value), volume) && return Float64(real(first_value))
+    value = Float64(real(mean(volume)))
+    deviation = sqrt(mean(x -> abs2(x - value), volume))
+    return deviation <= threshold ? value : nothing
+end
+
+"""
+    save_bifti(dir, phantom::VoxelPhantom; json_name="phantom.json", constant_threshold=nothing) -> String
 
 Save a loaded phantom as a self-contained directory and return the path of its JSON.
 
@@ -122,44 +138,60 @@ and saving it is how it is resliced on disk. The saved phantom has no `reslice_t
 **no `func` mappings**: every mapping was already applied to the resampled data, and its
 reference becomes a plain one.
 
-Layout: one gzip-compressed float64 (or complex) NIfTI per property (`density.nii.gz`,
-`T1.nii.gz`, `B1plus_0.nii.gz`, ...) with the tissues stacked along the 4th dimension in
-order of their sorted names. Properties that are constants in the phantom stay constants
-in the JSON. The output is deterministic: the same phantom always gives the same bytes.
+Layout: one gzip-compressed float64 (or complex) NIfTI per property, named after the
+JSON (`phantom_density.nii.gz`, `phantom_T1.nii.gz`, `phantom_B1plus_0.nii.gz`, ... for
+`phantom.json`) so several phantoms can share a directory, with the tissues stacked along
+the 4th dimension in order of their sorted names. Properties that are constants in the
+phantom stay constants in the JSON. The output is deterministic: the same phantom always
+gives the same bytes.
+
+`constant_threshold` also stores a map as a constant when it is (nearly) one: when its
+RMS deviation from the real part of its mean - its standard deviation, for a real map -
+is at most the threshold, that mean replaces it. `0` collapses exactly constant maps
+only; `nothing` (the default) or a negative value keeps every map. `density` is always a
+map.
 
 !!! warning
     The result can be considerably **larger than the input**. Tissues that referenced the
     same map (with or without different `func`s) each get their own copy of it, unless
     the copies are bit-identical, in which case they share one volume. When reslicing,
     intensive properties are weighted by each tissue's own density, so copies of one
-    source map usually differ between tissues. Data is stored as `Float64` whatever the
-    type of the source NIfTIs.
+    source map usually differ between tissues. Data is stored as `Float64` (or
+    `ComplexF64`) whatever the type of the source NIfTIs.
 """
-function save_bifti(dir::AbstractString, phantom::VoxelPhantom; json_name::AbstractString="phantom.json")
+function save_bifti(dir::AbstractString, phantom::VoxelPhantom; json_name::AbstractString="phantom.json",
+    constant_threshold::Union{Real,Nothing}=nothing)
     mkpath(dir)
+    prefix = first(splitext(basename(json_name)))
     names = sort!(collect(keys(phantom.config.tissues)))
     missing_names = filter(n -> !haskey(phantom.tissues, n), names)
     isempty(missing_names) || throw(ArgumentError("tissues $missing_names are in the config but were not loaded"))
     config_tissue(name) = phantom.config.tissues[name]
 
-    # (tissue name, field, channel) => the NiftiRef the saved phantom uses instead
-    refs = Dict{Tuple{String,Symbol,Int},NiftiRef}()
+    # (tissue name, field, channel) => the NiftiRef or constant the saved phantom uses instead
+    refs = Dict{Tuple{String,Symbol,Int},TissueProperty}()
     for (field, stem, channels) in SAVE_PROPERTIES
         n_channels = channels ? maximum(n -> length(getfield(config_tissue(n), field)), names; init=0) : 1
         for channel in 1:n_channels
-            members = filter(names) do name
+            voxels(name) = (v = getfield(phantom.tissues[name], field); channels ? v[channel] : v)
+            members = String[]
+            for name in names
                 value = getfield(config_tissue(name), field)
-                channels && channel > length(value) && return false
-                is_map(channels ? value[channel] : value)
+                channels && channel > length(value) && continue
+                field === :density || is_map(channels ? value[channel] : value) || continue
+                constant = field === :density ? nothing : as_constant(voxels(name), constant_threshold)
+                if constant === nothing
+                    push!(members, name)
+                else
+                    refs[(name, field, channel)] = constant
+                end
             end
-            field === :density && (members = names)
             isempty(members) && continue
 
-            voxels(name) = (v = getfield(phantom.tissues[name], field); channels ? v[channel] : v)
             affines = unique(phantom.tissues[n].affine for n in members)
             length(affines) == 1 ||
                 throw(ArgumentError("$stem: tissues have different affines, cannot stack them into one NIfTI"))
-            file = channels ? "$(stem)_$(channel - 1).nii.gz" : "$stem.nii.gz"
+            file = channels ? "$(prefix)_$(stem)_$(channel - 1).nii.gz" : "$(prefix)_$stem.nii.gz"
             indices = save_nifti(joinpath(dir, file), [voxels(n) for n in members], only(affines))
             for (name, index) in zip(members, indices)
                 refs[(name, field, channel)] = NiftiRef(file, index)

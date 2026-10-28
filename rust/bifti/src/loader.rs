@@ -5,6 +5,7 @@ use std::{
 };
 
 use nifti::{NiftiObject, NiftiVolume, ReaderStreamedOptions};
+use num_complex::Complex;
 
 use crate::{
     BiftiPhantom, BiftiTissue, NiftiRef, ResliceTo,
@@ -76,10 +77,18 @@ impl Phantom {
     /// and **no `func` mappings**: every mapping was already applied to the resampled data,
     /// and its reference becomes a plain one.
     ///
-    /// Layout: one gzip-compressed NIfTI per property (`density.nii.gz`, `T1.nii.gz`,
-    /// `B1plus_0.nii.gz`, ...) with the tissues stacked along the 4th dimension in order of
-    /// their sorted names. Properties that are constants in the phantom stay constants in
-    /// the JSON. Output is deterministic: the same phantom always gives the same bytes.
+    /// Layout: one gzip-compressed NIfTI per property, named after the JSON
+    /// (`phantom_density.nii.gz`, `phantom_T1.nii.gz`, `phantom_B1plus_0.nii.gz`, ... for
+    /// `phantom.json`) so several phantoms can share a directory, with the tissues stacked
+    /// along the 4th dimension in order of their sorted names. Properties that are
+    /// constants in the phantom stay constants in the JSON. Output is deterministic: the
+    /// same phantom always gives the same bytes.
+    ///
+    /// `constant_threshold` also stores a map as a constant when it is (nearly) one: when
+    /// its RMS deviation from the real part of its mean - its standard deviation, for a
+    /// real map - is at most the threshold, that mean replaces it. `Some(0.0)` collapses
+    /// exactly constant maps only; `None` or a negative value keeps every map. `density`
+    /// is always a map.
     ///
     /// # Size
     ///
@@ -93,12 +102,17 @@ impl Phantom {
         &self,
         out_dir: P,
         json_name: &str,
+        constant_threshold: Option<f64>,
     ) -> Result<PathBuf, crate::Error> {
         let out_dir = out_dir.as_ref();
         std::fs::create_dir_all(out_dir)?;
 
         let mut config = self.config.clone();
         config.reslice_to = None;
+        let prefix = Path::new(json_name)
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_default();
 
         let mut names: Vec<String> = config.tissues.keys().cloned().collect();
         names.sort();
@@ -131,38 +145,50 @@ impl Phantom {
 
         for field in fields {
             // Constants stay in the JSON; only maps get a NIfTI.
-            let members: Vec<&String> = names
-                .iter()
-                .filter(|n| field.is_map(&config.tissues[*n]))
-                .collect();
+            let mut members = Vec::new();
+            let mut volumes = Vec::new();
+            for name in &names {
+                if !field.is_map(&config.tissues[name]) {
+                    continue;
+                }
+                let volume = field.volume(&self.tissues[name]).ok_or_else(|| {
+                    crate::Error::SaveError(format!(
+                        "tissue {name:?} has no loaded {}",
+                        field.stem()
+                    ))
+                })?;
+                let constant = match field {
+                    Field::Density => None,
+                    _ => as_constant(volume, constant_threshold),
+                };
+                if let Some(value) = constant {
+                    let tissue = config
+                        .tissues
+                        .get_mut(name)
+                        .expect("name comes from the config");
+                    field.set(tissue, TissueProperty::Value(value));
+                } else {
+                    members.push(name);
+                    volumes.push(volume);
+                }
+            }
             if members.is_empty() {
                 continue;
             }
-            let volumes = members
-                .iter()
-                .map(|n| {
-                    field.volume(&self.tissues[*n]).ok_or_else(|| {
-                        crate::Error::SaveError(format!(
-                            "tissue {n:?} has no loaded {}",
-                            field.stem()
-                        ))
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
 
-            let file_name = PathBuf::from(format!("{}.nii.gz", field.stem()));
+            let file_name = PathBuf::from(format!("{prefix}_{}.nii.gz", field.stem()));
             let slots = write_stack(&out_dir.join(&file_name), &volumes)?;
             for (name, slot) in members.into_iter().zip(slots) {
                 let tissue = config
                     .tissues
                     .get_mut(name)
                     .expect("name comes from the config");
-                field.set_ref(
+                field.set(
                     tissue,
-                    NiftiRef {
+                    TissueProperty::Ref(NiftiRef {
                         file_name: file_name.clone(),
                         tissue_index: slot,
-                    },
+                    }),
                 );
             }
         }
@@ -239,11 +265,14 @@ impl Field {
         }
     }
 
-    /// Point the tissue's property at `nifti_ref`, replacing any `func` mapping.
-    fn set_ref(self, tissue: &mut BiftiTissue, nifti_ref: NiftiRef) {
+    /// Replace the tissue's property (and any `func` mapping) with `value`.
+    fn set(self, tissue: &mut BiftiTissue, value: TissueProperty) {
         let p = &mut tissue.properties;
         let slot = match self {
             Self::Density => {
+                let TissueProperty::Ref(nifti_ref) = value else {
+                    unreachable!("density is always a map");
+                };
                 tissue.density = nifti_ref;
                 return;
             }
@@ -255,8 +284,32 @@ impl Field {
             Self::B1Tx(k) => &mut p.b1_tx[k],
             Self::B1Rx(k) => &mut p.b1_rx[k],
         };
-        *slot = TissueProperty::Ref(nifti_ref);
+        *slot = value;
     }
+}
+
+/// The real constant `volume` can be stored as, or `None` if it must stay a map.
+///
+/// That is the real part of its mean, if the RMS deviation from it is at most `threshold`.
+/// An exactly constant real volume gives its value even at threshold 0.
+fn as_constant(volume: &Volume, threshold: Option<f64>) -> Option<f64> {
+    let threshold = threshold.filter(|t| *t >= 0.0)?;
+    let values: Vec<Complex<f64>> = match &volume.data {
+        VolumeData::Complex64(items) => items
+            .iter()
+            .map(|x| Complex::new(x.re as f64, x.im as f64))
+            .collect(),
+        VolumeData::Complex128(items) => items.clone(),
+        real => real.to_f64_vec().into_iter().map(Complex::from).collect(),
+    };
+    let first = *values.first()?;
+    if first.im == 0.0 && values.iter().all(|&x| x == first) {
+        return Some(first.re);
+    }
+    let n = values.len() as f64;
+    let value = values.iter().sum::<Complex<f64>>().re / n;
+    let deviation = (values.iter().map(|x| (x - value).norm_sqr()).sum::<f64>() / n).sqrt();
+    (deviation <= threshold).then_some(value)
 }
 
 pub struct Tissue {

@@ -29,7 +29,7 @@ a `Volume`.
 | `Tissue` | One tissue as `Volume`s: `density`, `t1`, `t2`, `t2dash`, `adc`, `db0`, `b1_tx: Vec<Volume>`, `b1_rx: Vec<Volume>`. |
 | `Volume` | `{ affine: [[f64; 4]; 3], shape: [usize; 3], data: VolumeData }`. |
 | `VolumeData` | `Float32(Vec<f32>)` / `Float64(Vec<f64>)` of the volume's voxels, row-major (`x*ny*nz + y*nz + z`). |
-| `phantom.save(dir, json_name)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#saving). Returns the JSON path. |
+| `phantom.save(dir, json_name, constant_threshold)` | Save a loaded phantom as a self-contained folder (NIfTIs named after the JSON + JSON, no `reslice_to`, no `func`; near-constant maps become constants with `Some(threshold)`); see [Saving](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#saving). Returns the JSON path. |
 | `Volume::save_nifti(path)` / `Volume::save_nifti_stack(volumes, path)` | Write one volume, or several stacked along the 4th dimension, as a deterministic NIfTI-1 file. |
 | `BiftiPhantom::load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O). |
 | `Catalog::load()` | Fetch and parse the public [catalog.json](https://github.com/mrx-org/bifti-phantoms/blob/main/catalog.json) — the discovery list, mapping a label to an immutable registry name. |
