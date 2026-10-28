@@ -4,6 +4,15 @@ All notable changes to the `bifti` Python package are documented here. The forma
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.2.1] - 2026-10-28
+
+### Security
+
+- `func` expressions of transformed references are now parsed against the grammar of
+  `JSON.md` and evaluated from the resulting tree instead of being passed to `eval`, so
+  loading an untrusted phantom can no longer execute code. Anything outside the grammar
+  raises `ValueError`.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added

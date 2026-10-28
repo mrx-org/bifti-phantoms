@@ -1,6 +1,6 @@
 [project]
 name = "bifti"
-version = "0.2.0"
+version = "0.2.1"
 description = "Load, save and resample BIfTI MRI simulation phantoms (JSON + NIfTI)"
 readme = "README.md"
 license = "MIT"

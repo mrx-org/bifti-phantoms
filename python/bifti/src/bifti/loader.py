@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -433,31 +434,123 @@ def _load_nifti(
 # ===========================================================================
 
 
+# The grammar is parsed exactly - never `eval`ed - so a phantom file cannot run code:
+#
+#     expr   = term   (("+" | "-") term)*
+#     term   = factor (("*" | "/") factor)*
+#     factor = number | variable | "(" expr ")" | ("+" | "-") factor
+
+FUNC_VARIABLES = ("x", "x_min", "x_max", "x_mean", "x_std")
+FUNC_OPERATORS = {"+": np.add, "-": np.subtract, "*": np.multiply, "/": np.divide}
+FUNC_TOKEN = re.compile(
+    r"\s*(?:(?P<number>(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
+    r"|(?P<name>[A-Za-z_]\w*)|(?P<symbol>[-+*/()]))"
+)
+
+
+def _func_error(func: str, msg: str) -> ValueError:
+    return ValueError(f"Invalid func {func!r}: {msg}")
+
+
+def _tokenize(func: str) -> list[float | str]:
+    """Numbers become floats, variables and symbols stay strings."""
+    tokens: list[float | str] = []
+    pos = 0
+    while func[pos:].strip():
+        m = FUNC_TOKEN.match(func, pos)
+        if m is None:
+            raise _func_error(func, f"unexpected character at position {pos}")
+        if m["number"] is not None:
+            tokens.append(float(m["number"]))
+        elif m["name"] is not None:
+            if m["name"] not in FUNC_VARIABLES:
+                raise _func_error(func, f"unknown variable {m['name']}")
+            tokens.append(m["name"])
+        else:
+            tokens.append(m["symbol"])
+        pos = m.end()
+    return tokens
+
+
+class _FuncParser:
+    def __init__(self, func: str):
+        self.func = func
+        self.tokens = _tokenize(func)
+        self.pos = 0
+
+    def current(self) -> float | str | None:
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else None
+
+    def next(self) -> float | str | None:
+        token = self.current()
+        self.pos += 1
+        return token
+
+    def binary(self, operand, ops: tuple[str, ...]):
+        lhs = operand()
+        while self.current() in ops:
+            op = FUNC_OPERATORS[self.next()]
+            lhs = (op, lhs, operand())
+        return lhs
+
+    def expr(self):
+        return self.binary(self.term, ("+", "-"))
+
+    def term(self):
+        return self.binary(self.factor, ("*", "/"))
+
+    def factor(self):
+        token = self.next()
+        if isinstance(token, float) or token in FUNC_VARIABLES:
+            return token
+        if token == "(":
+            expr = self.expr()
+            if self.next() != ")":
+                raise _func_error(self.func, "expected ')'")
+            return expr
+        if token in ("+", "-"):
+            return (FUNC_OPERATORS[token], 0.0, self.factor())
+        raise _func_error(
+            self.func, "unexpected end" if token is None else f"unexpected {token!r}"
+        )
+
+
+def parse_func(func: str):
+    """Parse a ``func`` expression into a nested ``(operator, lhs, rhs)`` tree of
+    numbers and variable names. Raises ``ValueError`` on anything outside the grammar.
+    """
+    parser = _FuncParser(func)
+    ast = parser.expr()
+    if parser.current() is not None:
+        raise _func_error(func, f"unexpected {parser.current()!r}")
+    return ast
+
+
+def _evaluate(ast, variables: dict):
+    if isinstance(ast, float):
+        return ast
+    if isinstance(ast, str):
+        return variables[ast]
+    op, lhs, rhs = ast
+    return op(_evaluate(lhs, variables), _evaluate(rhs, variables))
+
+
 def eval_expr(func: str, data: np.ndarray) -> np.ndarray:
     """Apply a ``func`` transform to a voxel array.
 
     ``x`` is the per-voxel value; ``x_min``/``x_max``/``x_mean``/``x_std`` are
-    scalar statistics of the whole volume.
-
-    NOTE: ``func`` comes straight from the phantom file and is run with ``eval``
-    here for brevity, so only load phantoms you trust. The spec restricts it to
-    numbers, ``+ - * /``, parentheses and the ``x*`` variables - a hardened
-    implementation should parse exactly that grammar instead.
+    scalar statistics of the whole volume (``x_min``/``x_max`` compare real parts).
     """
-    from warnings import warn
-
-    warn(f"Executing mapping function: '{func}' (possible RCE!)")
-    return eval(
-        func,
-        {"__builtins__": None},
-        {
-            "x": data,
-            "x_min": data.min(),
-            "x_max": data.max(),
-            "x_mean": data.mean(),
-            "x_std": data.std(),
-        },
-    )
+    ast = parse_func(func)
+    variables = {
+        "x": data,
+        "x_min": np.real(data).min(),
+        "x_max": np.real(data).max(),
+        "x_mean": data.mean(),
+        "x_std": data.std(),
+    }
+    # An expression without x is a constant, but the map stays a map.
+    return np.broadcast_to(_evaluate(ast, variables), data.shape).copy()
 
 
 # ===========================================================================
