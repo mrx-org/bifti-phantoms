@@ -1,5 +1,5 @@
 % BIFTI  Read, write and load BIfTI MRI simulation phantoms.
-% Version 0.2.0 28-Oct-2026
+% Version 0.3.0 28-Oct-2026
 %
 % Phantom files
 %   readPhantom          - Parse a phantom JSON (no NIfTI data).

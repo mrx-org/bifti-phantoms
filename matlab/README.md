@@ -40,7 +40,7 @@ documents a function.
 | `bifti.loadPhantom(path)` | Load a phantom JSON + its NIfTIs: a struct with `config` and `tissues`. |
 | `bifti.loadPhantom(config, baseDir)` | Same, for an already parsed (possibly edited) config. |
 | `bifti.loadPhantom(..., 'MaxSubsteps', 16)` | Cap on the quadrature samples per axis when an oblique `reslice_to` is resampled (default 8); raise it when `bifti:obliqueResampleCapped` says the result is under-sampled. |
-| `bifti.savePhantom(dir, phantom)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../README.md#saving). Returns the JSON path. |
+| `bifti.savePhantom(dir, phantom, jsonName, 'ConstantThreshold', t)` | Save a loaded phantom as a self-contained folder (NIfTIs named after the JSON + JSON, no `reslice_to`, no `func`; near-constant maps become constants with `ConstantThreshold`); see [Saving](../README.md#saving). Returns the JSON path. |
 | `bifti.readPhantom(path)` / `bifti.writePhantom(path, config)` | Parse/serialize just the JSON (no NIfTI I/O). |
 | `bifti.niftiFiles(config)` | Every NIfTI file a phantom references. |
 | `bifti.scannerMatrix(position)` | The 3×3 phantom RAS+ → scanner rotation of a patient position ([NIFTI.md](../NIFTI.md#patient-position)). |
