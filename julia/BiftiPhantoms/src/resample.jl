@@ -16,8 +16,6 @@
 # Axis-aligned grids are averaged exactly. Oblique ones fall back to midpoint quadrature,
 # which is approximate, so taking that path is warned about (see `warn_oblique`).
 
-# Substep cap for the oblique fallback. The separable path is exact and needs no cap.
-const MAX_OBLIQUE_SUBSTEPS = 8
 # Relative size below which an entry counts as zero when checking axis alignment. Far
 # below any real obliquity (a 1° rotation already gives ~0.017).
 const AXIS_ALIGNED_TOL = 1e-9
@@ -97,27 +95,25 @@ function oblique_substeps(m::AbstractMatrix, max_substeps)
 end
 
 """
-    warn_oblique(substeps, capped)
+    warn_oblique(substeps, capped, max_substeps)
 
 The oblique path is approximate and nothing in the result says so, so warn - and say when
-the substep cap leaves it under-sampled. Each distinct message is logged once per session
-(like Python's `warnings`), so the tissues of one phantom, which usually share a grid, do
-not repeat it.
+the substep cap leaves it under-sampled.
 """
-function warn_oblique(substeps, capped)
+function warn_oblique(substeps, capped, max_substeps)
     samples = join(substeps, "x")
     message = if capped
         "reslice_to is oblique to the source grid, and its voxels span more source voxels " *
-        "than the $MAX_OBLIQUE_SUBSTEPS substeps the quadrature is capped at: the result " *
-        "($samples samples per voxel) is under-sampled and may alias. Align reslice_to with " *
-        "the source axes for the exact separable average"
+        "than max_substeps=$max_substeps samples: the midpoint quadrature ($samples samples " *
+        "per voxel) is under-sampled and may alias. Raise max_substeps (load_bifti), or " *
+        "align reslice_to with the source axes for the exact separable average"
     else
         "reslice_to is oblique to the source grid, so each output voxel is averaged by " *
         "midpoint quadrature ($samples samples per voxel, one per source voxel spanned) " *
         "instead of the exact separable box average; align reslice_to with the source axes " *
         "for an exact result"
     end
-    @warn message _id = Symbol(message) maxlog = 1
+    @warn message
 end
 
 """Oblique transform: midpoint quadrature over each output voxel's parallelepiped."""
@@ -128,20 +124,21 @@ struct ObliqueResampler <: Resampler
 end
 
 """
-    Resampler(src_affine, src_shape, dst_affine, dst_shape)
+    Resampler(src_affine, src_shape, dst_affine, dst_shape; max_substeps)
 
 Precompute the resampling from one voxel grid onto another. Affines are 3×4 or 4×4
-voxel-to-world matrices with zero-based voxel indices, as in NIfTI.
+voxel-to-world matrices with zero-based voxel indices, as in NIfTI. `max_substeps` caps
+the samples per axis of the oblique quadrature.
 """
-function Resampler(src_affine, src_shape, dst_affine, dst_shape)
+function Resampler(src_affine, src_shape, dst_affine, dst_shape; max_substeps::Integer)
     src_affine, dst_affine = as4x4(src_affine), as4x4(dst_affine)
     Tuple(src_shape) == Tuple(dst_shape) && src_affine ≈ dst_affine && return IdentityResampler()
 
     m = inv(src_affine) * dst_affine # output voxel index → world → source voxel index
     decomposed = decompose_axis_aligned(m)
     if isnothing(decomposed)
-        substeps, capped = oblique_substeps(m, MAX_OBLIQUE_SUBSTEPS)
-        warn_oblique(substeps, capped)
+        substeps, capped = oblique_substeps(m, max_substeps)
+        warn_oblique(substeps, capped, max_substeps)
         return ObliqueResampler(m, substeps, Tuple(dst_shape))
     end
     src_axis, scale, offset = decomposed
