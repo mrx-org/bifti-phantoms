@@ -35,7 +35,8 @@ import numpy as np
 
 from ._backend import Backend, get_backend
 
-# Substep cap for the oblique fallback. The separable path is exact and needs no cap.
+# Default substep cap for the oblique fallback, overridable through the `max_substeps`
+# option of the loaders and `Resampler.build`. The separable path is exact and needs no cap.
 DEFAULT_MAX_SUBSTEPS = 8
 
 # Relative size below which a matrix entry counts as zero when checking axis alignment.
@@ -147,8 +148,8 @@ def _warn_oblique(substeps: tuple[int, int, int], capped: bool, max_substeps: in
             "reslice_to is oblique to the source grid, and its voxels span more source "
             f"voxels than max_substeps={max_substeps} samples: the midpoint quadrature "
             f"({samples} samples per voxel) is under-sampled and may alias. Raise "
-            "max_substeps (Resampler.build), or align the target grid with the source axes "
-            "for the exact separable average"
+            "max_substeps, or align the target grid with the source axes for the exact "
+            "separable average"
         )
     else:
         message = (

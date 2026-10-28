@@ -7,7 +7,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from bifti import NumpyPhantom
+from bifti import BiftiPhantom, NumpyPhantom
+from bifti.phantom import ResliceTo
+from bifti.resample import ObliqueResampleWarning
 
 DATA = Path(__file__).resolve().parent.parent / "examples" / "data"
 
@@ -89,6 +91,26 @@ def test_downsampling_actually_averages(native):
 
     assert interior.mean() == pytest.approx(fine.mean(), rel=0.02)
     assert interior.std() == pytest.approx(fine.std() / np.sqrt(18), rel=0.25)
+
+
+def test_max_substeps_reaches_the_oblique_resampler():
+    """``max_substeps`` is a load option, not a constant buried in the resampler."""
+    config = BiftiPhantom.load(DATA / "shapes.json")
+    c, s = 0.8, 0.6  # 37 degrees about z; 30 mm in-plane voxels span 10 source voxels
+    config.reslice_to = ResliceTo(
+        affine=[[30 * c, -30 * s, 0, -30], [30 * s, 30 * c, 0, -30], [0, 0, 5, -10]],
+        resolution=[3, 3, 4],
+    )
+
+    def oblique_warnings(**kw) -> list[str]:
+        with pytest.warns(ObliqueResampleWarning) as caught:
+            NumpyPhantom.load_from_config(config, DATA, **kw)
+        return [str(w.message) for w in caught if w.category is ObliqueResampleWarning]
+
+    capped = oblique_warnings()
+    assert all("under-sampled" in m and "8x8x1" in m for m in capped)
+    full = oblique_warnings(max_substeps=10)
+    assert all("under-sampled" not in m and "10x10x1" in m for m in full)
 
 
 def test_subj42_loads_with_channels_and_a_mapping():

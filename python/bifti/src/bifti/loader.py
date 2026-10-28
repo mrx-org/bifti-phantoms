@@ -15,7 +15,7 @@ import numpy as np
 import nibabel
 
 from ._nifti_write import write_stack
-from .resample import Resampler, density_weight, warn_grid_mismatch
+from .resample import DEFAULT_MAX_SUBSTEPS, Resampler, density_weight, warn_grid_mismatch
 from .phantom import (
     BiftiPhantom,
     BiftiTissue,
@@ -40,26 +40,39 @@ class NumpyPhantom:
     tissues: dict[str, NumpyTissue]
 
     @classmethod
-    def load(cls, path: Path | str):
+    def load(cls, path: Path | str, *, max_substeps: int = DEFAULT_MAX_SUBSTEPS):
         """Load a complete phantom from its ``phantom.json``.
 
         NIfTI files are resolved relative to the JSON file's directory, matching the
         folder convention in ``../SPEC.md``.
+
+        ``max_substeps`` caps the samples per axis of each output voxel when an oblique
+        ``reslice_to`` falls back to quadrature (see :mod:`bifti.resample`); raise it when
+        the warning says the quadrature is under-sampled. Axis-aligned grids ignore it.
         """
         path = Path(path)
         config = BiftiPhantom.load(Path(path))
-        return cls.load_from_config(config, base_dir=path.parent)
+        return cls.load_from_config(config, base_dir=path.parent, max_substeps=max_substeps)
 
     @classmethod
-    def load_from_config(cls, config: BiftiPhantom, base_dir: Path | str):
+    def load_from_config(
+        cls,
+        config: BiftiPhantom,
+        base_dir: Path | str,
+        *,
+        max_substeps: int = DEFAULT_MAX_SUBSTEPS,
+    ):
         """Load all tissues of an already-parsed config from ``base_dir``.
 
         Useful if you want to tweak the config in memory before loading the data.
+        ``max_substeps`` is as in :meth:`load`.
         """
         return cls(
             config=config,
             tissues={
-                name: load_tissue(tissue, Path(base_dir), config.reslice_to)
+                name: load_tissue(
+                    tissue, Path(base_dir), config.reslice_to, max_substeps=max_substeps
+                )
                 for name, tissue in config.tissues.items()
             },
         )
@@ -260,6 +273,8 @@ def load_tissue(
     tissue: BiftiTissue,
     base_dir: Path | str,
     reslice_to: ResliceTo | None = None,
+    *,
+    max_substeps: int = DEFAULT_MAX_SUBSTEPS,
 ) -> NumpyTissue:
     """Load one tissue, resolving every property to a NumPy array.
 
@@ -282,7 +297,11 @@ def load_tissue(
         reslice_to = ResliceTo(affine=src_affine, resolution=list(src_shape))
 
     resampler = Resampler.build(
-        src_affine, src_shape, reslice_to.affine, reslice_to.resolution
+        src_affine,
+        src_shape,
+        reslice_to.affine,
+        reslice_to.resolution,
+        max_substeps=max_substeps,
     )
 
     # `density` is a volume fraction - extensive - so it is averaged *unweighted*.
@@ -297,7 +316,7 @@ def load_tissue(
     def prop(cfg, name) -> np.ndarray:
         return load_property(
             cfg, base_dir, reslice_to, resampler, weight, weight_sum, src_affine,
-            src_shape, name,
+            src_shape, name, max_substeps,
         )
 
     def channels(cfgs, name) -> np.ndarray:
@@ -328,6 +347,7 @@ def load_property(
     src_affine: list[list[float]],
     src_shape: tuple[int, ...],
     name: str,
+    max_substeps: int = DEFAULT_MAX_SUBSTEPS,
 ) -> np.ndarray:
     """Resolve one "scalar-or-map" property to a 3D array (../JSON.md).
 
@@ -358,7 +378,11 @@ def load_property(
         # file cannot use the density weight, so fall back to an unweighted average.
         warn_grid_mismatch(name)
         other = Resampler.build(
-            native_affine, native.shape, reslice_to.affine, reslice_to.resolution
+            native_affine,
+            native.shape,
+            reslice_to.affine,
+            reslice_to.resolution,
+            max_substeps=max_substeps,
         )
         data = other.resample_plain(native)
 
