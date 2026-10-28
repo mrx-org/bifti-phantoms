@@ -305,7 +305,9 @@ class Resampler:
 
     def resample_plain(self, data: np.ndarray) -> np.ndarray:
         """Unweighted footprint average - the correct rule for ``density``, which is
-        extensive. Accepts ``(X, Y, Z)`` or ``(C, X, Y, Z)``."""
+        extensive. Accepts ``(X, Y, Z)`` or ``(C, X, Y, Z)``, real or complex."""
+        if np.iscomplexobj(data):
+            return _complex_parts(self.resample_plain, data)
         vol, squeeze = _with_channels(data)
         out = self._contract(vol)
         return out[0] if squeeze else out
@@ -319,8 +321,13 @@ class Resampler:
         contraction. ``weight`` is either ``(X, Y, Z)``, shared by every channel (the coil
         channels of a ``B1+``/``B1-`` map share one density), or ``(C, X, Y, Z)``, one per
         channel (the tissues of a 4-D phantom NIfTI each have their own density).
-        ``weight_sum`` is :meth:`weight_sum` of that same ``weight``.
+        ``weight_sum`` is :meth:`weight_sum` of that same ``weight``. Complex data
+        (``B1+``/``B1-``) is averaged in the complex plane.
         """
+        if np.iscomplexobj(data):
+            return _complex_parts(
+                lambda part: self.resample_weighted(part, weight, weight_sum), data
+            )
         vol, squeeze = _with_channels(data)
         w = _channel_weight(weight, self.src_shape, vol.shape[0])
         ws = np.asarray(weight_sum, dtype=np.float64)
@@ -361,6 +368,13 @@ def _trilinear(vol: np.ndarray, coords) -> np.ndarray:
                 clipped = [np.clip(idx[d], 0, shape[d] - 1) for d in range(3)]
                 acc += np.where(inside, w, 0.0) * vol[:, clipped[0], clipped[1], clipped[2]]
     return acc
+
+
+def _complex_parts(resample, data: np.ndarray) -> np.ndarray:
+    """Resample a complex map as its real and imaginary parts: averaging is linear."""
+    out = resample(np.real(data)).astype(np.complex128)
+    out.imag = resample(np.imag(data))
+    return out
 
 
 def _with_channels(data: np.ndarray) -> tuple[np.ndarray, bool]:

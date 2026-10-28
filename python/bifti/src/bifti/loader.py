@@ -78,7 +78,13 @@ class NumpyPhantom:
             },
         )
 
-    def save(self, out_dir: Path | str, json_name: str = "phantom.json") -> Path:
+    def save(
+        self,
+        out_dir: Path | str,
+        json_name: str = "phantom.json",
+        *,
+        constant_threshold: float | None = None,
+    ) -> Path:
         """Save the phantom as a self-contained directory and return the JSON's path.
 
         This writes what :meth:`load` produced, so loading with a ``reslice_to`` and then
@@ -86,11 +92,18 @@ class NumpyPhantom:
         ``reslice_to`` and **no** ``func`` **mappings**: every mapping was already applied
         to the resampled data and its reference becomes a plain one.
 
-        Layout: one gzip-compressed float64 NIfTI per property (``density.nii.gz``,
-        ``T1.nii.gz``, ``B1plus_0.nii.gz``, ...) with the tissues stacked along the 4th
-        dimension in order of their sorted names. Properties that are constants in the
-        phantom stay constants in the JSON. The output is deterministic: the same phantom
-        always gives the same bytes.
+        Layout: one gzip-compressed float64 (complex128 for complex maps) NIfTI per
+        property, named after the JSON (``phantom_density.nii.gz``, ``phantom_T1.nii.gz``,
+        ``phantom_B1plus_0.nii.gz``, ... for ``phantom.json``) so several phantoms can
+        share a directory, with the tissues stacked along the 4th dimension in order of
+        their sorted names. Properties that are constants in the phantom stay constants in
+        the JSON. The output is deterministic: the same phantom always gives the same bytes.
+
+        ``constant_threshold`` also stores a map as a constant when it is (nearly) one:
+        when its RMS deviation from the real part of its mean - its standard deviation,
+        for a real map - is at most the threshold, that mean replaces it. ``0`` collapses
+        exactly constant maps only; ``None`` (the default) or a negative value keeps every
+        map. ``density`` is always a map.
 
         .. warning::
            The result can be considerably **larger than the input**. Tissues that
@@ -98,7 +111,7 @@ class NumpyPhantom:
            copy of it, unless the copies are bit-identical, in which case they share one
            volume. When reslicing, intensive properties are weighted by each tissue's own
            density, so copies of one source map usually differ between tissues. Data is
-           stored as float64 whatever the type of the source NIfTIs.
+           stored as float64 (or complex128) whatever the type of the source NIfTIs.
         """
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -110,6 +123,7 @@ class NumpyPhantom:
         if missing:
             raise ValueError(f"tissues {missing} are in the config but were not loaded")
         config.tissues = {name: config.tissues[name] for name in names}
+        prefix = Path(json_name).stem
 
         for prop in _PROPERTIES:
             n_channels = max(
@@ -117,9 +131,19 @@ class NumpyPhantom:
             )
             for channel in range(n_channels):
                 # Constants stay in the JSON; only maps get a NIfTI.
-                members = [
-                    n for n in names if prop.is_map(config.tissues[n], channel)
-                ]
+                members = []
+                for n in names:
+                    if not prop.is_map(config.tissues[n], channel):
+                        continue
+                    value = None
+                    if prop.attr != "density":
+                        value = _as_constant(
+                            prop.volume(self.tissues[n], channel), constant_threshold
+                        )
+                    if value is None:
+                        members.append(n)
+                    else:
+                        prop.set(config.tissues[n], channel, value)
                 if not members:
                     continue
                 affines = {
@@ -130,16 +154,14 @@ class NumpyPhantom:
                         f"{prop.stem(channel)}: tissues have different affines, "
                         "cannot stack them into one NIfTI"
                     )
-                file_name = Path(f"{prop.stem(channel)}.nii.gz")
+                file_name = Path(f"{prefix}_{prop.stem(channel)}.nii.gz")
                 slots = write_stack(
                     out_dir / file_name,
                     [prop.volume(self.tissues[n], channel) for n in members],
                     self.tissues[members[0]].affine,
                 )
                 for name, slot in zip(members, slots):
-                    prop.set_ref(
-                        config.tissues[name], channel, NiftiRef(file_name, slot)
-                    )
+                    prop.set(config.tissues[name], channel, NiftiRef(file_name, slot))
 
         json_path = out_dir / json_name
         config.save(json_path)
@@ -195,8 +217,8 @@ class NumpyTissue:
     T2dash: np.ndarray  #  (X, Y, Z)            seconds
     ADC: np.ndarray  #     (X, Y, Z)            1e-3 mm^2/s
     dB0: np.ndarray  #     (X, Y, Z)            Hz
-    B1_tx: np.ndarray  #   (channels, X, Y, Z)  relative transmit field
-    B1_rx: np.ndarray  #   (channels, X, Y, Z)  relative receive field
+    B1_tx: np.ndarray  #   (channels, X, Y, Z)  relative transmit field, maybe complex
+    B1_rx: np.ndarray  #   (channels, X, Y, Z)  relative receive field, maybe complex
     resliced: ResliceTo  # Affine + resolution this phantom is resliced to
 
     @property
@@ -246,11 +268,27 @@ class _Property:
         data = getattr(tissue, self.attr)
         return data[channel] if self.channels else data
 
-    def set_ref(self, tissue: BiftiTissue, channel: int, ref: NiftiRef) -> None:
+    def set(self, tissue: BiftiTissue, channel: int, value: NiftiRef | float) -> None:
         if self.channels:
-            getattr(tissue, self.attr)[channel] = ref
+            getattr(tissue, self.attr)[channel] = value
         else:
-            setattr(tissue, self.attr, ref)
+            setattr(tissue, self.attr, value)
+
+
+def _as_constant(volume: np.ndarray, threshold: float | None) -> float | None:
+    """The real constant ``volume`` can be stored as, or ``None`` if it must stay a map.
+
+    That is the real part of its mean, if the RMS deviation from it is at most
+    ``threshold``. An exactly constant real volume gives its value even at threshold 0.
+    """
+    if threshold is None or threshold < 0 or volume.size == 0:
+        return None
+    first = volume.flat[0]
+    if np.imag(first) == 0 and np.all(volume == first):
+        return float(np.real(first))
+    value = float(np.real(volume.mean()))
+    deviation = np.sqrt(np.mean(np.abs(volume - value) ** 2))
+    return value if deviation <= threshold else None
 
 
 _PROPERTIES = (
@@ -292,6 +330,7 @@ def load_tissue(
     # The density map defines the source grid *and* supplies the resampling weight, so it
     # is loaded natively first and resampled separately from everything else.
     density_src, src_affine = load_file_ref_noreslice(base_dir, tissue.density)
+    _real_valued(density_src, "density")
     src_shape = tuple(density_src.shape)
 
     if reslice_to is None:
@@ -327,11 +366,11 @@ def load_tissue(
 
     return NumpyTissue(
         density=density,
-        T1=prop(tissue.T1, "T1"),
-        T2=prop(tissue.T2, "T2"),
-        T2dash=prop(tissue.T2dash, "T2'"),
-        ADC=prop(tissue.ADC, "ADC"),
-        dB0=prop(tissue.dB0, "dB0"),
+        T1=_real_valued(prop(tissue.T1, "T1"), "T1"),
+        T2=_real_valued(prop(tissue.T2, "T2"), "T2"),
+        T2dash=_real_valued(prop(tissue.T2dash, "T2'"), "T2'"),
+        ADC=_real_valued(prop(tissue.ADC, "ADC"), "ADC"),
+        dB0=_real_valued(prop(tissue.dB0, "dB0"), "dB0"),
         B1_tx=channels(tissue.B1_tx, "B1+"),
         B1_rx=channels(tissue.B1_rx, "B1-"),
         resliced=reslice_to,
@@ -410,6 +449,12 @@ def load_file_ref_noreslice(
     return data[:, :, :, ref.tissue_index], affine
 
 
+def _real_valued(data: np.ndarray, name: str) -> np.ndarray:
+    if np.iscomplexobj(data):
+        raise ValueError(f"{name} must be real-valued, got {data.dtype} data")
+    return data
+
+
 # Avoid re-loading NIfTIs for every tissue by caching the native (unresampled) file.
 # Resampling can no longer be cached per file: it depends on the *tissue's* density map,
 # which generally lives in a different file. Caching the raw load instead is if anything a
@@ -424,7 +469,8 @@ def _load_nifti(
     assert isinstance(img, nibabel.Nifti1Image)
     assert len(img.shape) == 4
 
-    data = np.asarray(img.dataobj, dtype=np.float64)
+    data = np.asarray(img.dataobj)
+    data = data.astype(np.complex128 if np.iscomplexobj(data) else np.float64, copy=False)
     sform = img.get_sform()  # full 4x4 voxel-to-world (RAS+, mm); see ../NIFTI.md
     return data, sform[:3].tolist()
 

@@ -26,7 +26,7 @@ bifti import ...`):
 |------|------------|
 | `NumpyPhantom.load(path, *, max_substeps=8)` | Load a phantom JSON + its NIfTIs into `NumpyPhantom(config, tissues)`. `max_substeps` caps the quadrature samples per axis when an oblique `reslice_to` is resampled; raise it when the `ObliqueResampleWarning` says the result is under-sampled. |
 | `NumpyTissue` | One tissue as NumPy arrays: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`, `B1_rx`, plus `.shape`/`.affine`. |
-| `NumpyPhantom.save(dir, json_name="phantom.json")` | Save a loaded phantom as a self-contained folder (float64 NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#saving). Returns the JSON path. |
+| `NumpyPhantom.save(dir, json_name="phantom.json", *, constant_threshold=None)` | Save a loaded phantom as a self-contained folder (float64 / complex128 NIfTIs named after the JSON + JSON, no `reslice_to`, no `func`; near-constant maps become constants with `constant_threshold`); see [Saving](https://github.com/mrx-org/bifti-phantoms/blob/main/README.md#saving). Returns the JSON path. |
 | `BiftiPhantom.load(path)` / `.save(path)` | Parse/serialize just the JSON side (no NIfTI I/O) — `BiftiPhantom(units, system, tissues, reslice_to, schema)`. |
 | `load_catalog()` | Fetch and parse the public [catalog.json](https://github.com/mrx-org/bifti-phantoms/blob/main/catalog.json) — the discovery list, mapping a label to an immutable registry name. |
 | `load_registry()` | Fetch and parse the public [registry.json](https://github.com/mrx-org/bifti-phantoms/blob/main/registry.json) — the immutable archive of every collection. |
