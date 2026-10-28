@@ -168,12 +168,12 @@ The implementations currently have some discrepancies:
 |---|---|---|---|---|
 | Loaded representation | `NumpyPhantom.tissues: dict[str, NumpyTissue]` — NumPy arrays | `Phantom.tissues: HashMap<String, Tissue>` - `Volume`s (affine + shape + `VolumeData`) | `VoxelPhantom.tissues: OrderedDict{String, VoxelTissue}` — `Array`s | `phantom.tissues` struct array of 3-D arrays (`bifti.loadPhantom`) |
 | Grid without `reslice_to` | Every map is brought onto the density map's grid | Every map keeps its own native grid | Every map is brought onto the density map's grid | Every map is brought onto the density map's grid |
-| Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | **Silently drops the imaginary part:** `nibabel`'s data is cast with `np.asarray(..., dtype=np.float64)` | Loaded and resliced as complex | `B1+`/`B1-` loaded and resliced as `ComplexF64`; an error for other properties | `B1+`/`B1-` loaded and resliced as complex; an error for other properties |
+| Complex-valued NIfTI data (e.g. complex `B1+`/`B1-`) | `B1+`/`B1-` loaded and resliced as `complex128`; an error for other properties | Loaded and resliced as complex | `B1+`/`B1-` loaded and resliced as `ComplexF64`; an error for other properties | `B1+`/`B1-` loaded and resliced as complex; an error for other properties |
 | Reslicing (`reslice_to`) | Shared approach: density-weighted footprint averaging (see below). Uses `torch` when installed, NumPy otherwise | Same approach, own implementation; all NIfTI data types including complex | Same approach, own implementation; matches Python to floating-point precision | Same approach, own implementation; matches Python to floating-point precision |
 | `func` evaluation | Parsed with the spec grammar | Parsed with the spec grammar | Parsed with the spec grammar | Parsed with the spec grammar |
 | Catalog / registry access | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` | `Catalog::load()`, `Registry::load()`, `registry.load_registry_phantom(collection, name, cache_dir)` | `load_catalog()`, `load_registry()`, `load_registry_phantom(collection, name)` (cached in a scratch space) | `bifti.loadCatalog()`, `bifti.loadRegistry()`, `bifti.loadRegistryPhantom(collection, name)` (cached in `~/.cache/bifti`) |
 | Unknown fields | Warned about at every level (phantom, `system`, `patient`, `reslice_to`, tissue, transformed reference), then dropped | Warned about for the phantom and its tissues; kept in `unknown` so `save` round-trips them | Warned about at every level; kept for the phantom and its tissues so `write_bifti` round-trips them | Warned about at every level; kept for the phantom and its tissues so `bifti.writePhantom` round-trips them |
-| Saving (`load` → `save`) | `NumpyPhantom.save(dir)` — float64 NIfTIs | `Phantom::save(dir, json_name)` — NIfTIs keep their element type (mixed types in one file are promoted) | `save_bifti(dir, phantom)` — float64 / complex NIfTIs | `bifti.savePhantom(dir, phantom)` — double / complex NIfTIs |
+| Saving (`load` → `save`) | `NumpyPhantom.save(dir)` — float64 / complex128 NIfTIs | `Phantom::save(dir, json_name)` — NIfTIs keep their element type (mixed types in one file are promoted) | `save_bifti(dir, phantom)` — float64 / complex NIfTIs | `bifti.savePhantom(dir, phantom)` — double / complex NIfTIs |
 | Examples | 4 runnable scripts: plotting, KomaMRI export, MR-zero simulation, legacy-phantom conversion (see [python/bifti/README.md](python/bifti/README.md#examples)) | 1 runnable example: random registry download with `tracing` instrumentation (see [rust/bifti/README.md](rust/bifti/README.md#examples)) | Usage snippets in [julia/BiftiPhantoms/README.md](julia/BiftiPhantoms/README.md) | Usage snippets in [matlab/README.md](matlab/README.md) |
 | Optional instrumentation | - | `tracing` feature (spans for downloading, NIfTI loading, `func` evaluation) | - | - |
 
@@ -209,10 +209,20 @@ exported.
 
 The saved phantom is self-contained and **never has a `reslice_to` or a `func`**:
 mappings are applied to the resampled data before it is written and become plain
-references. It has one NIfTI per property (`density.nii.gz`, `T1.nii.gz`,
-`B1plus_0.nii.gz`, ...), with the tissues stacked along the 4th dimension in order of
-their sorted names, as [NIFTI.md](NIFTI.md) describes. Constants stay constants in
-the JSON, and tissues whose maps are bit-identical share one volume.
+references. It has one NIfTI per property, prefixed with the name of the JSON file
+(`phantom_density.nii.gz`, `phantom_T1.nii.gz`, `phantom_B1plus_0.nii.gz`, ... for
+`phantom.json`) so several phantoms can be saved into one folder, with the tissues
+stacked along the 4th dimension in order of their sorted names, as
+[NIFTI.md](NIFTI.md) describes. Constants stay constants in the JSON, and tissues whose
+maps are bit-identical share one volume. Complex maps (`B1+`/`B1-`) are saved as complex
+NIfTIs.
+
+Every implementation's save takes an optional constant threshold (`constant_threshold`;
+`ConstantThreshold` in MATLAB), off by default. With it, a map that is (nearly) constant
+is stored as a number in the JSON instead of a NIfTI: when its RMS deviation from the
+real part of its mean (its standard deviation, for a real map) is at most the threshold,
+it is replaced by that mean. `0` collapses only exactly constant maps; a negative value
+disables it as well. `density` always stays a map.
 
 The output is deterministic: the NIfTI-1 headers are fixed (sform only, little-endian,
 no extensions), gzip headers carry no timestamp or file name, and the JSON does not
