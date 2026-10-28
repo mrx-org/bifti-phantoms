@@ -9,14 +9,16 @@ format's `v*` tags:
 | Python `bifti` | [PyPI](https://pypi.org/project/bifti/) | `python-v<version>` | pushing the tag |
 | Rust `bifti` | [crates.io](https://crates.io/crates/bifti) | `rust-v<version>` | pushing the tag |
 | Julia `BiftiPhantoms` | [General registry](https://juliahub.com/ui/Packages/General/BiftiPhantoms) | `BiftiPhantoms-v<version>` | a `@JuliaRegistrator` comment; see [its README](julia/BiftiPhantoms/README.md#releasing) |
-| MATLAB / Octave | not published | - | - |
+| MATLAB / Octave | not published; version in [`Contents.m`](matlab/+bifti/Contents.m), changes in [`CHANGELOG.md`](matlab/CHANGELOG.md) | - | - |
 
 ## Python and Rust
 
 1. Bump `version` in [`python/bifti/pyproject.toml`](python/bifti/pyproject.toml) or
    [`rust/bifti/Cargo.toml`](rust/bifti/Cargo.toml) (semver; while `0.x`, a minor
-   bump marks a breaking change). For Python, run `uv lock` so `uv.lock` picks up the
-   new version. Merge to `main` with the Test workflow green.
+   bump marks a breaking change) and add its section to the package's `CHANGELOG.md`
+   ([Python](python/bifti/CHANGELOG.md), [Rust](rust/bifti/CHANGELOG.md)). For Python,
+   run `uv lock` so `uv.lock` picks up the new version. Merge to `main` with the Test
+   workflow green.
 2. Tag that commit on `main` and push the tag:
    ```sh
    git tag python-v1.0.1   # or rust-v0.1.1
