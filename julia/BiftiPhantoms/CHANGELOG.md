@@ -4,6 +4,21 @@ All notable changes to BiftiPhantoms.jl are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.3.0] - 2026-10-28
+
+### Added
+
+- `save_bifti(...; constant_threshold=...)`: store a map as a constant when its RMS
+  deviation from the real part of its mean (its standard deviation, for a real map) is at
+  most the threshold. `nothing` (the default) or a negative value disables it; `density`
+  always stays a map.
+
+### Changed
+
+- **Breaking:** `save_bifti` prefixes every NIfTI with the name of the JSON file
+  (`phantom_density.nii.gz`, `phantom_B1plus_0.nii.gz`, ... for `phantom.json`), so several
+  phantoms can be saved into one directory without overwriting each other's maps.
+
 ## [0.2.1] - 2026-10-28
 
 ### Added

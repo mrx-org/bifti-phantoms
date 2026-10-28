@@ -1,4 +1,5 @@
 using NIfTI: niread
+using Statistics: mean, std
 
 function same_maps(a, b)
     # a constant stays a constant, so it may reload as a single voxel
@@ -35,7 +36,7 @@ read_dir(dir) = Dict(f => read(joinpath(dir, f)) for f in readdir(dir))
         mktempdir() do dir
             saved = read_bifti(save_bifti(dir, load_example("shapes")))
             @test saved.tissues["disk"].T1 == 1.0
-            @test !isfile(joinpath(dir, "T1.nii.gz"))
+            @test !isfile(joinpath(dir, "phantom_T1.nii.gz"))
         end
     end
 
@@ -43,7 +44,7 @@ read_dir(dir) = Dict(f => read(joinpath(dir, f)) for f in readdir(dir))
         original = load_example("shapes")
         mktempdir() do dir
             save_bifti(dir, original)
-            volume = niread(joinpath(dir, "density.nii.gz"))
+            volume = niread(joinpath(dir, "phantom_density.nii.gz"))
             @test size(volume.raw) == (40, 32, 4, 3)
             @test volume.header.sform_code == 2 && volume.header.qform_code == 0
             # tissues are stacked in sorted-name order: background, disk, ring
@@ -62,7 +63,7 @@ read_dir(dir) = Dict(f => read(joinpath(dir, f)) for f in readdir(dir))
                 save_bifti(a, original)
                 save_bifti(b, reversed)
                 @test read_dir(a) == read_dir(b)
-                header = read(joinpath(a, "density.nii.gz"), 10)
+                header = read(joinpath(a, "phantom_density.nii.gz"), 10)
                 @test header[1:2] == [0x1f, 0x8b]
                 @test header[4] == 0              # no file name
                 @test all(==(0), header[5:8])     # no mtime
@@ -79,7 +80,66 @@ read_dir(dir) = Dict(f => read(joinpath(dir, f)) for f in readdir(dir))
             saved = read_bifti(save_bifti(dir, phantom))
             @test saved.tissues["ring"].dB0 == saved.tissues["ring2"].dB0
             @test saved.tissues["ring"].density == saved.tissues["ring2"].density
-            @test size(niread(joinpath(dir, "dB0.nii.gz")).raw, 4) == 2  # disk + ring, not 3
+            @test size(niread(joinpath(dir, "phantom_dB0.nii.gz")).raw, 4) == 2  # disk + ring, not 3
+        end
+    end
+
+    @testset "file names are prefixed with the phantom name" begin
+        mktempdir() do dir
+            save_bifti(dir, load_example("shapes"); json_name="a.json")
+            save_bifti(dir, load_example("subj42-3T"); json_name="b.json")
+            for (name, prefix) in (("shapes", "a"), ("subj42-3T", "b"))
+                json = joinpath(dir, "$prefix.json")
+                @test all(t -> startswith(t.density.file, "$(prefix)_"), values(read_bifti(json).tissues))
+                @test same_phantoms(load_example(name), load_bifti(json))
+            end
+        end
+    end
+
+    @testset "constant threshold" begin
+        phantom = load_example("shapes")
+        disk = phantom.tissues["disk"]
+        disk.dB0 .= 3.0
+        disk.dB0[1] += 1e-3
+        disk.B1_tx[2] .= 1.0  # exactly constant
+        σ = std(disk.dB0; corrected=false)
+        save(threshold) = mktempdir() do dir
+            saved = read_bifti(save_bifti(dir, phantom; constant_threshold=threshold)).tissues["disk"]
+            (saved, isfile(joinpath(dir, "phantom_B1plus_1.nii.gz")))
+        end
+
+        saved, _ = save(nothing)
+        @test saved.dB0 isa NiftiRef && saved.B1_tx[2] isa NiftiRef
+        saved, _ = save(0)
+        @test saved.dB0 isa NiftiRef && saved.B1_tx[2] == 1.0
+        saved, b1_file = save(2σ)
+        @test saved.dB0 ≈ mean(disk.dB0) && saved.B1_tx[2] == 1.0 && !b1_file
+        @test saved.density isa NiftiRef
+        saved, _ = save(-1)
+        @test saved.B1_tx[2] isa NiftiRef
+    end
+
+    @testset "complex maps round trip: $name" for name in ("shapes", "shapes_resliced")
+        mktempdir() do dir
+            grid = load_example("shapes").tissues["disk"]
+            phase = [3x / size(grid.density, 1) for x in 1:size(grid.density, 1), _ in 1:size(grid.density, 2), _ in 1:size(grid.density, 3)]
+            b1 = joinpath(dir, "b1.nii.gz")
+            save_nifti(b1, [ComplexF32.(cis.(phase)), ComplexF32.(cis.(-2phase))], grid.affine)
+
+            config = read_bifti(joinpath(DATA, "$name.json"))
+            disk = config.tissues["disk"]
+            empty!(disk.B1_tx)
+            push!(disk.B1_tx, NiftiRef(b1, 0), 1.0)
+            empty!(disk.B1_rx)
+            push!(disk.B1_rx, NiftiMapping(NiftiRef(b1, 1), "x * 2"))
+            phantom = load_bifti(config, DATA)
+            loaded = phantom.tissues["disk"]
+            @test eltype(loaded.B1_tx[1]) <: Complex && maximum(abs ∘ imag, loaded.B1_tx[1]) > 0.5
+            name == "shapes" && @test isapprox(loaded.B1_rx[1], 2cis.(-2phase); atol=1e-5)
+
+            json = save_bifti(joinpath(dir, "out"), phantom)
+            @test eltype(niread(joinpath(dir, "out", "phantom_B1plus_0.nii.gz")).raw) == ComplexF64
+            @test same_phantoms(phantom, load_bifti(json))
         end
     end
 end
