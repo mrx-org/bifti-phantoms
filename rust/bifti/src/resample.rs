@@ -158,7 +158,7 @@ fn warn_oblique([sx, sy, sz]: [usize; 3], capped: bool, max_substeps: usize) {
             "reslice_to is oblique to the source grid, and its voxels span more source voxels \
              than max_substeps={max_substeps} samples: the midpoint quadrature ({sx}x{sy}x{sz} \
              samples per voxel) is under-sampled and may alias. Raise max_substeps \
-             (LoadOptions), or align reslice_to with the source axes for the exact separable \
+             (Phantom::load), or align reslice_to with the source axes for the exact separable \
              average"
         )
     } else {

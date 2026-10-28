@@ -69,9 +69,9 @@ disp(mean(gm.T1(:)))
 <summary>Rust</summary>
 
 ```rust
-use bifti::{Phantom, VolumeData};
+use bifti::{DEFAULT_MAX_SUBSTEPS, Phantom, VolumeData};
 
-let phantom = Phantom::load("subj42.json")?;
+let phantom = Phantom::load("subj42.json", DEFAULT_MAX_SUBSTEPS)?;
 let tissue = &phantom.tissues["gm"];
 if let VolumeData::Float64(t1) = &tissue.t1.data {
     println!("{:?} {}", tissue.density.shape, t1.iter().sum::<f64>() / t1.len() as f64);
@@ -197,7 +197,7 @@ and axes that are not being downsampled keep plain linear interpolation. The
 quadrature is approximate, so an oblique `reslice_to` always warns, and says so
 when the output voxels span more source voxels than the quadrature samples and the
 result may alias. Every load function takes a `max_substeps` option (default 8 per
-axis; `MaxSubsteps` in MATLAB, `LoadOptions` in Rust) to raise that cap. Aligning
+axis; `MaxSubsteps` in MATLAB) to raise that cap. Aligning
 `reslice_to` with the source axes gives the exact result.
 
 ### Saving

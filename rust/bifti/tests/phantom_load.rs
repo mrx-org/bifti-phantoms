@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use bifti::{BiftiPhantom, LoadOptions, Phantom, ResliceTo, VolumeData};
+use bifti::{BiftiPhantom, DEFAULT_MAX_SUBSTEPS, Phantom, ResliceTo, VolumeData};
 
 fn data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../python/bifti/examples/data")
@@ -20,7 +20,8 @@ fn as_f64(data: &VolumeData) -> Vec<f64> {
 
 #[test]
 fn loads_the_native_shapes_phantom() {
-    let phantom = Phantom::load(data_dir().join("shapes.json")).expect("load shapes.json");
+    let phantom = Phantom::load(data_dir().join("shapes.json"), DEFAULT_MAX_SUBSTEPS)
+        .expect("load shapes.json");
     assert!(!phantom.tissues.is_empty());
     for tissue in phantom.tissues.values() {
         assert_eq!(tissue.density.shape, [40, 32, 4]);
@@ -30,8 +31,11 @@ fn loads_the_native_shapes_phantom() {
 
 #[test]
 fn loads_the_resliced_shapes_phantom_onto_the_target_grid() {
-    let phantom =
-        Phantom::load(data_dir().join("shapes_resliced.json")).expect("load shapes_resliced.json");
+    let phantom = Phantom::load(
+        data_dir().join("shapes_resliced.json"),
+        DEFAULT_MAX_SUBSTEPS,
+    )
+    .expect("load shapes_resliced.json");
     for (name, tissue) in &phantom.tissues {
         assert_eq!(tissue.density.shape, [60, 48, 4], "{name} density");
         assert_eq!(tissue.t1.shape, [60, 48, 4], "{name} T1");
@@ -50,9 +54,13 @@ fn loads_the_resliced_shapes_phantom_onto_the_target_grid() {
 /// exactly that at every tissue and FOV edge.
 #[test]
 fn resampling_keeps_t1_within_the_source_range() {
-    let native = Phantom::load(data_dir().join("shapes.json")).expect("load shapes.json");
-    let resliced =
-        Phantom::load(data_dir().join("shapes_resliced.json")).expect("load shapes_resliced.json");
+    let native = Phantom::load(data_dir().join("shapes.json"), DEFAULT_MAX_SUBSTEPS)
+        .expect("load shapes.json");
+    let resliced = Phantom::load(
+        data_dir().join("shapes_resliced.json"),
+        DEFAULT_MAX_SUBSTEPS,
+    )
+    .expect("load shapes_resliced.json");
 
     for (name, tissue) in &resliced.tissues {
         let src = as_f64(&native.tissues[name].t1.data);
@@ -83,8 +91,7 @@ fn max_substeps_controls_the_oblique_quadrature() {
         resolution: [3, 3, 4],
     });
     let density = |max_substeps| {
-        let options = LoadOptions { max_substeps };
-        let phantom = Phantom::load_from_config_with(config.clone(), data_dir(), options).unwrap();
+        let phantom = Phantom::load_from_config(config.clone(), data_dir(), max_substeps).unwrap();
         let mut names: Vec<_> = phantom.tissues.keys().cloned().collect();
         names.sort();
         names
@@ -115,7 +122,8 @@ fn max_substeps_controls_the_oblique_quadrature() {
 /// The 100x100 single-slice phantom also carries 8 `B1+` channels and a `func` mapping.
 #[test]
 fn loads_the_subj42_phantom_with_channels_and_a_mapping() {
-    let phantom = Phantom::load(data_dir().join("subj42-3T.json")).expect("load subj42-3T.json");
+    let phantom = Phantom::load(data_dir().join("subj42-3T.json"), DEFAULT_MAX_SUBSTEPS)
+        .expect("load subj42-3T.json");
     for (name, tissue) in &phantom.tissues {
         assert_eq!(tissue.density.shape, [100, 100, 1], "{name}");
         // Channel counts differ per tissue (only `gm` is multi-channel here); every

@@ -1,4 +1,4 @@
-use bifti::{Catalog, Phantom, Registry};
+use bifti::{Catalog, DEFAULT_MAX_SUBSTEPS, Phantom, Registry};
 use rand::seq::IndexedRandom;
 use tracing_chrome::ChromeLayerBuilder;
 use tracing_subscriber::{EnvFilter, prelude::*};
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let json_path = registry.load_registry_phantom(collection, phantom_name, cache_dir)?;
 
     println!("loading {}...", json_path.display());
-    let phantom = Phantom::load(&json_path)?;
+    let phantom = Phantom::load(&json_path, DEFAULT_MAX_SUBSTEPS)?;
 
     println!("loaded phantom with {} tissue(s):", phantom.tissues.len());
     for name in phantom.tissues.keys() {

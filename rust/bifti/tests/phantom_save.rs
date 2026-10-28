@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use bifti::{BiftiPhantom, Phantom, TissueProperty, Volume, VolumeData};
+use bifti::{BiftiPhantom, DEFAULT_MAX_SUBSTEPS, Phantom, TissueProperty, Volume, VolumeData};
 
 fn data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../python/bifti/examples/data")
@@ -79,7 +79,7 @@ fn files_in(dir: &Path) -> Vec<(String, Vec<u8>)> {
 
 #[test]
 fn round_trips_a_native_phantom_with_a_mapping() {
-    let original = Phantom::load(data_dir().join("shapes.json")).unwrap();
+    let original = Phantom::load(data_dir().join("shapes.json"), DEFAULT_MAX_SUBSTEPS).unwrap();
     let dir = out_dir("native");
     let json = original.save(&dir, "phantom.json").unwrap();
     assert_eq!(json, dir.join("phantom.json"));
@@ -93,18 +93,25 @@ fn round_trips_a_native_phantom_with_a_mapping() {
     // constants stay constants
     assert!(matches!(saved.tissues["disk"].properties.t1, TissueProperty::Value(v) if v == 1.0));
 
-    assert_same_phantom(&original, &Phantom::load(&json).unwrap());
+    assert_same_phantom(
+        &original,
+        &Phantom::load(&json, DEFAULT_MAX_SUBSTEPS).unwrap(),
+    );
 }
 
 #[test]
 fn resliced_save_is_native_on_the_target_grid() {
-    let original = Phantom::load(data_dir().join("shapes_resliced.json")).unwrap();
+    let original = Phantom::load(
+        data_dir().join("shapes_resliced.json"),
+        DEFAULT_MAX_SUBSTEPS,
+    )
+    .unwrap();
     let dir = out_dir("resliced");
     let json = original.save(&dir, "phantom.json").unwrap();
 
     let saved = BiftiPhantom::load(&json).unwrap();
     assert!(saved.reslice_to.is_none());
-    let reloaded = Phantom::load(&json).unwrap();
+    let reloaded = Phantom::load(&json, DEFAULT_MAX_SUBSTEPS).unwrap();
     for tissue in reloaded.tissues.values() {
         assert_eq!(tissue.density.shape, [60, 48, 4]);
     }
@@ -113,22 +120,32 @@ fn resliced_save_is_native_on_the_target_grid() {
 
 #[test]
 fn round_trips_channels_and_a_mapping_of_the_subj42_phantom() {
-    let original = Phantom::load(data_dir().join("subj42-3T.json")).unwrap();
+    let original = Phantom::load(data_dir().join("subj42-3T.json"), DEFAULT_MAX_SUBSTEPS).unwrap();
     let dir = out_dir("subj42");
     let json = original.save(&dir, "phantom.json").unwrap();
-    assert_same_phantom(&original, &Phantom::load(&json).unwrap());
+    assert_same_phantom(
+        &original,
+        &Phantom::load(&json, DEFAULT_MAX_SUBSTEPS).unwrap(),
+    );
 }
 
 #[test]
 fn output_is_deterministic() {
-    let phantom = Phantom::load(data_dir().join("shapes_resliced.json")).unwrap();
+    let phantom = Phantom::load(
+        data_dir().join("shapes_resliced.json"),
+        DEFAULT_MAX_SUBSTEPS,
+    )
+    .unwrap();
     let (a, b) = (out_dir("det_a"), out_dir("det_b"));
     phantom.save(&a, "phantom.json").unwrap();
     // load again so the HashMap iteration order may differ
-    Phantom::load(data_dir().join("shapes_resliced.json"))
-        .unwrap()
-        .save(&b, "phantom.json")
-        .unwrap();
+    Phantom::load(
+        data_dir().join("shapes_resliced.json"),
+        DEFAULT_MAX_SUBSTEPS,
+    )
+    .unwrap()
+    .save(&b, "phantom.json")
+    .unwrap();
     assert_eq!(files_in(&a), files_in(&b));
 
     // gzip header: no mtime, no name flag, OS unknown
@@ -145,7 +162,7 @@ fn identical_maps_share_one_volume() {
     let mut config = BiftiPhantom::load(data_dir().join("shapes.json")).unwrap();
     let ring = config.tissues["ring"].clone();
     config.tissues.insert("ring2".into(), ring);
-    let phantom = Phantom::load_from_config(config, data_dir()).unwrap();
+    let phantom = Phantom::load_from_config(config, data_dir(), DEFAULT_MAX_SUBSTEPS).unwrap();
 
     let dir = out_dir("dedup");
     let json = phantom.save(&dir, "phantom.json").unwrap();
