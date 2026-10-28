@@ -4,6 +4,19 @@ All notable changes to the `bifti` Rust crate are documented here. The format fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the crate uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.3.0] - 2026-10-28
+
+### Changed
+
+- **Breaking:** `Phantom::save(out_dir, json_name, constant_threshold)` takes an
+  `Option<f64>`: with `Some(threshold)`, a map is stored as a constant when its RMS
+  deviation from the real part of its mean (its standard deviation, for a real map) is at
+  most the threshold. `None` or a negative value keeps the old behaviour; `density` always
+  stays a map.
+- **Breaking:** `Phantom::save` prefixes every NIfTI with the name of the JSON file
+  (`phantom_density.nii.gz`, `phantom_B1plus_0.nii.gz`, ... for `phantom.json`), so several
+  phantoms can be saved into one directory without overwriting each other's maps.
+
 ## [0.2.0] - 2026-10-28
 
 ### Changed
