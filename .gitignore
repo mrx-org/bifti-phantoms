@@ -15,4 +15,4 @@ brainweb/
 *.tar
 **/output
 # Julia packages do not commit their resolved environment
-julia/Bifti/Manifest.toml
+julia/BiftiPhantoms/Manifest.toml
