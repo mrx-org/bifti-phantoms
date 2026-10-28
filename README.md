@@ -195,9 +195,10 @@ For axis-aligned grids the average is computed exactly, as a true box average.
 Oblique transforms fall back to quadrature over the output voxel's parallelepiped,
 and axes that are not being downsampled keep plain linear interpolation. The
 quadrature is approximate, so an oblique `reslice_to` always warns, and says so
-when the output voxels span more source voxels than the quadrature samples (the
-cap is 8 per axis) and the result may alias. Aligning `reslice_to` with the source
-axes gives the exact result.
+when the output voxels span more source voxels than the quadrature samples and the
+result may alias. Every load function takes a `max_substeps` option (default 8 per
+axis; `MaxSubsteps` in MATLAB, `LoadOptions` in Rust) to raise that cap. Aligning
+`reslice_to` with the source axes gives the exact result.
 
 ### Saving
 
