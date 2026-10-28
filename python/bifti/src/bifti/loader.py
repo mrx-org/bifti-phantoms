@@ -347,7 +347,7 @@ def load_property(
     src_affine: list[list[float]],
     src_shape: tuple[int, ...],
     name: str,
-    max_substeps: int = DEFAULT_MAX_SUBSTEPS,
+    max_substeps: int,
 ) -> np.ndarray:
     """Resolve one "scalar-or-map" property to a 3D array (../JSON.md).
 
