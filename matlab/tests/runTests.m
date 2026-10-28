@@ -31,6 +31,7 @@ function runTests()
         @downsamplingConservesTheTissueAmount
         @downsamplingAveragesInsteadOfPointSampling
         @multiChannelB1AndFuncOnAReslicedGrid
+        @maxSubstepsControlsTheObliqueQuadrature
         @scannerAffineFollowsThePatientPosition
         @loadPhantomAcceptsStringsAndAParsedConfig
         @savedPhantomsReloadToTheSameValues
@@ -122,6 +123,11 @@ function affine = gridAffine(spacing, origin)
         origin = [0 0 0];
     end
     affine = [diag(spacing), origin(:)];
+end
+
+% The resampler with the default substep cap of bifti.loadPhantom.
+function r = resampler(varargin)
+    r = bifti.internal.resampler(varargin{:}, 8);
 end
 
 % With a uniform density the weighting cancels: a plain footprint average.
@@ -259,7 +265,7 @@ function downsamplingIsAnExactBlockMean()
         [n, factor] = deal(setup(1), setup(2));
         x = reshape(mod(0:n^3 - 1, 7), n, n, n);
         shift = (factor - 1) / 2;
-        r = bifti.internal.resampler(gridAffine([1 1 1]), [n n n], ...
+        r = resampler(gridAffine([1 1 1]), [n n n], ...
             gridAffine([factor factor factor], [shift shift shift]), [n n n] / factor);
         check(strcmp(r.kind, 'separable'), 'an axis-aligned grid must separate');
         y = uniformWeighted(r, x);
@@ -272,7 +278,7 @@ function t1IsNotDilutedAtTheFovEdge()
     % A voxel straddling the FOV edge must not average T1 against the zeros
     % outside it, while density does fall off there.
     density = ones(8, 8, 8);
-    r = bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], gridAffine([4 4 4], [-2 -2 -2]), [4 4 4]);
+    r = resampler(gridAffine([1 1 1]), [8 8 8], gridAffine([4 4 4], [-2 -2 -2]), [4 4 4]);
     weight = density + 1e-6;
     t1 = bifti.internal.contract(r, 1.5 * weight) ./ bifti.internal.contract(r, weight);
     d = bifti.internal.contract(r, density);
@@ -281,7 +287,7 @@ function t1IsNotDilutedAtTheFovEdge()
 end
 
 function emptyDensityFootprintFallsBackToPlainMean()
-    r = bifti.internal.resampler(gridAffine([1 1 1]), [4 4 4], gridAffine([2 2 2], [0.5 0.5 0.5]), [2 2 2]);
+    r = resampler(gridAffine([1 1 1]), [4 4 4], gridAffine([2 2 2], [0.5 0.5 0.5]), [2 2 2]);
     weight = zeros(4, 4, 4) + 1;  % density 0 everywhere, regularised to 1
     y = bifti.internal.contract(r, 3.25 * weight) ./ bifti.internal.contract(r, weight);
     checkClose(y, 3.25 * ones(2, 2, 2), 1e-12, 'empty footprint');
@@ -291,7 +297,7 @@ function upsamplingMatchesTrilinearInterpolation()
     % Axes that are not downsampled keep plain trilinear interpolation;
     % interpn is an independent reference.
     x = reshape(sin(0:63), 4, 4, 4);
-    y = uniformWeighted(bifti.internal.resampler(gridAffine([2 2 2]), [4 4 4], gridAffine([1 1 1]), [7 7 7]), x);
+    y = uniformWeighted(resampler(gridAffine([2 2 2]), [4 4 4], gridAffine([1 1 1]), [7 7 7]), x);
     c = (0:6) / 2;
     [q1, q2, q3] = ndgrid(c, c, c);
     expected = interpn(0:3, 0:3, 0:3, x, q1, q2, q3, 'linear', 0);
@@ -301,7 +307,7 @@ end
 function identicalGridsAreAnExactIdentity()
     affine = gridAffine([1.5 2 3], [-10 4 0.5]);
     x = reshape((0:59) * 0.37, 3, 4, 5);
-    r = bifti.internal.resampler(affine, [3 4 5], affine, [3 4 5]);
+    r = resampler(affine, [3 4 5], affine, [3 4 5]);
     check(strcmp(r.kind, 'identity') && isequal(bifti.internal.contract(r, x), x), 'identity');
 end
 
@@ -309,7 +315,7 @@ function obliqueGridsUseQuadrature()
     % A rotated grid cannot separate; a constant survives wherever it is fully covered.
     [c, s] = deal(0.8, 0.6);
     lastwarn('', '');
-    r = bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], [2*c -2*s 0 1; 2*s 2*c 0 1; 0 0 2 0.5], [4 4 4]);
+    r = resampler(gridAffine([1 1 1]), [8 8 8], [2*c -2*s 0 1; 2*s 2*c 0 1; 0 0 2 0.5], [4 4 4]);
     [~, id] = lastwarn();
     check(strcmp(r.kind, 'oblique'), 'a rotated grid must take the quadrature path');
     check(strcmp(id, 'bifti:obliqueResample'), 'the quadrature path must warn, got "%s"', id);
@@ -322,7 +328,7 @@ function obliqueWarningSaysWhenTheSubstepCapBites()
     % cap of 8 leaves it under-sampled, and the caller must learn that.
     [c, s] = deal(0.8, 0.6);
     lastwarn('', '');
-    r = bifti.internal.resampler(gridAffine([1 1 1]), [16 16 16], ...
+    r = resampler(gridAffine([1 1 1]), [16 16 16], ...
         [10*c -10*s 0 0; 10*s 10*c 0 0; 0 0 10 0], [2 2 2]);
     [~, id] = lastwarn();
     check(strcmp(id, 'bifti:obliqueResampleCapped'), 'expected the capped warning, got "%s"', id);
@@ -331,10 +337,10 @@ end
 
 function axisAlignedGridsDoNotWarn()
     % The exact paths stay silent, or the warning is noise on every normal load.
-    id = lastWarningOf(@() bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], ...
+    id = lastWarningOf(@() resampler(gridAffine([1 1 1]), [8 8 8], ...
         gridAffine([4 4 4], [1.5 1.5 1.5]), [2 2 2]));
     check(isempty(id), 'a separable resampling warned: %s', id);
-    id = lastWarningOf(@() bifti.internal.resampler(gridAffine([1 1 1]), [8 8 8], ...
+    id = lastWarningOf(@() resampler(gridAffine([1 1 1]), [8 8 8], ...
         gridAffine([1 1 1]), [8 8 8]));
     check(isempty(id), 'an identity resampling warned: %s', id);
 end
@@ -342,7 +348,7 @@ end
 function complexDataAveragesInTheComplexPlane()
     % B1 maps average as complex numbers: opposite phases cancel.
     x = reshape(repmat([1 + 0.5i, -1 - 0.5i], 1, 32), 4, 4, 4);
-    y = uniformWeighted(bifti.internal.resampler(gridAffine([1 1 1]), [4 4 4], ...
+    y = uniformWeighted(resampler(gridAffine([1 1 1]), [4 4 4], ...
         gridAffine([2 2 2], [0.5 0.5 0.5]), [2 2 2]), x);
     check(~isreal(x) && all(abs(y(:)) < 1e-12), 'complex values must cancel');
 end
@@ -350,7 +356,7 @@ end
 function voxelOnlyTouchingTheSourceGetsNoWeight()
     % Inverting the affine is inexact; a voxel that only touches the source must
     % still get zero weight. This is the geometry of shapes_downsampled.
-    r = bifti.internal.resampler([3 0 0 -60; 0 3 0 -48; 0 0 5 -10], [40 32 4], ...
+    r = resampler([3 0 0 -60; 0 3 0 -48; 0 0 5 -10], [40 32 4], ...
         [9 0 0 -66; 0 9 0 -51; 0 0 10 -12.5], [16 12 3]);
     weightSum = bifti.internal.contract(r, ones(40, 32, 4));
     check(all(all(all(weightSum([1 16], :, :) == 0))), 'touching voxels got weight');
@@ -523,6 +529,41 @@ function bytes = readAll(path)
     fid = fopen(path, 'r');
     closer = onCleanup(@() fclose(fid));
     bytes = fread(fid, Inf, '*uint8');
+end
+
+function maxSubstepsControlsTheObliqueQuadrature()
+    % MaxSubsteps is a load option that reaches the oblique quadrature: raising
+    % it brings the result closer to a finely sampled reference.
+    config = bifti.readPhantom(dataPath('shapes.json'));
+    [c, s] = deal(0.8, 0.6);  % 37 deg about z; 30 mm voxels span 10 source voxels
+    config.resliceTo = struct('affine', [30*c -30*s 0 -30; 30*s 30*c 0 -30; 0 0 5 -10], ...
+        'resolution', [3 3 4]);
+    baseDir = fileparts(dataPath('shapes.json'));
+
+    lastwarn('', '');
+    bifti.loadPhantom(config, baseDir);
+    [~, id] = lastwarn();
+    check(strcmp(id, 'bifti:obliqueResampleCapped'), 'expected the capped warning, got "%s"', id);
+    lastwarn('', '');
+    bifti.loadPhantom(config, baseDir, 'MaxSubsteps', 10);
+    [~, id] = lastwarn();
+    check(strcmp(id, 'bifti:obliqueResample'), 'MaxSubsteps=10 must not be capped, got "%s"', id);
+
+    state = warning('off', 'bifti:obliqueResample');
+    capped = warning('off', 'bifti:obliqueResampleCapped');
+    restore = onCleanup(@() warning([state, capped]));
+    reference = obliqueDensity(config, baseDir, 64);
+    coarse = max(abs(obliqueDensity(config, baseDir, 2) - reference));
+    full = max(abs(obliqueDensity(config, baseDir, 10) - reference));
+    check(coarse > 1e-3, '2 substeps should be visibly under-sampled, got %g', coarse);
+    check(full < coarse / 2, '10 substeps: %g, 2 substeps: %g', full, coarse);
+end
+
+% Every tissue's density, flattened, loaded with the given substep cap.
+function d = obliqueDensity(config, baseDir, maxSubsteps)
+    p = bifti.loadPhantom(config, baseDir, 'MaxSubsteps', maxSubsteps);
+    d = cell2mat(cellfun(@(x) x(:), {p.tissues.density}, 'UniformOutput', false));
+    d = d(:);
 end
 
 function scannerAffineFollowsThePatientPosition()
