@@ -39,6 +39,7 @@ documents a function.
 |----------|--------------|
 | `bifti.loadPhantom(path)` | Load a phantom JSON + its NIfTIs: a struct with `config` and `tissues`. |
 | `bifti.loadPhantom(config, baseDir)` | Same, for an already parsed (possibly edited) config. |
+| `bifti.loadPhantom(..., 'MaxSubsteps', 16)` | Cap on the quadrature samples per axis when an oblique `reslice_to` is resampled (default 8); raise it when `bifti:obliqueResampleCapped` says the result is under-sampled. |
 | `bifti.savePhantom(dir, phantom)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../README.md#saving). Returns the JSON path. |
 | `bifti.readPhantom(path)` / `bifti.writePhantom(path, config)` | Parse/serialize just the JSON (no NIfTI I/O). |
 | `bifti.niftiFiles(config)` | Every NIfTI file a phantom references. |
@@ -71,7 +72,10 @@ phantom = bifti.loadPhantom(path);
   phantom has one, otherwise the tissue's density grid. Scalars are expanded.
 - **Reslicing** is the density-weighted footprint averaging shared with the
   Python, Rust and Julia implementations (see the [top-level README](../README.md#reslicing)).
-  The results match the Python package to floating-point precision.
+  The results match the Python package to floating-point precision. An oblique
+  `reslice_to` is averaged by approximate quadrature and warns with
+  `bifti:obliqueResample`, or `bifti:obliqueResampleCapped` when the quadrature
+  is under-sampled (silence the first with `warning('off', 'bifti:obliqueResample')`).
 - **Complex data.** Complex `B1+`/`B1-` maps are loaded and resampled as complex;
   every other property must be real.
 - **`func` expressions** are parsed with the exact grammar of

@@ -22,7 +22,9 @@ For axis-aligned grids - which is every affine ``../../JSON.md``'s ``reslice_to`
 with in practice - the footprint average factorises into three 1-D passes, each a matrix
 contraction, and is computed *exactly*: a true box average with no quadrature error and no
 substep cap. Oblique transforms fall back to midpoint quadrature over the output voxel's
-parallelepiped.
+parallelepiped, which is approximate; :meth:`Resampler.build` warns with an
+:class:`ObliqueResampleWarning` whenever it takes that path, and says so when
+``max_substeps`` leaves the quadrature under-sampled.
 """
 
 from __future__ import annotations
@@ -33,7 +35,8 @@ import numpy as np
 
 from ._backend import Backend, get_backend
 
-# Substep cap for the oblique fallback. The separable path is exact and needs no cap.
+# Default substep cap for the oblique fallback, overridable through the `max_substeps`
+# option of the loaders and `Resampler.build`. The separable path is exact and needs no cap.
 DEFAULT_MAX_SUBSTEPS = 8
 
 # Relative size below which a matrix entry counts as zero when checking axis alignment.
@@ -47,6 +50,10 @@ AXIS_ALIGNED_TOL = 1e-9
 # tap makes the total weight non-zero, and the weighted mean then divides a crumb by a
 # crumb and reports that lone voxel's value as if it were the average of the footprint.
 WEIGHT_EPS = 1e-12
+
+
+class ObliqueResampleWarning(UserWarning):
+    """The target grid is oblique to the source grid, so resampling is only approximate."""
 
 
 def _as_4x4(affine) -> np.ndarray:
@@ -118,13 +125,41 @@ def decompose_axis_aligned(m: np.ndarray):
     return src_axis, scale, offset
 
 
-def _oblique_substeps(m: np.ndarray, max_substeps: int) -> tuple[int, int, int]:
-    """How finely to sample each output voxel along each axis, for the oblique path."""
-    steps = []
+def _oblique_substeps(m: np.ndarray, max_substeps: int) -> tuple[tuple[int, int, int], bool]:
+    """How finely to sample each output voxel along each axis, for the oblique path.
+
+    One substep per source voxel the footprint spans is the point at which the quadrature
+    stops skipping source data. The second value reports whether ``max_substeps`` held any
+    axis below that, i.e. whether the result is knowingly under-sampled.
+    """
+    steps, capped = [], False
     for a in range(3):
         span = float(np.linalg.norm(m[:3, a]))
-        steps.append(1 if span <= 1.0 else min(max_substeps, max(1, int(np.ceil(span)))))
-    return tuple(steps)
+        needed = 1 if span <= 1.0 else int(np.ceil(span))
+        steps.append(1 if span <= 1.0 else min(max_substeps, needed))
+        capped |= needed > max_substeps
+    return tuple(steps), capped
+
+
+def _warn_oblique(substeps: tuple[int, int, int], capped: bool, max_substeps: int) -> None:
+    samples = "x".join(str(n) for n in substeps)
+    if capped:
+        message = (
+            "reslice_to is oblique to the source grid, and its voxels span more source "
+            f"voxels than max_substeps={max_substeps} samples: the midpoint quadrature "
+            f"({samples} samples per voxel) is under-sampled and may alias. Raise "
+            "max_substeps, or align the target grid with the source axes for the exact "
+            "separable average"
+        )
+    else:
+        message = (
+            "reslice_to is oblique to the source grid, so each output voxel is averaged by "
+            f"midpoint quadrature ({samples} samples per voxel, one per source voxel spanned) "
+            "instead of the exact separable box average; align the target grid with the "
+            "source axes for an exact result"
+        )
+    # stacklevel 3: the caller of Resampler.build.
+    warnings.warn(message, ObliqueResampleWarning, stacklevel=3)
 
 
 class Resampler:
@@ -152,6 +187,14 @@ class Resampler:
         max_substeps: int = DEFAULT_MAX_SUBSTEPS,
         backend: Backend | None = None,
     ) -> Resampler:
+        """Precompute the resampling from the source grid onto the target grid.
+
+        ``kind`` on the result says which algorithm runs: ``"identity"``, ``"separable"``
+        (exact) or ``"oblique"`` (midpoint quadrature, with ``substeps`` samples per output
+        voxel along each axis). The oblique path emits an :class:`ObliqueResampleWarning`,
+        and sets ``capped`` when ``max_substeps`` kept it below one sample per source voxel
+        spanned - raise ``max_substeps`` to fix that.
+        """
         backend = backend or get_backend()
         src_affine = _as_4x4(src_affine)
         dst_affine = _as_4x4(dst_affine)
@@ -166,13 +209,16 @@ class Resampler:
 
         decomposed = decompose_axis_aligned(m)
         if decomposed is None:
+            substeps, capped = _oblique_substeps(m, max_substeps)
+            _warn_oblique(substeps, capped, max_substeps)
             return cls(
                 "oblique",
                 src_shape,
                 dst_shape,
                 backend,
                 m=m,
-                substeps=_oblique_substeps(m, max_substeps),
+                substeps=substeps,
+                capped=capped,
             )
 
         src_axis, scale, offset = decomposed
@@ -250,9 +296,12 @@ class Resampler:
         """``sum_j w_j * weight_j`` per output voxel.
 
         This is the denominator every property of a tissue shares, so compute it once and
-        hand it to :meth:`resample_weighted`.
+        hand it to :meth:`resample_weighted`. A ``(X, Y, Z)`` weight gives one ``(X, Y, Z)``
+        denominator; a ``(C, X, Y, Z)`` weight gives one per channel.
         """
-        return self._contract(np.asarray(weight, dtype=np.float64)[None])[0]
+        w = _channel_weight(weight, self.src_shape)
+        out = self._contract(w)
+        return out[0] if np.ndim(weight) == 3 else out
 
     def resample_plain(self, data: np.ndarray) -> np.ndarray:
         """Unweighted footprint average - the correct rule for ``density``, which is
@@ -266,16 +315,28 @@ class Resampler:
     ) -> np.ndarray:
         """Density-weighted footprint average - the correct rule for intensive properties.
 
-        Accepts ``(X, Y, Z)`` or ``(C, X, Y, Z)``; all channels of a ``B1+``/``B1-`` map go
-        through a single contraction.
+        Accepts ``(X, Y, Z)`` or ``(C, X, Y, Z)`` data; all channels go through a single
+        contraction. ``weight`` is either ``(X, Y, Z)``, shared by every channel (the coil
+        channels of a ``B1+``/``B1-`` map share one density), or ``(C, X, Y, Z)``, one per
+        channel (the tissues of a 4-D phantom NIfTI each have their own density).
+        ``weight_sum`` is :meth:`weight_sum` of that same ``weight``.
         """
         vol, squeeze = _with_channels(data)
+        w = _channel_weight(weight, self.src_shape, vol.shape[0])
+        ws = np.asarray(weight_sum, dtype=np.float64)
+        ws = ws[None] if ws.ndim == 3 else ws
+        if ws.shape != (w.shape[0], *self.out_shape):
+            raise ValueError(
+                f"weight_sum has shape {np.shape(weight_sum)}, but a weight of shape "
+                f"{np.shape(weight)} needs Resampler.weight_sum(weight) of shape "
+                f"{(*np.shape(weight)[:-3], *self.out_shape)}"
+            )
         if self.is_identity:
             # An exact copy, instead of `(x*W)/W`, which can be off by an ulp.
             return vol[0].copy() if squeeze else vol.copy()
-        num = self._contract(vol * np.asarray(weight, dtype=np.float64)[None])
+        num = self._contract(vol * w)
         # weight_sum <= 0 means not one in-bounds tap: nothing to say about the value.
-        out = np.divide(num, weight_sum[None], out=np.zeros_like(num), where=weight_sum > 0)
+        out = np.divide(num, ws, out=np.zeros_like(num), where=ws > 0)
         return out[0] if squeeze else out
 
 
@@ -312,6 +373,28 @@ def _with_channels(data: np.ndarray) -> tuple[np.ndarray, bool]:
     raise ValueError(f"expected a 3D or (C, X, Y, Z) array, got shape {data.shape}")
 
 
+def _channel_weight(weight, src_shape, n_channels: int | None = None) -> np.ndarray:
+    """``weight`` as a ``(1 or C, X, Y, Z)`` array that lines up with ``(C, X, Y, Z)`` data.
+
+    A 3-D weight broadcasts over every channel; a 4-D one pairs up channel-for-channel.
+    Anything else is rejected here rather than broadcast into something silently wrong.
+    """
+    w = np.asarray(weight, dtype=np.float64)
+    if w.ndim == 3 and w.shape == tuple(src_shape):
+        return w[None]
+    if w.ndim == 4 and w.shape[1:] == tuple(src_shape):
+        if n_channels is None or w.shape[0] == n_channels:
+            return w
+        raise ValueError(
+            f"weight has {w.shape[0]} channels but the data has {n_channels}; a 4-D weight "
+            "needs one channel per data channel (or pass a 3-D weight to share it)"
+        )
+    raise ValueError(
+        f"expected a weight of shape {tuple(src_shape)} (shared by every channel) or "
+        f"(C, {', '.join(map(str, src_shape))}) (one per channel), got {w.shape}"
+    )
+
+
 def density_weight(density: np.ndarray) -> np.ndarray:
     """``density + eps``: the weight intensive properties are averaged by.
 
@@ -319,6 +402,11 @@ def density_weight(density: np.ndarray) -> np.ndarray:
     falls back to the unweighted mean of the in-bounds taps rather than 0/0. It is scaled
     by the density's own magnitude because a ``density`` map need not be a [0, 1] float
     map: the spec allows any NIfTI numeric type.
+
+    Handed a ``(C, X, Y, Z)`` stack, ``eps`` comes from the peak of the *whole* stack. The
+    loader weights each tissue by its own density's peak, so to reproduce it exactly, weight
+    each channel separately: ``np.stack([density_weight(d) for d in densities])``. The two
+    differ only at the level of ``eps`` itself - the weighting's own sensitivity to it.
     """
     density = np.asarray(density, dtype=np.float64)
     peak = float(density.max()) if density.size else 0.0

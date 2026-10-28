@@ -19,22 +19,34 @@ pub struct Phantom {
     pub tissues: HashMap<String, Tissue>,
 }
 
+/// The default `max_substeps` for [`Phantom::load`] and [`Phantom::load_from_config`].
+pub const DEFAULT_MAX_SUBSTEPS: usize = 8;
+
 impl Phantom {
+    /// Load a phantom JSON and every NIfTI it references, relative to the JSON's folder.
+    ///
+    /// `max_substeps` caps the quadrature samples per axis of each output voxel when an
+    /// oblique `reslice_to` cannot use the exact separable average; raise it when the warning
+    /// says the result is under-sampled. Axis-aligned grids ignore it.
+    /// [`DEFAULT_MAX_SUBSTEPS`] is a sensible default.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(skip_all, fields(path = %path.as_ref().display()))
     )]
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, crate::Error> {
+    pub fn load<P: AsRef<Path>>(path: P, max_substeps: usize) -> Result<Self, crate::Error> {
         let path = path.as_ref().canonicalize()?;
         let config = BiftiPhantom::load(&path)?;
         let base_dir = path.parent().ok_or(crate::Error::NoParent)?;
-        Self::load_from_config(config, base_dir)
+        Self::load_from_config(config, base_dir, max_substeps)
     }
 
+    /// Load the NIfTIs of an already parsed (possibly edited) config from `base_dir`.
+    /// `max_substeps` is as in [`Phantom::load`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn load_from_config<P: AsRef<Path>>(
         config: BiftiPhantom,
         base_dir: P,
+        max_substeps: usize,
     ) -> Result<Self, crate::Error> {
         // A phantom's NIfTIs are shared between tissues (one file, one sub-volume per
         // tissue), and every tissue needs its density twice - as a map and as the
@@ -44,7 +56,13 @@ impl Phantom {
         for (name, tissue) in &config.tissues {
             tissues.insert(
                 name.clone(),
-                Tissue::load(tissue, base_dir.as_ref(), config.reslice_to, &mut cache)?,
+                Tissue::load(
+                    tissue,
+                    base_dir.as_ref(),
+                    config.reslice_to,
+                    max_substeps,
+                    &mut cache,
+                )?,
             );
         }
         Ok(Self { config, tissues })
@@ -359,11 +377,12 @@ struct TissueGrid {
     weight: Vec<f64>,
     /// `sum_j w_j · weight_j` per output voxel - the shared denominator.
     weight_sum: Vec<f64>,
+    max_substeps: usize,
 }
 
 impl TissueGrid {
-    fn new(density: &Volume, reslice_to: ResliceTo) -> Self {
-        let resampler = Resampler::build(density.affine, density.shape, reslice_to);
+    fn new(density: &Volume, reslice_to: ResliceTo, max_substeps: usize) -> Self {
+        let resampler = Resampler::build(density.affine, density.shape, reslice_to, max_substeps);
 
         // Regularise the weight so a footprint containing no tissue at all still has a
         // well-defined mean - the unweighted mean of its in-bounds taps - instead of 0/0.
@@ -382,6 +401,7 @@ impl TissueGrid {
             src_shape: density.shape,
             weight,
             weight_sum,
+            max_substeps,
         }
     }
 
@@ -400,7 +420,12 @@ impl TissueGrid {
             ))
         } else {
             warn_grid_mismatch();
-            let resampler = Resampler::build(native.affine, native.shape, self.reslice_to);
+            let resampler = Resampler::build(
+                native.affine,
+                native.shape,
+                self.reslice_to,
+                self.max_substeps,
+            );
             map_variant!(&native.data, |v| resampler.resample_plain(v, native.shape))
         };
         Volume {
@@ -425,6 +450,7 @@ impl Tissue {
         tissue: &BiftiTissue,
         base_dir: &Path,
         reslice_to: Option<ResliceTo>,
+        max_substeps: usize,
         cache: &mut NiftiCache,
     ) -> Result<Self, crate::Error> {
         let density_src = cache.load(base_dir, &tissue.density)?;
@@ -444,7 +470,7 @@ impl Tissue {
             });
         };
 
-        let grid = TissueGrid::new(&density_src, reslice_to);
+        let grid = TissueGrid::new(&density_src, reslice_to, max_substeps);
 
         // `density` is a volume fraction - extensive - so it is averaged *unweighted*.
         // Weighting it by itself would renormalise away exactly the partial-volume

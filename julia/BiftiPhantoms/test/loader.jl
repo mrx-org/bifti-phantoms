@@ -79,6 +79,26 @@ load_example(name) = load_bifti(joinpath(DATA, "$name.json"))
         @test scanner_affine(affine, nothing) == [affine; 0 0 0 1]
     end
 
+    # `max_substeps` is a load option that reaches the oblique quadrature: raising it brings
+    # the result closer to a finely sampled reference.
+    @testset "max_substeps controls the oblique quadrature" begin
+        config = read_bifti(joinpath(DATA, "shapes.json"))
+        c, s = 0.8, 0.6 # 37° about z; 30 mm voxels span 10 source voxels
+        affine = [30c -30s 0 -30; 30s 30c 0 -30; 0 0 5 -10]
+        oblique = BiftiPhantom(; config.schema, config.system, config.patient, config.tissues,
+            reslice_to=ResliceTo(affine, (3, 3, 4)))
+        density(max_substeps) = Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
+            reduce(vcat, vec(t.density) for t in values(load_bifti(oblique, DATA; max_substeps).tissues))
+        end
+        reference = density(64)
+        coarse = maximum(abs.(density(2) .- reference))
+        full = maximum(abs.(density(10) .- reference))
+        @test coarse > 1e-3
+        @test full < coarse / 2
+        @test_logs (:warn, r"max_substeps=8 samples.*under-sampled") match_mode = :any load_bifti(oblique, DATA)
+        @test_logs (:warn, r"10x10x1 samples per voxel, one per") match_mode = :any load_bifti(oblique, DATA; max_substeps=10)
+    end
+
     @testset "invalid references fail loudly" begin
         config = read_bifti(joinpath(DATA, "shapes.json"))
         tissue = config.tissues["disk"]

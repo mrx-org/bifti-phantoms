@@ -13,6 +13,8 @@ function uniform_weighted(r, x)
     return BiftiPhantoms.resample_weighted(r, x, weight, BiftiPhantoms.contract(r, weight))
 end
 
+resampler(args...) = BiftiPhantoms.Resampler(args...; max_substeps=8)
+
 block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))...]) / factor^3
 
 @testset "resampling" begin
@@ -20,7 +22,7 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
         for (n, factor) in ((4, 2), (8, 4))
             x = reshape(Float64.(mod.(0:n^3-1, 7)), n, n, n)
             dst_affine, dst_shape = coarse_grid(n, factor)
-            r = BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), size(x), dst_affine, dst_shape)
+            r = resampler(grid_affine((1, 1, 1)), size(x), dst_affine, dst_shape)
             @test r isa BiftiPhantoms.SeparableResampler
             out = uniform_weighted(r, x)
             @test all(out[I] ≈ block_mean(x, factor, I) for I in CartesianIndices(out))
@@ -31,7 +33,7 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     # average T1 against the zeros outside it, while density does fall off there.
     @testset "T1 is not diluted at the FOV edge" begin
         density, T1 = ones(8, 8, 8), fill(1.5, 8, 8, 8)
-        r = BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), (8, 8, 8), grid_affine((4, 4, 4), (-2, -2, -2)), (4, 4, 4))
+        r = resampler(grid_affine((1, 1, 1)), (8, 8, 8), grid_affine((4, 4, 4), (-2, -2, -2)), (4, 4, 4))
         weight = BiftiPhantoms.density_weight(density)
         out_T1 = BiftiPhantoms.resample_weighted(r, T1, weight, BiftiPhantoms.contract(r, weight))
         out_density = BiftiPhantoms.resample_plain(r, density)
@@ -43,7 +45,7 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     # Without tissue to weight by, the result is the plain mean of the in-bounds taps.
     @testset "empty density footprint falls back to the plain mean" begin
         dst_affine, dst_shape = coarse_grid(4, 2)
-        r = BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), (4, 4, 4), dst_affine, dst_shape)
+        r = resampler(grid_affine((1, 1, 1)), (4, 4, 4), dst_affine, dst_shape)
         weight = BiftiPhantoms.density_weight(zeros(4, 4, 4))
         out = BiftiPhantoms.resample_weighted(r, fill(3.25, 4, 4, 4), weight, BiftiPhantoms.contract(r, weight))
         @test all(≈(3.25), out)
@@ -53,7 +55,7 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     @testset "upsampling matches trilinear interpolation" begin
         x = reshape(sin.(0:63), 4, 4, 4)
         src_affine, dst_affine = grid_affine((2, 2, 2)), grid_affine((1, 1, 1))
-        out = uniform_weighted(BiftiPhantoms.Resampler(src_affine, size(x), dst_affine, (7, 7, 7)), x)
+        out = uniform_weighted(resampler(src_affine, size(x), dst_affine, (7, 7, 7)), x)
         m = inv([src_affine; 0 0 0 1]) * [dst_affine; 0 0 0 1]
         @test all(out[I] ≈ BiftiPhantoms.trilinear(x, m[1:3, 1:3] * collect(Tuple(I) .- 1) + m[1:3, 4]) for I in CartesianIndices(out))
     end
@@ -61,7 +63,7 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     @testset "identical grids are an exact identity" begin
         affine = grid_affine((1.5, 2, 3), (-10, 4, 0.5))
         x = reshape((0:59) .* 0.37, 3, 4, 5)
-        r = BiftiPhantoms.Resampler(affine, size(x), affine, size(x))
+        r = resampler(affine, size(x), affine, size(x))
         @test r isa BiftiPhantoms.IdentityResampler
         @test uniform_weighted(r, x) == x
     end
@@ -70,18 +72,39 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     @testset "oblique grids use quadrature" begin
         c, s = 0.8, 0.6
         dst_affine = [2c -2s 0 1; 2s 2c 0 1; 0 0 2 0.5]
-        r = BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), (8, 8, 8), dst_affine, (4, 4, 4))
+        r = @test_logs (:warn, r"midpoint quadrature \(2x2x2") resampler(
+            grid_affine((1, 1, 1)), (8, 8, 8), dst_affine, (4, 4, 4))
         @test r isa BiftiPhantoms.ObliqueResampler
         out = uniform_weighted(r, fill(2.5, 8, 8, 8))
         @test any(≈(2.5), out)
         @test all(<=(2.5 + 1e-9), out)
     end
 
+    # The caller must learn when the oblique path is under-sampled: a 10 mm oblique voxel
+    # over a 1 mm source wants 10 substeps per axis and gets the cap of 8.
+    @testset "oblique warning says when the substep cap bites" begin
+        c, s = 0.8, 0.6
+        m(size) = [size*c -size*s 0 0; size*s size*c 0 0; 0 0 size 0]
+        @test BiftiPhantoms.oblique_substeps(m(2), 8) == ((2, 2, 2), false)
+        @test BiftiPhantoms.oblique_substeps(m(10), 8) == ((8, 8, 8), true)
+        @test BiftiPhantoms.oblique_substeps(m(10), 10) == ((10, 10, 10), false)
+        @test BiftiPhantoms.oblique_substeps(m(0.5), 1) == ((1, 1, 1), false)
+        @test_logs (:warn, r"under-sampled") resampler(
+            grid_affine((1, 1, 1)), (16, 16, 16), m(10), (2, 2, 2))
+    end
+
+    # The exact paths stay silent, or the warning is noise on every normal load.
+    @testset "axis-aligned grids do not warn" begin
+        dst_affine, dst_shape = coarse_grid(8, 4)
+        @test_logs resampler(grid_affine((1, 1, 1)), (8, 8, 8), dst_affine, dst_shape)
+        @test_logs resampler(dst_affine, dst_shape, dst_affine, dst_shape)
+    end
+
     # B1 maps average as complex numbers: opposite phases cancel instead of reinforcing.
     @testset "complex data averages in the complex plane" begin
         x = reshape([isodd(i) ? 1.0 + 0.5im : -1.0 - 0.5im for i in 1:64], 4, 4, 4)
         dst_affine, dst_shape = coarse_grid(4, 2)
-        out = uniform_weighted(BiftiPhantoms.Resampler(grid_affine((1, 1, 1)), size(x), dst_affine, dst_shape), x)
+        out = uniform_weighted(resampler(grid_affine((1, 1, 1)), size(x), dst_affine, dst_shape), x)
         @test eltype(out) <: Complex
         @test all(v -> abs(v) < 1e-9, out)
     end
@@ -92,7 +115,7 @@ block_mean(x, factor, I) = sum(x[map(i -> (factor*(i-1)+1):(factor*i), Tuple(I))
     @testset "a voxel only touching the source gets no weight" begin
         src_affine = Float64[3 0 0 -60; 0 3 0 -48; 0 0 5 -10]
         dst_affine = Float64[9 0 0 -66; 0 9 0 -51; 0 0 10 -12.5]
-        r = BiftiPhantoms.Resampler(src_affine, (40, 32, 4), dst_affine, (16, 12, 3))
+        r = resampler(src_affine, (40, 32, 4), dst_affine, (16, 12, 3))
         weight_sum = BiftiPhantoms.contract(r, ones(40, 32, 4))
         @test all(iszero, weight_sum[[1, 16], :, :])
         out = BiftiPhantoms.resample_weighted(r, reshape(1.0:40*32*4, 40, 32, 4), ones(40, 32, 4), weight_sum)

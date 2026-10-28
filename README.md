@@ -69,9 +69,9 @@ disp(mean(gm.T1(:)))
 <summary>Rust</summary>
 
 ```rust
-use bifti::{Phantom, VolumeData};
+use bifti::{DEFAULT_MAX_SUBSTEPS, Phantom, VolumeData};
 
-let phantom = Phantom::load("subj42.json")?;
+let phantom = Phantom::load("subj42.json", DEFAULT_MAX_SUBSTEPS)?;
 let tissue = &phantom.tissues["gm"];
 if let VolumeData::Float64(t1) = &tissue.t1.data {
     println!("{:?} {}", tissue.density.shape, t1.iter().sum::<f64>() / t1.len() as f64);
@@ -179,7 +179,7 @@ The implementations currently have some discrepancies:
 
 ### Reslicing
 
-Both implementations resample the same way. Each output voxel is averaged over the
+All four implementations resample the same way. Each output voxel is averaged over the
 whole source region it covers, rather than interpolated from the few voxels nearest
 its centre — so resampling onto a coarser grid actually averages instead of throwing
 most of the data away.
@@ -193,7 +193,12 @@ correctly falls off where an output voxel is only partly filled.
 
 For axis-aligned grids the average is computed exactly, as a true box average.
 Oblique transforms fall back to quadrature over the output voxel's parallelepiped,
-and axes that are not being downsampled keep plain linear interpolation.
+and axes that are not being downsampled keep plain linear interpolation. The
+quadrature is approximate, so an oblique `reslice_to` always warns, and says so
+when the output voxels span more source voxels than the quadrature samples and the
+result may alias. Every load function takes a `max_substeps` option (default 8 per
+axis; `MaxSubsteps` in MATLAB) to raise that cap. Aligning
+`reslice_to` with the source axes gives the exact result.
 
 ### Saving
 

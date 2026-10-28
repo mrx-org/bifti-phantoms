@@ -20,7 +20,7 @@ model and [`loader.jl`](src/loader.jl) for how each property resolves to an arra
 
 | Name | What it is |
 |------|------------|
-| `load_bifti(path)` | Load a phantom JSON + its NIfTIs into a `VoxelPhantom(config, tissues)`. |
+| `load_bifti(path; max_substeps=8)` | Load a phantom JSON + its NIfTIs into a `VoxelPhantom(config, tissues)`. `max_substeps` caps the quadrature samples per axis when an oblique `reslice_to` is resampled; raise it when the warning says the result is under-sampled. |
 | `load_bifti(config, base_dir)` | Same, for an already parsed (possibly edited) `BiftiPhantom`. |
 | `VoxelTissue` | One tissue as arrays on one grid: `density`, `T1`, `T2`, `T2dash`, `ADC`, `dB0`, `B1_tx`/`B1_rx` (one array per channel), plus `affine` and `size(tissue)`. |
 | `save_bifti(dir, phantom)` | Save a loaded phantom as a self-contained folder (NIfTIs + JSON, no `reslice_to`, no `func`); see [Saving](../../README.md#saving). Returns the JSON path. |

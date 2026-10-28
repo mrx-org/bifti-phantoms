@@ -19,11 +19,11 @@
 //! outside the source contribute nothing to *either* sum, so they are excluded rather than
 //! averaged in. Where a footprint is entirely empty the `eps` terms are uniform and the
 //! result falls back to the unweighted mean of the in-bounds taps, so it is never `NaN`.
+//!
+//! Axis-aligned grids are averaged exactly. Oblique ones fall back to midpoint quadrature,
+//! which is approximate, so taking that path is warned about (see `warn_oblique`).
 
 use crate::{ResliceTo, volume::VolumeDataElement};
-
-/// Substep cap for the oblique fallback. The separable path is exact and needs no cap.
-const DEFAULT_MAX_SUBSTEPS: usize = 8;
 
 /// Relative size below which a matrix entry counts as zero when checking axis alignment.
 /// Far below any real obliquity (a 1 degree rotation already gives ~0.017).
@@ -132,17 +132,47 @@ fn decompose_axis_aligned(m: [[f64; 4]; 3]) -> Option<([usize; 3], [f64; 3], [f6
 }
 
 /// Per-axis substep counts for the oblique path: how finely to sample each output voxel.
-fn oblique_substeps(m: [[f64; 4]; 3], max_substeps: usize) -> [usize; 3] {
+///
+/// One substep per source voxel the footprint spans is the point at which the quadrature
+/// stops skipping source data. The returned flag says whether `max_substeps` held any axis
+/// below that, i.e. whether the result is knowingly under-sampled.
+fn oblique_substeps(m: [[f64; 4]; 3], max_substeps: usize) -> ([usize; 3], bool) {
     let mut steps = [1usize; 3];
+    let mut capped = false;
     for a in 0..3 {
         let span = (m[0][a] * m[0][a] + m[1][a] * m[1][a] + m[2][a] * m[2][a]).sqrt();
-        steps[a] = if span <= 1.0 {
-            1
-        } else {
-            max_substeps.min((span.ceil() as usize).max(1))
-        };
+        if span > 1.0 {
+            let needed = span.ceil() as usize;
+            steps[a] = max_substeps.min(needed);
+            capped |= needed > max_substeps;
+        }
     }
-    steps
+    (steps, capped)
+}
+
+/// The oblique path is approximate, and the caller cannot tell from the result, so say so -
+/// and say when the substep cap leaves it under-sampled.
+fn warn_oblique([sx, sy, sz]: [usize; 3], capped: bool, max_substeps: usize) {
+    let msg = if capped {
+        format!(
+            "reslice_to is oblique to the source grid, and its voxels span more source voxels \
+             than max_substeps={max_substeps} samples: the midpoint quadrature ({sx}x{sy}x{sz} \
+             samples per voxel) is under-sampled and may alias. Raise max_substeps \
+             (Phantom::load), or align reslice_to with the source axes for the exact separable \
+             average"
+        )
+    } else {
+        format!(
+            "reslice_to is oblique to the source grid, so each output voxel is averaged by \
+             midpoint quadrature ({sx}x{sy}x{sz} samples per voxel, one per source voxel \
+             spanned) instead of the exact separable box average; align reslice_to with the \
+             source axes for an exact result"
+        )
+    };
+    #[cfg(feature = "tracing")]
+    tracing::warn!("{msg}");
+    #[cfg(not(feature = "tracing"))]
+    eprintln!("bifti: {msg}");
 }
 
 /// A precomputed source-grid -> target-grid resampler, shared by every map of a tissue.
@@ -169,10 +199,12 @@ pub(crate) enum Resampler {
 
 impl Resampler {
     /// Build a resampler from a source grid onto the grid described by `reslice_to`.
+    /// `max_substeps` caps the samples per axis of the oblique quadrature.
     pub(crate) fn build(
         src_affine: [[f64; 4]; 3],
         src_shape: [usize; 3],
         reslice_to: ResliceTo,
+        max_substeps: usize,
     ) -> Self {
         let out_shape = reslice_to.resolution;
         if src_affine == reslice_to.affine && src_shape == out_shape {
@@ -197,11 +229,15 @@ impl Resampler {
                     out_shape,
                 }
             }
-            None => Self::Oblique {
-                m,
-                substeps: oblique_substeps(m, DEFAULT_MAX_SUBSTEPS),
-                out_shape,
-            },
+            None => {
+                let (substeps, capped) = oblique_substeps(m, max_substeps);
+                warn_oblique(substeps, capped, max_substeps);
+                Self::Oblique {
+                    m,
+                    substeps,
+                    out_shape,
+                }
+            }
         }
     }
 
@@ -486,7 +522,7 @@ mod tests {
         let (src_affine, src_shape, dst) = grids(4, 2.0);
         let n = 4 * 4 * 4;
         let data: Vec<f64> = (0..n).map(|i| i as f64).collect();
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         assert!(matches!(r, Resampler::Separable { .. }));
 
         let out = weighted(&r, &data, src_shape);
@@ -521,7 +557,7 @@ mod tests {
         let (src_affine, src_shape, dst) = grids(8, 4.0);
         let n = 8 * 8 * 8;
         let data: Vec<f64> = (0..n).map(|i| (i % 7) as f64).collect();
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         let out = weighted(&r, &data, src_shape);
         assert_eq!(out.len(), 8);
 
@@ -561,7 +597,7 @@ mod tests {
             affine: affine([4.0, 4.0, 4.0], [-2.0, -2.0, -2.0]),
             resolution: [4, 4, 4],
         };
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
 
         let eps = 1e-6;
         let weight: Vec<f64> = density.iter().map(|d| d + eps).collect();
@@ -593,7 +629,7 @@ mod tests {
         let density = vec![0.0f64; n];
         let values = vec![3.25f64; n];
 
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         let weight: Vec<f64> = density.iter().map(|d| d + 1.0).collect();
         let ws = r.weight_sum(&weight, src_shape);
         let out = r.resample_weighted(&values, src_shape, &weight, &ws);
@@ -616,7 +652,7 @@ mod tests {
             affine: affine([1.0, 1.0, 1.0], [0.0, 0.0, 0.0]),
             resolution: [7, 7, 7],
         };
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         let out = weighted(&r, &data, src_shape);
 
         // Reference: sample the source at each output voxel centre, trilinearly.
@@ -657,6 +693,7 @@ mod tests {
                 affine: a,
                 resolution: shape,
             },
+            8,
         );
         assert!(matches!(r, Resampler::Identity));
         assert_eq!(weighted(&r, &data, shape), data);
@@ -676,7 +713,7 @@ mod tests {
             ],
             resolution: [4, 4, 4],
         };
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         assert!(matches!(r, Resampler::Oblique { .. }));
 
         // A constant field must survive resampling unchanged wherever it is fully covered.
@@ -685,6 +722,25 @@ mod tests {
         assert!(out.iter().all(|v| v.is_finite()));
         assert!(out.iter().any(|v| (v - 2.5).abs() < 1e-9));
         assert!(out.iter().all(|&v| v <= 2.5 + 1e-9));
+    }
+
+    /// The oblique path reports when the substep cap leaves it under-sampled: a 10 mm
+    /// oblique voxel over a 1 mm source wants 10 substeps per axis and gets the cap.
+    #[test]
+    fn oblique_substeps_report_when_the_cap_bites() {
+        let (c, s) = (0.8f64, 0.6f64);
+        let m = |size: f64| {
+            [
+                [size * c, -size * s, 0.0, 0.0],
+                [size * s, size * c, 0.0, 0.0],
+                [0.0, 0.0, size, 0.0],
+            ]
+        };
+        assert_eq!(oblique_substeps(m(2.0), 8), ([2, 2, 2], false));
+        assert_eq!(oblique_substeps(m(10.0), 8), ([8, 8, 8], true));
+        assert_eq!(oblique_substeps(m(10.0), 10), ([10, 10, 10], false));
+        // Upsampling needs a single sample per voxel, whatever the cap.
+        assert_eq!(oblique_substeps(m(0.5), 1), ([1, 1, 1], false));
     }
 
     /// Complex maps (`B1+`/`B1-`) must average as complex numbers, not magnitudes: two
@@ -704,7 +760,7 @@ mod tests {
             })
             .collect();
 
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         let w = ones(n);
         let ws = r.weight_sum(&w, src_shape);
         let out = r.resample_weighted(&data, src_shape, &w, &ws);
@@ -722,7 +778,7 @@ mod tests {
         let mut data = vec![0u8; 8];
         data[0] = 4;
 
-        let r = Resampler::build(src_affine, src_shape, dst);
+        let r = Resampler::build(src_affine, src_shape, dst, 8);
         let w = ones(8);
         let ws = r.weight_sum(&w, src_shape);
         let out = r.resample_weighted(&data, src_shape, &w, &ws);
@@ -756,7 +812,7 @@ mod boundary_tests {
             ],
             resolution: [16, 12, 3],
         };
-        let r = Resampler::build(src_affine, [40, 32, 4], dst);
+        let r = Resampler::build(src_affine, [40, 32, 4], dst, 8);
 
         let src_len = 40 * 32 * 4;
         let ws = r.weight_sum(&vec![1.0f64; src_len], [40, 32, 4]);

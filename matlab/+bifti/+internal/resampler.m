@@ -1,4 +1,4 @@
-function r = resampler(srcAffine, srcShape, dstAffine, dstShape)
+function r = resampler(srcAffine, srcShape, dstAffine, dstShape, maxSubsteps)
 %RESAMPLER Precompute density-weighted footprint resampling between grids.
 %   Same algorithm as the Python, Rust and Julia implementations (see the
 %   top-level README, "Reslicing"). Each output voxel averages the whole source
@@ -6,8 +6,13 @@ function r = resampler(srcAffine, srcShape, dstAffine, dstShape)
 %   onto one source axis ('separable'), midpoint quadrature over the voxel's
 %   parallelepiped otherwise ('oblique'), linear interpolation along axes that
 %   are not downsampled. Affines are 3x4 or 4x4 for zero-based voxel indices.
-%   Apply it with bifti.internal.contract.
-    maxObliqueSubsteps = 8;      % the separable path is exact and needs no cap
+%   MAXSUBSTEPS caps the samples per axis of the oblique quadrature. Apply it
+%   with bifti.internal.contract.
+%
+%   The oblique path is approximate, so it warns: 'bifti:obliqueResample' when
+%   it samples one substep per source voxel spanned, and
+%   'bifti:obliqueResampleCapped' when the substep cap holds it below that, so
+%   the result is under-sampled and may alias.
     axisAlignedTol = 1e-9;       % far below any real obliquity (1 deg gives ~0.017)
     srcAffine = as4x4(srcAffine);
     dstAffine = as4x4(dstAffine);
@@ -32,10 +37,14 @@ function r = resampler(srcAffine, srcShape, dstAffine, dstShape)
     end
 
     if isempty(srcAxis) || numel(unique(srcAxis)) < 3
+        % One substep per source voxel spanned stops the quadrature skipping data.
         spans = sqrt(sum(m(1:3, 1:3) .^ 2, 1));
-        substeps = ones(1, 3);
-        substeps(spans > 1) = min(maxObliqueSubsteps, ceil(spans(spans > 1)));
-        r = struct('kind', 'oblique', 'shape', dstShape, 'm', m, 'substeps', substeps);
+        needed = max(1, ceil(spans));
+        substeps = min(maxSubsteps, needed);
+        capped = any(needed > maxSubsteps);
+        warnOblique(substeps, capped, maxSubsteps);
+        r = struct('kind', 'oblique', 'shape', dstShape, 'm', m, 'substeps', substeps, ...
+            'capped', capped);
         return
     end
 
@@ -46,6 +55,23 @@ function r = resampler(srcAffine, srcShape, dstAffine, dstShape)
     end
     r = struct('kind', 'separable', 'shape', dstShape, 'srcAxis', srcAxis);
     r.matrices = matrices;
+end
+
+function warnOblique(substeps, capped, maxSubsteps)
+% Nothing in the result says the oblique path is approximate, so say it here.
+    samples = sprintf('%dx%dx%d', substeps);
+    if capped
+        warning('bifti:obliqueResampleCapped', ['reslice_to is oblique to the source ' ...
+            'grid, and its voxels span more source voxels than MaxSubsteps=%d samples: ' ...
+            'the midpoint quadrature (%s samples per voxel) is under-sampled and may ' ...
+            'alias. Raise MaxSubsteps (bifti.loadPhantom), or align reslice_to with the ' ...
+            'source axes for the exact separable average'], maxSubsteps, samples);
+    else
+        warning('bifti:obliqueResample', ['reslice_to is oblique to the source grid, ' ...
+            'so each output voxel is averaged by midpoint quadrature (%s samples per ' ...
+            'voxel, one per source voxel spanned) instead of the exact separable box ' ...
+            'average; align reslice_to with the source axes for an exact result'], samples);
+    end
 end
 
 function a = as4x4(a)

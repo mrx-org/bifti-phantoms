@@ -4,6 +4,20 @@ All notable changes to BiftiPhantoms.jl are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.2.1] - 2026-10-28
+
+### Added
+
+- `load_bifti(...; max_substeps=8)`: the cap on quadrature samples per axis used when an
+  oblique `reslice_to` is resampled, previously fixed at 8.
+
+### Changed
+
+- Reslicing onto an oblique `reslice_to` now logs a warning: the result is averaged by
+  approximate midpoint quadrature instead of the exact box average used for axis-aligned
+  grids. The warning says when `max_substeps` leaves the quadrature under-sampled, so the
+  result may alias ([#23](https://github.com/mrx-org/bifti-phantoms/issues/23)).
+
 ## [0.2.0] - 2026-10-12
 
 ### Added

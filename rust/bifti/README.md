@@ -5,9 +5,9 @@ phantom JSON, load a phantom into plain arrays, and fetch phantoms from the
 public [registry](https://github.com/mrx-org/bifti-phantoms/blob/main/REGISTRY.md).
 
 ```rust
-use bifti::{Phantom, VolumeData};
+use bifti::{DEFAULT_MAX_SUBSTEPS, Phantom, VolumeData};
 
-let phantom = Phantom::load("subj42-3T.json")?;
+let phantom = Phantom::load("subj42-3T.json", DEFAULT_MAX_SUBSTEPS)?;
 let tissue = &phantom.tissues["gm"];
 
 if let VolumeData::Float64(t1) = &tissue.t1.data {
@@ -25,7 +25,7 @@ a `Volume`.
 
 | Item | What it is |
 |------|------------|
-| `Phantom::load(path)` | Load a phantom JSON + its NIfTIs into `Phantom { config, tissues }`. |
+| `Phantom::load(path, max_substeps)` | Load a phantom JSON + its NIfTIs into `Phantom { config, tissues }`. `max_substeps` caps the quadrature samples per axis when an oblique `reslice_to` is resampled (`DEFAULT_MAX_SUBSTEPS` = 8); raise it when the warning says the result is under-sampled. `load_from_config(config, base_dir, max_substeps)` takes an already parsed config. |
 | `Tissue` | One tissue as `Volume`s: `density`, `t1`, `t2`, `t2dash`, `adc`, `db0`, `b1_tx: Vec<Volume>`, `b1_rx: Vec<Volume>`. |
 | `Volume` | `{ affine: [[f64; 4]; 3], shape: [usize; 3], data: VolumeData }`. |
 | `VolumeData` | `Float32(Vec<f32>)` / `Float64(Vec<f64>)` of the volume's voxels, row-major (`x*ny*nz + y*nz + z`). |

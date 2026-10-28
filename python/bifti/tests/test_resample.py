@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
 from bifti._backend import Backend, get_backend
-from bifti.resample import Resampler, density_weight
+from bifti.resample import ObliqueResampleWarning, Resampler, density_weight
 
 
 def affine(spacing, origin) -> list[list[float]]:
@@ -168,7 +170,8 @@ def test_oblique_affine_uses_the_quadrature_path():
     c, s = 0.8, 0.6  # a 37 degree rotation about z
     dst_affine = [[2 * c, -2 * s, 0, 1], [2 * s, 2 * c, 0, 1], [0, 0, 2, 0.5]]
 
-    r = Resampler.build(src_affine, src_shape, dst_affine, [4, 4, 4])
+    with pytest.warns(ObliqueResampleWarning):
+        r = Resampler.build(src_affine, src_shape, dst_affine, [4, 4, 4])
     assert r.kind == "oblique"
 
     # A constant field survives resampling wherever it is fully covered, and is never
@@ -177,6 +180,33 @@ def test_oblique_affine_uses_the_quadrature_path():
     assert np.isfinite(out).all()
     assert np.isclose(out.max(), 2.5, atol=1e-9)
     assert (out <= 2.5 + 1e-9).all()
+
+
+def test_oblique_warning_says_when_the_substep_cap_bites():
+    """Silent approximation is the problem: the caller must learn which path ran."""
+    src_affine, src_shape = affine([1, 1, 1], [0, 0, 0]), (16, 16, 16)
+    c, s = 0.8, 0.6  # a 37 degree rotation about z, 10 mm voxels: 10 substeps wanted
+    dst_affine = [[10 * c, -10 * s, 0, 0], [10 * s, 10 * c, 0, 0], [0, 0, 10, 0]]
+
+    with pytest.warns(ObliqueResampleWarning, match="under-sampled") as caught:
+        r = Resampler.build(src_affine, src_shape, dst_affine, [2, 2, 2])
+    assert len(caught) == 1
+    assert r.capped and r.substeps == (8, 8, 8)
+
+    with pytest.warns(ObliqueResampleWarning) as caught:
+        r = Resampler.build(src_affine, src_shape, dst_affine, [2, 2, 2], max_substeps=10)
+    assert len(caught) == 1
+    assert "under-sampled" not in str(caught[0].message)
+    assert not r.capped and r.substeps == (10, 10, 10)
+
+
+def test_axis_aligned_grids_do_not_warn():
+    """The exact paths must stay silent, or the warning is noise on every normal load."""
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 4)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert Resampler.build(src_affine, src_shape, dst_affine, dst_shape).kind == "separable"
+        assert Resampler.build(src_affine, src_shape, src_affine, src_shape).kind == "identity"
 
 
 def test_channels_resample_together():
@@ -195,6 +225,66 @@ def test_channels_resample_together():
         np.testing.assert_allclose(
             together[i], r.resample_weighted(stack[i], w, ws), atol=1e-12
         )
+
+
+@pytest.mark.parametrize("oblique", [False, True])
+def test_per_channel_weights_match_per_channel_calls(oblique):
+    """A 4-D weight lines up channel-for-channel - one density per tissue of a 4-D NIfTI."""
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 2)
+    if oblique:
+        c, s = 0.8, 0.6
+        dst_affine = [[2 * c, -2 * s, 0, 1], [2 * s, 2 * c, 0, 1], [0, 0, 2, 0.5]]
+    rng = np.random.default_rng(3)
+    data = rng.random((3, *src_shape))
+    density = rng.random((3, *src_shape))
+    density[1] = 0.0  # one tissue absent: its eps fallback must not leak into the others
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ObliqueResampleWarning)
+        r = Resampler.build(src_affine, src_shape, dst_affine, dst_shape)
+    weight = np.stack([density_weight(d) for d in density])
+    ws = r.weight_sum(weight)
+    assert ws.shape == (3, *dst_shape)
+
+    together = r.resample_weighted(data, weight, ws)
+    for i in range(3):
+        alone = r.resample_weighted(data[i], weight[i], r.weight_sum(weight[i]))
+        np.testing.assert_allclose(together[i], alone, atol=1e-12)
+
+
+def test_identical_per_channel_weights_match_a_shared_weight():
+    """Backwards compatible: stacking one weight per channel changes nothing."""
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 4)
+    rng = np.random.default_rng(4)
+    data = rng.random((2, *src_shape))
+    weight = density_weight(rng.random(src_shape))
+    stacked = np.stack([weight, weight])
+
+    r = Resampler.build(src_affine, src_shape, dst_affine, dst_shape)
+    np.testing.assert_allclose(
+        r.resample_weighted(data, stacked, r.weight_sum(stacked)),
+        r.resample_weighted(data, weight, r.weight_sum(weight)),
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("identity", [False, True])
+def test_mismatched_weights_are_rejected(identity):
+    src_affine, src_shape, dst_affine, dst_shape = grids(8, 2)
+    if identity:
+        dst_affine, dst_shape = src_affine, src_shape
+    r = Resampler.build(src_affine, src_shape, dst_affine, dst_shape)
+    data = np.ones((3, *src_shape))
+    weight = np.ones((2, *src_shape))
+
+    with pytest.raises(ValueError, match="channels"):
+        r.resample_weighted(data, weight, r.weight_sum(weight))
+    with pytest.raises(ValueError, match="expected a weight"):
+        r.weight_sum(np.ones((4, 4, 4)))
+    with pytest.raises(ValueError, match="weight_sum"):
+        # A shared denominator for a per-channel weight.
+        three = np.ones((3, *src_shape))
+        r.resample_weighted(data, three, r.weight_sum(three[0]))
 
 
 def test_numpy_and_torch_backends_agree():

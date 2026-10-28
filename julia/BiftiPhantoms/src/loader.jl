@@ -42,22 +42,27 @@ end
 Base.show(io::IO, phantom::VoxelPhantom) = print(io, "VoxelPhantom(", join(keys(phantom.tissues), ", "), ")")
 
 """
-    load_bifti(path) -> VoxelPhantom
-    load_bifti(config::BiftiPhantom, base_dir) -> VoxelPhantom
+    load_bifti(path; max_substeps=8) -> VoxelPhantom
+    load_bifti(config::BiftiPhantom, base_dir; max_substeps=8) -> VoxelPhantom
 
 Load a phantom JSON and every NIfTI it references (resolved relative to the JSON's
 directory). Each tissue is brought onto `reslice_to` if the phantom has one, otherwise
 onto the grid of its own density map - which, for a conforming phantom, every map
 already shares. Pass an already parsed `config` to tweak it before loading.
-"""
-load_bifti(path::AbstractString) = load_bifti(read_bifti(path), dirname(abspath(path)))
 
-function load_bifti(config::BiftiPhantom, base_dir::AbstractString)
+`max_substeps` caps the quadrature samples per axis of each output voxel when an oblique
+`reslice_to` cannot use the exact separable average; raise it when the warning says the
+result is under-sampled. Axis-aligned grids ignore it.
+"""
+load_bifti(path::AbstractString; max_substeps::Integer=8) =
+    load_bifti(read_bifti(path), dirname(abspath(path)); max_substeps)
+
+function load_bifti(config::BiftiPhantom, base_dir::AbstractString; max_substeps::Integer=8)
     # One NIfTI usually holds a property for several tissues, so read each file once.
     cache = Dict{String,Tuple{Array,Matrix{Float64}}}()
     read_ref(ref::NiftiRef) = read_subvolume(cache, base_dir, ref)
     tissues = OrderedDict{String,VoxelTissue}(
-        name => load_tissue(tissue, read_ref, config.reslice_to) for (name, tissue) in config.tissues
+        name => load_tissue(tissue, read_ref, config.reslice_to, max_substeps) for (name, tissue) in config.tissues
     )
     return VoxelPhantom(config, tissues)
 end
@@ -70,19 +75,20 @@ struct TissueGrid{R<:Resampler}
     src_shape::NTuple{3,Int}
     weight::Array{Float64,3}
     weight_sum::Array{Float64,3}
+    max_substeps::Int
 end
 
-function TissueGrid(density, src_affine, target::ResliceTo)
-    resampler = Resampler(src_affine, size(density), target.affine, target.resolution)
+function TissueGrid(density, src_affine, target::ResliceTo, max_substeps)
+    resampler = Resampler(src_affine, size(density), target.affine, target.resolution; max_substeps)
     weight = density_weight(density)
-    return TissueGrid(resampler, target, src_affine, size(density), weight, contract(resampler, weight))
+    return TissueGrid(resampler, target, src_affine, size(density), weight, contract(resampler, weight), max_substeps)
 end
 
-function load_tissue(tissue::BiftiTissue, read_ref, reslice_to)
+function load_tissue(tissue::BiftiTissue, read_ref, reslice_to, max_substeps)
     density_src, src_affine = read_ref(tissue.density)
     real_valued(density_src, "density")
     target = something(reslice_to, ResliceTo(src_affine, size(density_src)))
-    grid = TissueGrid(density_src, src_affine, target)
+    grid = TissueGrid(density_src, src_affine, target, max_substeps)
 
     property(p, name) = real_valued(load_property(p, read_ref, grid, name), name)
     channels(ps, name) = promote_channels([load_property(p, read_ref, grid, "$name[$(i-1)]") for (i, p) in enumerate(ps)])
@@ -115,7 +121,8 @@ function resample(grid::TissueGrid, data, affine, name)
     # map cannot use the density weight, so it falls back to an unweighted average.
     @warn "$name does not share the density map's grid; resampling it unweighted, so its values may be diluted near edges"
     target = grid.target
-    return resample_plain(Resampler(affine, size(data), target.affine, target.resolution), data)
+    resampler = Resampler(affine, size(data), target.affine, target.resolution; grid.max_substeps)
+    return resample_plain(resampler, data)
 end
 
 function real_valued(data, name)

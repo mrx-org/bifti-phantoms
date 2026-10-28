@@ -6,7 +6,7 @@ mod registry;
 mod resample;
 mod volume;
 
-pub use loader::{Phantom, Tissue};
+pub use loader::{DEFAULT_MAX_SUBSTEPS, Phantom, Tissue};
 pub use phantom::{
     BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, Patient, PatientPosition, PhantomSystem,
     PhantomUnits, ResliceTo, TissueProperties, TissueProperty,

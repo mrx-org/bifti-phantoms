@@ -1,9 +1,16 @@
-function phantom = loadPhantom(source, baseDir)
+function phantom = loadPhantom(source, varargin)
 %LOADPHANTOM Load a BIfTI phantom with all of its NIfTI data.
 %   phantom = bifti.loadPhantom(path) reads the phantom JSON and every NIfTI it
 %   references (relative to the JSON's folder). phantom = bifti.loadPhantom(config,
 %   baseDir) loads an already parsed, possibly edited, config (see bifti.readPhantom);
 %   relative NIfTI paths are resolved against BASEDIR (default: the current folder).
+%
+%   Name-value options:
+%     'MaxSubsteps'  cap on the quadrature samples per axis of each output voxel
+%                    when an oblique reslice_to cannot use the exact separable
+%                    average (default: 8). Raise it when the
+%                    'bifti:obliqueResampleCapped' warning says the result is
+%                    under-sampled; axis-aligned grids ignore it.
 %
 %   phantom.config is the parsed config; phantom.tissues is a struct array in
 %   file order with the fields name, density, T1, T2, T2dash, ADC, dB0 (3-D
@@ -25,11 +32,18 @@ function phantom = loadPhantom(source, baseDir)
         baseDir = fileparts(absolutePath(source));
     else
         config = source;
-        if nargin < 2
-            baseDir = pwd;
+        baseDir = pwd;
+        % An odd count means baseDir precedes the name-value pairs.
+        if mod(numel(varargin), 2) == 1
+            baseDir = varargin{1};
+            varargin = varargin(2:end);
         end
         baseDir = char(baseDir);
     end
+    options = inputParser;
+    options.addParameter('MaxSubsteps', 8);
+    options.parse(varargin{:});
+    maxSubsteps = options.Results.MaxSubsteps;
     % One NIfTI usually holds a property for several tissues: read each file once.
     cache = containers.Map();
     readRef = @(ref) readSubvolume(cache, baseDir, ref);
@@ -37,12 +51,12 @@ function phantom = loadPhantom(source, baseDir)
     tissues = struct('name', {}, 'density', {}, 'T1', {}, 'T2', {}, 'T2dash', {}, ...
         'ADC', {}, 'dB0', {}, 'B1_tx', {}, 'B1_rx', {}, 'affine', {});
     for k = 1:numel(config.tissues)
-        tissues(k) = loadTissue(config.tissues(k), readRef, config.resliceTo);
+        tissues(k) = loadTissue(config.tissues(k), readRef, config.resliceTo, maxSubsteps);
     end
     phantom = struct('config', config, 'tissues', tissues);
 end
 
-function out = loadTissue(tissue, readRef, resliceTo)
+function out = loadTissue(tissue, readRef, resliceTo, maxSubsteps)
     [densitySrc, srcAffine] = readRef(tissue.density);
     requireReal(densitySrc, tissue.name, 'density');
     target = resliceTo;
@@ -52,7 +66,9 @@ function out = loadTissue(tissue, readRef, resliceTo)
     grid.target = target;
     grid.srcAffine = srcAffine;
     grid.srcShape = shape3(densitySrc);
-    grid.resampler = bifti.internal.resampler(srcAffine, grid.srcShape, target.affine, target.resolution);
+    grid.maxSubsteps = maxSubsteps;
+    grid.resampler = bifti.internal.resampler(srcAffine, grid.srcShape, target.affine, ...
+        target.resolution, maxSubsteps);
     % Regularised so that a footprint without tissue averages its in-bounds taps
     % instead of 0/0; scaled because density need not be a [0, 1] float map.
     peak = max([densitySrc(:); 0]);
@@ -98,7 +114,8 @@ function data = loadProperty(property, readRef, grid, name)
         % does not cannot use the density weight and is averaged unweighted.
         warning('bifti:gridMismatch', ['%s does not share the density map''s grid; ' ...
             'resampling it unweighted, so its values may be diluted near edges'], name);
-        r = bifti.internal.resampler(affine, shape3(native), grid.target.affine, grid.target.resolution);
+        r = bifti.internal.resampler(affine, shape3(native), grid.target.affine, ...
+            grid.target.resolution, grid.maxSubsteps);
         data = bifti.internal.contract(r, native);
     end
     if isfield(property, 'func')
