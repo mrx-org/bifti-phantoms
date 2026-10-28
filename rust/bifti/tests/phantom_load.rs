@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use bifti::{Phantom, VolumeData};
+use bifti::{BiftiPhantom, LoadOptions, Phantom, ResliceTo, VolumeData};
 
 fn data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../python/bifti/examples/data")
@@ -66,6 +66,50 @@ fn resampling_keeps_t1_within_the_source_range() {
             );
         }
     }
+}
+
+/// `max_substeps` is a load option that reaches the oblique quadrature: raising it brings
+/// the result closer to a finely sampled reference.
+#[test]
+fn max_substeps_controls_the_oblique_quadrature() {
+    let mut config = BiftiPhantom::load(data_dir().join("shapes.json")).unwrap();
+    let (c, s) = (0.8, 0.6); // 37 degrees about z; 30 mm voxels span 10 source voxels
+    config.reslice_to = Some(ResliceTo {
+        affine: [
+            [30.0 * c, -30.0 * s, 0.0, -30.0],
+            [30.0 * s, 30.0 * c, 0.0, -30.0],
+            [0.0, 0.0, 5.0, -10.0],
+        ],
+        resolution: [3, 3, 4],
+    });
+    let density = |max_substeps| {
+        let options = LoadOptions { max_substeps };
+        let phantom = Phantom::load_from_config_with(config.clone(), data_dir(), options).unwrap();
+        let mut names: Vec<_> = phantom.tissues.keys().cloned().collect();
+        names.sort();
+        names
+            .iter()
+            .flat_map(|n| as_f64(&phantom.tissues[n].density.data))
+            .collect::<Vec<_>>()
+    };
+    let max_error = |a: &[f64], b: &[f64]| {
+        a.iter()
+            .zip(b)
+            .map(|(x, y)| (x - y).abs())
+            .fold(0.0, f64::max)
+    };
+
+    let reference = density(64);
+    let coarse = max_error(&density(2), &reference);
+    let full = max_error(&density(10), &reference);
+    assert!(
+        coarse > 1e-3,
+        "2 substeps should be visibly under-sampled, got {coarse}"
+    );
+    assert!(
+        full < coarse / 2.0,
+        "10 substeps: {full}, 2 substeps: {coarse}"
+    );
 }
 
 /// The 100x100 single-slice phantom also carries 8 `B1+` channels and a `func` mapping.

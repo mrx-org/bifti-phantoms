@@ -26,6 +26,7 @@ a `Volume`.
 | Item | What it is |
 |------|------------|
 | `Phantom::load(path)` | Load a phantom JSON + its NIfTIs into `Phantom { config, tissues }`. |
+| `Phantom::load_with(path, LoadOptions { max_substeps: 16 })` | The same with options: `max_substeps` (default 8) caps the quadrature samples per axis when an oblique `reslice_to` is resampled; raise it when the warning says the result is under-sampled. `load_from_config` / `load_from_config_with` take an already parsed config. |
 | `Tissue` | One tissue as `Volume`s: `density`, `t1`, `t2`, `t2dash`, `adc`, `db0`, `b1_tx: Vec<Volume>`, `b1_rx: Vec<Volume>`. |
 | `Volume` | `{ affine: [[f64; 4]; 3], shape: [usize; 3], data: VolumeData }`. |
 | `VolumeData` | `Float32(Vec<f32>)` / `Float64(Vec<f64>)` of the volume's voxels, row-major (`x*ny*nz + y*nz + z`). |

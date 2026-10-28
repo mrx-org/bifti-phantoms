@@ -19,22 +19,54 @@ pub struct Phantom {
     pub tissues: HashMap<String, Tissue>,
 }
 
+/// Options for [`Phantom::load_with`] and [`Phantom::load_from_config_with`]. Override
+/// single fields with `LoadOptions { max_substeps: 16, ..Default::default() }`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadOptions {
+    /// Caps the quadrature samples per axis of each output voxel when an oblique
+    /// `reslice_to` cannot use the exact separable average. Raise it when the warning says
+    /// the result is under-sampled; axis-aligned grids ignore it. Default: 8.
+    pub max_substeps: usize,
+}
+
+impl Default for LoadOptions {
+    fn default() -> Self {
+        Self { max_substeps: 8 }
+    }
+}
+
 impl Phantom {
+    /// [`Phantom::load_with`] with the default [`LoadOptions`].
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, crate::Error> {
+        Self::load_with(path, LoadOptions::default())
+    }
+
+    /// Load a phantom JSON and every NIfTI it references, relative to the JSON's folder.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(skip_all, fields(path = %path.as_ref().display()))
     )]
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, crate::Error> {
+    pub fn load_with<P: AsRef<Path>>(path: P, options: LoadOptions) -> Result<Self, crate::Error> {
         let path = path.as_ref().canonicalize()?;
         let config = BiftiPhantom::load(&path)?;
         let base_dir = path.parent().ok_or(crate::Error::NoParent)?;
-        Self::load_from_config(config, base_dir)
+        Self::load_from_config_with(config, base_dir, options)
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    /// [`Phantom::load_from_config_with`] with the default [`LoadOptions`].
     pub fn load_from_config<P: AsRef<Path>>(
         config: BiftiPhantom,
         base_dir: P,
+    ) -> Result<Self, crate::Error> {
+        Self::load_from_config_with(config, base_dir, LoadOptions::default())
+    }
+
+    /// Load the NIfTIs of an already parsed (possibly edited) config from `base_dir`.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn load_from_config_with<P: AsRef<Path>>(
+        config: BiftiPhantom,
+        base_dir: P,
+        options: LoadOptions,
     ) -> Result<Self, crate::Error> {
         // A phantom's NIfTIs are shared between tissues (one file, one sub-volume per
         // tissue), and every tissue needs its density twice - as a map and as the
@@ -44,7 +76,13 @@ impl Phantom {
         for (name, tissue) in &config.tissues {
             tissues.insert(
                 name.clone(),
-                Tissue::load(tissue, base_dir.as_ref(), config.reslice_to, &mut cache)?,
+                Tissue::load(
+                    tissue,
+                    base_dir.as_ref(),
+                    config.reslice_to,
+                    options,
+                    &mut cache,
+                )?,
             );
         }
         Ok(Self { config, tissues })
@@ -359,11 +397,12 @@ struct TissueGrid {
     weight: Vec<f64>,
     /// `sum_j w_j · weight_j` per output voxel - the shared denominator.
     weight_sum: Vec<f64>,
+    max_substeps: usize,
 }
 
 impl TissueGrid {
-    fn new(density: &Volume, reslice_to: ResliceTo) -> Self {
-        let resampler = Resampler::build(density.affine, density.shape, reslice_to);
+    fn new(density: &Volume, reslice_to: ResliceTo, max_substeps: usize) -> Self {
+        let resampler = Resampler::build(density.affine, density.shape, reslice_to, max_substeps);
 
         // Regularise the weight so a footprint containing no tissue at all still has a
         // well-defined mean - the unweighted mean of its in-bounds taps - instead of 0/0.
@@ -382,6 +421,7 @@ impl TissueGrid {
             src_shape: density.shape,
             weight,
             weight_sum,
+            max_substeps,
         }
     }
 
@@ -400,7 +440,12 @@ impl TissueGrid {
             ))
         } else {
             warn_grid_mismatch();
-            let resampler = Resampler::build(native.affine, native.shape, self.reslice_to);
+            let resampler = Resampler::build(
+                native.affine,
+                native.shape,
+                self.reslice_to,
+                self.max_substeps,
+            );
             map_variant!(&native.data, |v| resampler.resample_plain(v, native.shape))
         };
         Volume {
@@ -425,6 +470,7 @@ impl Tissue {
         tissue: &BiftiTissue,
         base_dir: &Path,
         reslice_to: Option<ResliceTo>,
+        options: LoadOptions,
         cache: &mut NiftiCache,
     ) -> Result<Self, crate::Error> {
         let density_src = cache.load(base_dir, &tissue.density)?;
@@ -444,7 +490,7 @@ impl Tissue {
             });
         };
 
-        let grid = TissueGrid::new(&density_src, reslice_to);
+        let grid = TissueGrid::new(&density_src, reslice_to, options.max_substeps);
 
         // `density` is a volume fraction - extensive - so it is averaged *unweighted*.
         // Weighting it by itself would renormalise away exactly the partial-volume
