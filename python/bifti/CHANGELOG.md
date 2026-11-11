@@ -4,6 +4,17 @@ All notable changes to the `bifti` Python package are documented here. The forma
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.3.1] - 2026-11-11
+
+### Changed
+
+- Widened the supported versions to what the test suite passes on: Python `>=3.10`
+  (was `>=3.12`; tested up to 3.15), `numpy>=1.21.3` (was `>=2.5.1`; NumPy 1.x and 2.x),
+  `nibabel>=5.2` (was `>=5.4.2`; older releases break under NumPy 2), `requests>=2.20`
+  (was `>=2.34.2`) and the `torch` extra `torch>=2.0` (was `>=2.13.0`).
+- The `dev` and `examples` dependency groups have lower floors too, so the locked
+  environment also resolves on Python 3.10 and 3.11.
+
 ## [0.3.0] - 2026-10-28
 
 ### Added
