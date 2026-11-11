@@ -76,9 +76,10 @@ uv add --path bifti-phantoms/python/bifti bifti
 
 ### Requirements
 
-The core package only needs `bifti`'s own dependencies (numpy, nibabel,
-requests). Resampling uses `torch` when it is importable — on CPU as well as
-CUDA — and NumPy otherwise; install it with the `torch` extra
+The core package needs Python 3.10 or newer and only `bifti`'s own dependencies
+(numpy >= 1.21.3, NumPy 2 included; nibabel >= 5.2; requests >= 2.20).
+Resampling uses `torch` when it is importable — on CPU as well as CUDA — and
+NumPy otherwise; install it with the `torch` extra
 (`pip install "bifti[torch]"`) or force a backend with
 `BIFTI_RESAMPLE_BACKEND=numpy|torch`. The examples pull in extra,
 examples-only dependencies

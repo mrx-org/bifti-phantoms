@@ -12,15 +12,21 @@ keywords = ["mri", "phantom", "simulation", "nifti", "bifti"]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Scientific/Engineering :: Physics",
     "Typing :: Typed",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
-    "nibabel>=5.4.2",
-    "numpy>=2.5.1",
-    "requests>=2.34.2",
+    "nibabel>=5.2",
+    "numpy>=1.21.3",
+    "requests>=2.20",
 ]
 
 [project.urls]
@@ -32,7 +38,7 @@ Registry = "https://mrx-org.github.io/bifti-phantoms/"
 
 [project.optional-dependencies]
 # Resampling uses torch when it is importable and NumPy otherwise; see bifti._backend.
-torch = ["torch>=2.13.0"]
+torch = ["torch>=2.0"]
 
 [build-system]
 requires = ["uv_build>=0.11.31,<0.12.0"]
@@ -40,14 +46,14 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2",
+    "pytest>=7.0",
     # test-only: the reference trilinear implementation the upsample path is checked
     # against. Resampling itself no longer needs scipy.
-    "scipy>=1.18.0",
+    "scipy>=1.8",
 ]
 examples = [
-    "h5py>=3.16.0",
-    "matplotlib>=3.11.1",
+    "h5py>=3.6",
+    "matplotlib>=3.5",
     "mrzerocore>=1.0.4",
-    "torch>=2.13.0",
+    "torch>=2.0",
 ]
