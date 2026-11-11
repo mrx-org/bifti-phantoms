@@ -77,6 +77,31 @@ jobs:
       - run: uv sync --frozen --group dev
       - run: uv run --frozen --group dev pytest -q
 
+  # The locked job above only covers one Python and the newest dependencies. This checks the
+  # edges of what pyproject.toml promises: the lower bounds (lowest-direct resolution) on the
+  # oldest supported Python, and the newest dependencies on the newest Python.
+  python-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.10"
+            resolution: lowest-direct
+          - python: "3.15"
+            resolution: highest
+    defaults:
+      run:
+        working-directory: python/bifti
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python ${{ matrix.python }} ../compat-venv
+      - run: uv pip install --python ../compat-venv --resolution ${{ matrix.resolution }} . --group dev
+      - run: ../compat-venv/bin/python -m pytest -q
+
   # Resampling uses torch when it is importable, which is a separate code path from the
   # NumPy one. Kept as its own job so the fast NumPy result is not gated on a large
   # third-party download.
