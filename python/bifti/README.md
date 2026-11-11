@@ -149,11 +149,6 @@ byte-identical files. The phantoms together exercise the whole format:
 
 ## Known limitations
 
-- **Complex-valued NIfTI data isn't handled.** A complex `B1+`/`B1-` map gets
-  cast with `np.asarray(..., dtype=np.float64)` in
-  [`loader.py`](https://github.com/mrx-org/bifti-phantoms/blob/main/python/bifti/src/bifti/loader.py), which silently discards the imaginary
-  part (numpy emits a `ComplexWarning`, easy to miss). The
-  [Rust crate](https://github.com/mrx-org/bifti-phantoms/blob/main/rust/bifti/) fails loudly instead in this case.
 - Only the default [`units`](https://github.com/mrx-org/bifti-phantoms/blob/main/JSON.md#units) are accepted.
 
 ## See also
