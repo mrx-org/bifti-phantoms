@@ -329,10 +329,17 @@ class BiftiPhantom:
     def from_dict(cls, config: dict):
         import re
 
-        schema = config["$schema"]
-        assert re.search(
-            r"(nifti|bifti)-phantom-v1(\.[^/]*)?$", schema
-        ), f"Unsupported $schema: {schema!r}"
+        if "$schema" in config:
+            schema = config["$schema"]
+            assert re.search(
+                r"(nifti|bifti)-phantom-v1(\.[^/]*)?$", schema
+            ), f"Unsupported $schema: {schema!r}"
+        else:
+            warnings.warn(
+                "Phantom has no '$schema'; assuming bifti-phantom-v1",
+                stacklevel=2,
+            )
+            schema = cls.DEFAULT_SCHEMA
 
         warn_unknown_fields(
             "the phantom",
