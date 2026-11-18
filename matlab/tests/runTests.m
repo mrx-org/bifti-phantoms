@@ -27,6 +27,14 @@ function runTests()
         @voxelOnlyTouchingTheSourceGetsNoWeight
         @nativePhantomKeepsTheDensityGrid
         @resliceToBringsEveryMapOntoTheTarget
+        @withoutMoveToTheGridStaysWhereItWasSampled
+        @centerPutsVoxelNDiv2AtTheOrigin
+        @centerKeepsRotation
+        @moveToRoundTrips
+        @invalidMoveToIsRejected
+        @moveToWithADifferentVoxelSizeWarns
+        @moveToChangesPlacementNotSampling
+        @savedPhantomKeepsThePlacedAffine
         @resamplingNeverInventsValuesOutsideTheSourceRange
         @downsamplingConservesTheTissueAmount
         @downsamplingAveragesInsteadOfPointSampling
@@ -391,6 +399,98 @@ function resliceToBringsEveryMapOntoTheTarget()
             check(all(cellfun(@(m) isequal(shape3(m), targets{k, 2}), maps)), '%s: wrong grid', targets{k, 1});
             check(all(isfinite(t.density(:))) && isequal(t.affine, p.config.resliceTo.affine), '%s', targets{k, 1});
         end
+    end
+end
+
+% ---------------------------------------------------------------------------
+% reslice_to.move_to
+% ---------------------------------------------------------------------------
+
+function r = sampledGrid(resolution, moveTo)
+    r = struct('affine', [3 0 0 -50; 0 2 0 7; 0 0 5 12], 'resolution', resolution, 'moveTo', moveTo);
+end
+
+function p = voxelPosition(affine, voxel)
+    p = affine(:, 1:3) * voxel(:) + affine(:, 4);
+end
+
+function config = movedConfig(moveTo)
+    config = bifti.readPhantom(dataPath('shapes_resliced.json'));
+    config.resliceTo.moveTo = moveTo;
+end
+
+function withoutMoveToTheGridStaysWhereItWasSampled()
+    r = sampledGrid([4 5 1], []);
+    check(isequal(bifti.placedAffine(r), r.affine), 'empty moveTo');
+    check(isequal(bifti.placedAffine(rmfield(r, 'moveTo')), r.affine), 'absent moveTo');
+    config = roundTrip(bifti.readPhantom(dataPath('shapes_resliced.json')));
+    check(isempty(config.resliceTo.moveTo), 'no move_to must stay absent');
+end
+
+function centerPutsVoxelNDiv2AtTheOrigin()
+    for n = [4 5]
+        r = sampledGrid([n n 1], 'center');
+        placed = bifti.placedAffine(r);
+        check(isequal(placed(:, 1:3), r.affine(:, 1:3)), 'rotation and voxel size must be kept');
+        % even: -n/2 .. n/2-1, odd: -(n-1)/2 .. (n-1)/2
+        x = arrayfun(@(i) voxelPosition(placed, [i 0 0]), 0:n-1, 'UniformOutput', false);
+        x = cellfun(@(p) p(1), x) / 3;
+        check(isequal(x, (0:n-1) - floor(n / 2)), 'n = %d: %s', n, mat2str(x));
+    end
+end
+
+function centerKeepsRotation()
+    [c, s] = deal(0.8, 0.6);
+    r = struct('affine', [2*c -2*s 0 10; 2*s 2*c 0 -4; 0 0 3 1], 'resolution', [6 4 2], 'moveTo', 'center');
+    check(all(abs(voxelPosition(bifti.placedAffine(r), [3 2 1])) < 1e-12), 'voxel [3 2 1] at the origin');
+end
+
+function moveToRoundTrips()
+    target = [3 0 0 1; 0 2 0 2; 0 0 5 3];
+    for moveTo = {'center', target}
+        config = roundTrip(movedConfig(moveTo{1}));
+        check(isequal(config.resliceTo.moveTo, moveTo{1}), 'move_to %s', mat2str(moveTo{1}));
+    end
+end
+
+function invalidMoveToIsRejected()
+    checkError(@() bifti.placedAffine(sampledGrid([4 5 1], 'middle')), 'bifti:moveTo');
+    checkError(@() bifti.placedAffine(sampledGrid([4 5 1], [1 0 0; 0 1 0])), 'bifti:moveTo');
+    checkError(@() parseQuietly(phantomJson(['"reslice_to": {"affine": [[1,0,0,0],[0,1,0,0],[0,0,1,0]], ' ...
+        '"resolution": [2,2,2], "move_to": "middle"}, '])), 'bifti:moveTo');
+end
+
+function moveToWithADifferentVoxelSizeWarns()
+    r = sampledGrid([4 5 1], [1 0 0 0; 0 2 0 0; 0 0 5 0]);
+    id = lastWarningOf(@() bifti.placedAffine(r));
+    check(strcmp(id, 'bifti:moveToStretches'), 'expected the stretch warning, got "%s"', id);
+end
+
+function moveToChangesPlacementNotSampling()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    baseDir = fileparts(dataPath('shapes_resliced.json'));
+    plain = bifti.loadPhantom(movedConfig([]), baseDir);
+    config = movedConfig('center');
+    moved = bifti.loadPhantom(config, baseDir);
+    for t = moved.tissues
+        reference = tissue(plain, t.name);
+        check(isequal(t.density, reference.density) && isequal(t.T1, reference.T1), '%s: data must not change', t.name);
+        check(isequal(t.affine, bifti.placedAffine(config.resliceTo)), '%s: placed affine', t.name);
+    end
+end
+
+function savedPhantomKeepsThePlacedAffine()
+    state = warning('off', 'all');
+    restore = onCleanup(@() warning(state));
+    config = movedConfig('center');
+    folder = tempname;
+    cleanup = onCleanup(@() rmdir(folder, 's'));
+    jsonPath = bifti.savePhantom(folder, bifti.loadPhantom(config, fileparts(dataPath('shapes_resliced.json'))));
+    reloaded = bifti.loadPhantom(jsonPath);
+    check(isempty(reloaded.config.resliceTo), 'reslice_to must be cleared');
+    for t = reloaded.tissues
+        checkClose(t.affine, bifti.placedAffine(config.resliceTo), 1e-4, t.name);
     end
 end
 

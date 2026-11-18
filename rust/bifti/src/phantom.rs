@@ -326,10 +326,111 @@ pub struct Patient {
     pub position: PatientPosition,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+/// Target grid of a phantom (../../../JSON.md -> `reslice_to`).
+///
+/// `affine` and `resolution` define which region of the source data is sampled.
+/// `move_to` optionally places the resampled grid somewhere else (voxel -> RAS+, mm),
+/// independent of where it was sampled; see [`ResliceTo::placed_affine`].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ResliceTo {
     pub affine: [[f64; 4]; 3],
     pub resolution: [usize; 3],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub move_to: Option<MoveTo>,
+}
+
+impl ResliceTo {
+    /// A target grid that stays where it is sampled (no `move_to`).
+    pub fn new(affine: [[f64; 4]; 3], resolution: [usize; 3]) -> Self {
+        Self {
+            affine,
+            resolution,
+            move_to: None,
+        }
+    }
+
+    /// The voxel -> RAS+ affine of the resampled grid after `move_to`.
+    ///
+    /// - no `move_to`: `affine`.
+    /// - [`MoveTo::Center`]: rotation and voxel size of `affine`, translated so that voxel
+    ///   `resolution / 2` (integer division) lies at the origin.
+    /// - [`MoveTo::Affine`]: that affine, as given.
+    pub fn placed_affine(&self) -> [[f64; 4]; 3] {
+        match self.move_to {
+            None => self.affine,
+            Some(MoveTo::Affine(affine)) => affine,
+            Some(MoveTo::Center) => {
+                let center = self.resolution.map(|n| (n / 2) as f64);
+                let mut affine = self.affine;
+                for row in &mut affine {
+                    row[3] = -(row[0] * center[0] + row[1] * center[1] + row[2] * center[2]);
+                }
+                affine
+            }
+        }
+    }
+
+    /// Warn if an explicit `move_to` has a different voxel size than `affine`: the
+    /// phantom is then stretched. Called when a phantom is loaded with this grid.
+    pub(crate) fn warn_if_stretched(&self) {
+        let Some(MoveTo::Affine(placed)) = self.move_to else {
+            return;
+        };
+        let voxel_size = |a: [[f64; 4]; 3]| {
+            [0, 1, 2].map(|j| (0..3).map(|i| a[i][j] * a[i][j]).sum::<f64>().sqrt())
+        };
+        let (sampled, placed) = (voxel_size(self.affine), voxel_size(placed));
+        if sampled
+            .iter()
+            .zip(&placed)
+            .any(|(s, p)| (p - s).abs() > 1e-3 * s.abs().max(1e-12))
+        {
+            warn_unknown!(
+                "reslice_to.move_to has voxel size {placed:?}, but the data is resliced with \
+                 voxel size {sampled:?}: the phantom will be stretched"
+            );
+        }
+    }
+}
+
+/// Where the resampled grid is placed (../../../JSON.md -> `reslice_to.move_to`).
+///
+/// In JSON either the string `"center"` or an affine (upper 3 rows).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MoveTo {
+    /// Keep rotation and voxel size, put voxel `resolution / 2` at the origin.
+    Center,
+    /// Use this voxel -> RAS+ affine (upper 3 rows) as given.
+    Affine([[f64; 4]; 3]),
+}
+
+impl Serialize for MoveTo {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Center => serializer.serialize_str("center"),
+            Self::Affine(affine) => affine.serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MoveTo {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Name(String),
+            Affine([[f64; 4]; 3]),
+        }
+        match Raw::deserialize(deserializer).map_err(|_| {
+            D::Error::custom("reslice_to.move_to must be \"center\" or a 3x4 affine")
+        })? {
+            Raw::Name(name) if name == "center" => Ok(Self::Center),
+            Raw::Name(name) => Err(D::Error::custom(format!(
+                "reslice_to.move_to must be \"center\" or a 3x4 affine, got {name:?}"
+            ))),
+            Raw::Affine(affine) => Ok(Self::Affine(affine)),
+        }
+    }
 }
 
 fn default_schema() -> String {

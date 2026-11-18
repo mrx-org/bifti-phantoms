@@ -4,6 +4,17 @@ All notable changes to BiftiPhantoms.jl are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.4.0] - 2026-11-18
+
+### Added
+
+- `ResliceTo(affine, resolution; move_to=...)` (`reslice_to.move_to` in the JSON): place
+  the resampled grid independently of where it was sampled - `:center` / `"center"`
+  (voxel `resolution .÷ 2` at the origin) or an explicit 3×4 affine. The new
+  `placed_affine(reslice)` returns the resulting affine, and `VoxelTissue.affine` is now
+  that placed affine (unchanged without `move_to`). A `move_to` affine with a different
+  voxel size than `affine` warns that the phantom is stretched.
+
 ## [0.3.0] - 2026-10-28
 
 ### Added

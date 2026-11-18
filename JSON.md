@@ -117,8 +117,25 @@ changes only how the data is sampled, never the orientation of the phantom.
 |--------------|--------------------|-------------------------------------------------------------------------------|
 | `affine`     | `number[3][4]`     | Upper 3 rows of the 4×4 voxel-to-world affine (implicit 4th row `[0,0,0,1]`). |
 | `resolution` | `integer[3]` (≥ 1) | Target matrix size (voxel counts) along the 3 spatial axes.                   |
+| `move_to`    | `"center"` or `number[3][4]` | Optional. Where the resampled grid is placed (see below).           |
 
-Both fields are required when `reslice_to` is present.
+`affine` and `resolution` are required when `reslice_to` is present.
+
+`affine` defines which region of the source data is **sampled**. `move_to`
+defines where the resampled grid is **placed** afterwards, i.e. the
+voxel-to-world affine of the loaded data:
+
+- omitted: the grid stays where it was sampled (`affine`).
+- `"center"`: rotation and voxel size of `affine` are kept, the translation is
+  chosen so that voxel `resolution // 2` (integer division) lies at the origin.
+  An even axis of `n` voxels then spans `-n/2 … n/2-1`, an odd one
+  `-(n-1)/2 … (n-1)/2` voxels.
+- an affine (upper 3 rows, like `affine`): used as given. This allows e.g. to
+  sample an oblique slab and place it axis-aligned. If its voxel size differs
+  from the one of `affine`, the phantom is stretched.
+
+Like `affine`, `move_to` is subject-aligned (RAS+); the `patient` position is
+applied on top of it.
 
 The exact resampling is implementation defined. The example implementations for
 Python in Rust respect the following recommendations, which all code is highly

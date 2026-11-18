@@ -232,21 +232,84 @@ class BiftiTissue:
         return config
 
 
+def _as_affine_3x4(affine, where: str) -> list[list[float]]:
+    """A 3x4 (or 4x4, last row dropped) affine as nested float lists."""
+    rows = [[float(v) for v in row] for row in affine]
+    if len(rows) not in (3, 4) or any(len(row) != 4 for row in rows):
+        raise ValueError(f"{where} must be a 3x4 or 4x4 affine")
+    return rows[:3]
+
+
 @dataclass
 class ResliceTo:
+    """Target grid of a phantom (../JSON.md -> ``reslice_to``).
+
+    ``affine`` and ``resolution`` define which region of the source data is
+    sampled. ``move_to`` optionally places the resampled grid somewhere else
+    (voxel -> RAS+, mm), independent of where it was sampled:
+
+    - ``None``: the grid stays at ``affine``.
+    - ``"center"``: rotation and voxel size of ``affine`` are kept, the grid is
+      translated so that voxel ``resolution // 2`` lies at the origin.
+    - a 3x4 affine: used as given - e.g. to put an obliquely sampled slab
+      axis-aligned into the scanner.
+    """
+
     affine: list[list[float]]
     resolution: list[int]
+    move_to: Literal["center"] | list[list[float]] | None = None
+
+    def __post_init__(self):
+        if self.move_to is None or (
+            isinstance(self.move_to, str) and self.move_to == "center"
+        ):
+            return
+        if isinstance(self.move_to, str):
+            raise ValueError(
+                f"reslice_to.move_to must be 'center' or an affine, got {self.move_to!r}"
+            )
+        self.move_to = _as_affine_3x4(self.move_to, "reslice_to.move_to")
+
+        # A different voxel size than the sampled one stretches the phantom
+        def voxel_size(affine):
+            return [
+                sum(float(affine[i][j]) ** 2 for i in range(3)) ** 0.5 for j in range(3)
+            ]
+
+        sampled, placed = voxel_size(self.affine), voxel_size(self.move_to)
+        if any(abs(p - s) > 1e-3 * max(abs(s), 1e-12) for s, p in zip(sampled, placed)):
+            warnings.warn(
+                f"reslice_to.move_to has voxel size {placed}, but the data is "
+                f"resliced with voxel size {sampled}: the phantom will be stretched",
+                stacklevel=3,
+            )
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]):
-        warn_unknown_fields("reslice_to", config, {"affine", "resolution"})
+        warn_unknown_fields("reslice_to", config, {"affine", "resolution", "move_to"})
         return cls(
             affine=[[float(v) for v in row] for row in config["affine"]],
             resolution=[int(v) for v in config["resolution"]],
+            move_to=config.get("move_to"),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {"affine": self.affine, "resolution": self.resolution}
+        config = {"affine": self.affine, "resolution": self.resolution}
+        if self.move_to is not None:
+            config["move_to"] = self.move_to
+        return config
+
+    def placed_affine(self) -> list[list[float]]:
+        """The voxel -> RAS+ affine of the resampled grid after ``move_to``."""
+        if self.move_to is None:
+            return self.affine
+        if isinstance(self.move_to, str):  # "center"
+            affine = _as_affine_3x4(self.affine, "reslice_to.affine")
+            center = [int(n) // 2 for n in self.resolution]
+            for row in affine:
+                row[3] = -sum(row[j] * center[j] for j in range(3))
+            return affine
+        return [row.copy() for row in self.move_to]
 
 
 @dataclass

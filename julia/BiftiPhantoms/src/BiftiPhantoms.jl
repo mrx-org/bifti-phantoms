@@ -29,7 +29,7 @@ include("loader.jl")
 include("save.jl")
 include("registry.jl")
 
-export BiftiPhantom, BiftiTissue, NiftiRef, NiftiMapping, PhantomSystem, Patient, PatientPosition, ResliceTo
+export BiftiPhantom, BiftiTissue, NiftiRef, NiftiMapping, PhantomSystem, Patient, PatientPosition, ResliceTo, placed_affine
 export read_bifti, write_bifti, nifti_files, scanner_matrix, scanner_affine
 export VoxelPhantom, VoxelTissue, load_bifti, save_bifti, save_nifti
 export load_catalog, load_registry, load_registry_phantom, flatten_phantoms

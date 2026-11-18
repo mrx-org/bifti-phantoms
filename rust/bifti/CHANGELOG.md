@@ -4,6 +4,23 @@ All notable changes to the `bifti` Rust crate are documented here. The format fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the crate uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [0.4.0] - 2026-11-18
+
+### Added
+
+- `ResliceTo::move_to` (`reslice_to.move_to` in the JSON) and the `MoveTo` enum: place the
+  resampled grid independently of where it was sampled - `MoveTo::Center` (voxel
+  `resolution / 2` at the origin) or `MoveTo::Affine` (an explicit 3x4 affine). Every
+  loaded `Volume` carries the placed affine, returned by `ResliceTo::placed_affine()`
+  (unchanged without `move_to`). A `move_to` affine with a different voxel size than
+  `affine` warns that the phantom is stretched.
+- `ResliceTo::new(affine, resolution)`, a target grid without `move_to`.
+
+### Changed
+
+- **Breaking:** `ResliceTo` has the new public field `move_to`, so struct literals need
+  `move_to: None` (or use `ResliceTo::new`). It also derives `PartialEq` now.
+
 ## [0.3.0] - 2026-10-28
 
 ### Changed

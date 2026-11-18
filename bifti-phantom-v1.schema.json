@@ -82,6 +82,27 @@
             "type": "integer",
             "minimum": 1
           }
+        },
+        "move_to": {
+          "description": "Optional placement of the resampled grid (voxel-to-world, RAS+). Omitted: the grid stays at `affine`. \"center\": rotation and voxel size of `affine` are kept and voxel `resolution // 2` is moved to the origin. An affine (upper 3 rows): used as given, e.g. to place an obliquely sampled slab axis-aligned.",
+          "oneOf": [
+            {
+              "const": "center"
+            },
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          ]
         }
       }
     },

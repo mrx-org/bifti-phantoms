@@ -1,5 +1,5 @@
 % BIFTI  Read, write and load BIfTI MRI simulation phantoms.
-% Version 0.3.0 28-Oct-2026
+% Version 0.4.0 18-Nov-2026
 %
 % Phantom files
 %   readPhantom          - Parse a phantom JSON (no NIfTI data).
@@ -11,6 +11,7 @@
 % Coordinates
 %   scannerMatrix        - Phantom RAS+ to scanner rotation of a patient position.
 %   scannerAffine        - Voxel-to-scanner affine of a tissue or affine.
+%   placedAffine         - Affine of a reslice_to grid after its move_to.
 %
 % Public registry
 %   loadCatalog          - Discovery list: label -> registry collection.

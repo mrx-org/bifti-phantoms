@@ -227,7 +227,11 @@ class NumpyTissue:
 
     @property
     def affine(self) -> list[list[float]]:
-        return self.resliced.affine
+        """Voxel -> RAS+ affine of the data, after ``reslice_to.move_to``.
+
+        The grid the data was *sampled* on is ``resliced.affine``.
+        """
+        return self.resliced.placed_affine()
 
 
 # ===========================================================================

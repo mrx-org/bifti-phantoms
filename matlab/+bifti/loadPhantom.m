@@ -23,9 +23,11 @@ function phantom = loadPhantom(source, varargin)
 %   has one, otherwise the tissue's density grid. Resampling averages each
 %   output voxel over the source region it covers, weighting intensive
 %   properties by density (see the top-level README, "Reslicing"). func
-%   mappings apply to the resampled values.
+%   mappings apply to the resampled values. A reslice_to.move_to then places the
+%   resampled grid elsewhere: the tissue affine is bifti.placedAffine(reslice_to).
 %
-%   See also bifti.readPhantom, bifti.scannerAffine, bifti.loadRegistryPhantom.
+%   See also bifti.readPhantom, bifti.placedAffine, bifti.scannerAffine,
+%   bifti.loadRegistryPhantom.
     if ischar(source) || isstring(source)
         source = char(source);
         config = bifti.readPhantom(source);
@@ -50,13 +52,17 @@ function phantom = loadPhantom(source, varargin)
 
     tissues = struct('name', {}, 'density', {}, 'T1', {}, 'T2', {}, 'T2dash', {}, ...
         'ADC', {}, 'dB0', {}, 'B1_tx', {}, 'B1_rx', {}, 'affine', {});
+    placed = [];
+    if ~isempty(config.resliceTo)
+        placed = bifti.placedAffine(config.resliceTo);  % validates and warns once
+    end
     for k = 1:numel(config.tissues)
-        tissues(k) = loadTissue(config.tissues(k), readRef, config.resliceTo, maxSubsteps);
+        tissues(k) = loadTissue(config.tissues(k), readRef, config.resliceTo, placed, maxSubsteps);
     end
     phantom = struct('config', config, 'tissues', tissues);
 end
 
-function out = loadTissue(tissue, readRef, resliceTo, maxSubsteps)
+function out = loadTissue(tissue, readRef, resliceTo, placed, maxSubsteps)
     [densitySrc, srcAffine] = readRef(tissue.density);
     requireReal(densitySrc, tissue.name, 'density');
     target = resliceTo;
@@ -86,6 +92,9 @@ function out = loadTissue(tissue, readRef, resliceTo, maxSubsteps)
     out.B1_tx = loadChannels(tissue.B1_tx, readRef, grid, 'B1+');
     out.B1_rx = loadChannels(tissue.B1_rx, readRef, grid, 'B1-');
     out.affine = target.affine;
+    if ~isempty(placed)
+        out.affine = placed;  % reslice_to.move_to
+    end
 end
 
 function maps = loadChannels(channels, readRef, grid, name)

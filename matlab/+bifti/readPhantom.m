@@ -4,7 +4,8 @@ function config = readPhantom(path)
 %     schema      the $schema URI
 %     system      struct with gyro [MHz/T] and B0 [T]
 %     patient     patient position code ('FFS', 'HFS', ...), '' if absent (= FFS)
-%     resliceTo   [] or struct with affine (3x4) and resolution (1x3)
+%     resliceTo   [] or struct with affine (3x4), resolution (1x3) and moveTo
+%                 ([], 'center' or a 3x4 affine; see bifti.placedAffine)
 %     tissues     struct array in file order: name, density, T1, T2, T2dash,
 %                 ADC, dB0, B1_tx, B1_rx, unknown
 %     unknown     unrecognised top-level fields, kept so bifti.writePhantom round-trips them
