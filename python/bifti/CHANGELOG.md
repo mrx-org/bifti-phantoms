@@ -4,7 +4,7 @@ All notable changes to the `bifti` Python package are documented here. The forma
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-18
 
 ### Added
 
