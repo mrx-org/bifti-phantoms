@@ -103,7 +103,7 @@ function load_tissue(tissue::BiftiTissue, read_ref, reslice_to, max_substeps)
         property(tissue.dB0, "dB0"),
         channels(tissue.B1_tx, "B1+"),
         channels(tissue.B1_rx, "B1-"),
-        target.affine,
+        placed_affine(target),
     )
 end
 

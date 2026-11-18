@@ -190,32 +190,83 @@ function to_dict(tissue::BiftiTissue)
 end
 
 """
-    ResliceTo(affine, resolution)
+    ResliceTo(affine, resolution; move_to=nothing)
 
 Target grid every NIfTI is resampled onto: the upper 3×4 rows of the
 voxel-to-world `affine` [mm] and the matrix size `resolution`.
+
+`affine` and `resolution` define which region of the source data is sampled.
+`move_to` optionally places the resampled grid somewhere else (voxel -> RAS+, mm),
+independent of where it was sampled (see [`placed_affine`](@ref)):
+
+- `nothing`: the grid stays at `affine`.
+- `:center` (or `"center"`): rotation and voxel size of `affine` are kept, the grid is
+  translated so that voxel `resolution .÷ 2` lies at the origin.
+- a 3×4 (or 4×4) affine: used as given - e.g. to put an obliquely sampled slab
+  axis-aligned into the scanner.
 """
 struct ResliceTo
     affine::Matrix{Float64}
     resolution::NTuple{3,Int}
-    function ResliceTo(affine::AbstractMatrix, resolution)
+    move_to::Union{Nothing,Symbol,Matrix{Float64}}
+    function ResliceTo(affine::AbstractMatrix, resolution; move_to=nothing)
         size(affine) == (3, 4) || throw(ArgumentError("reslice_to affine must be 3×4, got $(size(affine))"))
-        return new(affine, Tuple(resolution))
+        move_to = check_move_to(move_to, affine)
+        return new(affine, Tuple(resolution), move_to)
     end
 end
 
-function ResliceTo(config::AbstractDict)
-    warn_unknown_fields("reslice_to", config, ("affine", "resolution"))
-    affine = permutedims(reduce(hcat, [Float64.(row) for row in config["affine"]]))
-    return ResliceTo(affine, Int.(config["resolution"]))
+check_move_to(::Nothing, _) = nothing
+function check_move_to(name::Union{Symbol,AbstractString}, _)
+    Symbol(name) == :center ||
+        throw(ArgumentError("reslice_to.move_to must be \"center\" or an affine, got $(repr(name))"))
+    return :center
+end
+function check_move_to(placed::AbstractMatrix, affine)
+    size(placed) in ((3, 4), (4, 4)) ||
+        throw(ArgumentError("reslice_to.move_to must be a 3×4 or 4×4 affine, got $(size(placed))"))
+    placed = Matrix{Float64}(placed[1:3, :])
+    # A different voxel size than the sampled one stretches the phantom
+    sampled, moved = [norm(affine[:, j]) for j in 1:3], [norm(placed[:, j]) for j in 1:3]
+    any(abs.(moved .- sampled) .> 1e-3 .* max.(abs.(sampled), 1e-12)) &&
+        @warn "reslice_to.move_to has voxel size $moved, but the data is resliced with voxel size $sampled: the phantom will be stretched"
+    return placed
 end
 
-Base.:(==)(a::ResliceTo, b::ResliceTo) = a.affine == b.affine && a.resolution == b.resolution
+function ResliceTo(config::AbstractDict)
+    warn_unknown_fields("reslice_to", config, ("affine", "resolution", "move_to"))
+    as_matrix(rows) = permutedims(reduce(hcat, [Float64.(row) for row in rows]))
+    move_to = get(config, "move_to", nothing)
+    move_to isa AbstractVector && (move_to = as_matrix(move_to))
+    return ResliceTo(as_matrix(config["affine"]), Int.(config["resolution"]); move_to)
+end
 
-to_dict(reslice::ResliceTo) = OrderedDict{String,Any}(
-    "affine" => [collect(row) for row in eachrow(reslice.affine)],
-    "resolution" => collect(reslice.resolution),
-)
+Base.:(==)(a::ResliceTo, b::ResliceTo) =
+    a.affine == b.affine && a.resolution == b.resolution && isequal(a.move_to, b.move_to)
+
+"""
+    placed_affine(reslice::ResliceTo) -> Matrix{Float64}
+
+The 3×4 voxel -> RAS+ affine of the resampled grid after `reslice.move_to`.
+"""
+placed_affine(reslice::ResliceTo) = placed_affine(reslice, reslice.move_to)
+placed_affine(reslice::ResliceTo, ::Nothing) = reslice.affine
+placed_affine(::ResliceTo, placed::Matrix{Float64}) = copy(placed)
+function placed_affine(reslice::ResliceTo, ::Symbol)  # :center
+    affine = copy(reslice.affine)
+    affine[:, 4] = -affine[:, 1:3] * collect(reslice.resolution .÷ 2)
+    return affine
+end
+
+function to_dict(reslice::ResliceTo)
+    config = OrderedDict{String,Any}(
+        "affine" => [collect(row) for row in eachrow(reslice.affine)],
+        "resolution" => collect(reslice.resolution),
+    )
+    move_to = reslice.move_to
+    isnothing(move_to) || (config["move_to"] = move_to isa Symbol ? String(move_to) : [collect(row) for row in eachrow(move_to)])
+    return config
+end
 
 const PHANTOM_FIELDS = ("\$schema", "units", "system", "patient", "reslice_to", "tissues")
 
