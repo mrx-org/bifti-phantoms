@@ -157,9 +157,33 @@ class NiftiMapping:
         return {"file": self.file.to_str(), "func": self.func}
 
 
+def _parse_prop(prop):
+    """Parse a tissue property: a constant, a NIfTI reference or a {file, func} mapping."""
+    if isinstance(prop, (float, int)):
+        return float(prop)
+    elif isinstance(prop, str):
+        return NiftiRef.parse(prop)
+    else:
+        return NiftiMapping.parse(prop)
+
+
+def _serialize_prop(prop):
+    """Inverse of _parse_prop."""
+    if isinstance(prop, (float, int)):
+        return prop
+    elif isinstance(prop, NiftiRef):
+        return prop.to_str()
+    elif isinstance(prop, NiftiMapping):
+        return prop.to_dict()
+    else:
+        raise ValueError("Unsupported property type", type(prop))
+
+
 @dataclass
 class BiftiTissue:
-    density: NiftiRef
+    # density may be a plain NIfTI reference or a {file, func} mapping, but
+    # never a constant: it defines the voxel grid of the tissue.
+    density: NiftiRef | NiftiMapping
     T1: float | NiftiRef | NiftiMapping
     T2: float | NiftiRef | NiftiMapping
     T2dash: float | NiftiRef | NiftiMapping
@@ -169,8 +193,8 @@ class BiftiTissue:
     B1_rx: list[float | NiftiRef | NiftiMapping]
 
     @classmethod
-    def default(cls, density: NiftiRef):
-        return cls.from_dict({"density": density})
+    def default(cls, density: NiftiRef | NiftiMapping):
+        return cls.from_dict({"density": _serialize_prop(density)})
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]):
@@ -180,41 +204,30 @@ class BiftiTissue:
             {"density", "T1", "T2", "T2'", "ADC", "dB0", "B1+", "B1-"},
         )
 
-        def parse_prop(prop):
-            if isinstance(prop, (float, int)):
-                return float(prop)
-            elif isinstance(prop, str):
-                return NiftiRef.parse(prop)
-            else:
-                return NiftiMapping.parse(prop)
+        density = _parse_prop(config["density"])
+        if not isinstance(density, (NiftiRef, NiftiMapping)):
+            raise ValueError(
+                "density must be a NIfTI reference or a {file, func} mapping, "
+                "not a constant: it defines the voxel grid"
+            )
 
         return cls(
-            density=NiftiRef.parse(config["density"]),
-            T1=parse_prop(config.get("T1", float("inf"))),
-            T2=parse_prop(config.get("T2", float("inf"))),
-            T2dash=parse_prop(config.get("T2'", float("inf"))),
-            ADC=parse_prop(config.get("ADC", 0.0)),
-            dB0=parse_prop(config.get("dB0", 0.0)),
-            B1_tx=[parse_prop(ch) for ch in config.get("B1+", [1.0])],
-            B1_rx=[parse_prop(ch) for ch in config.get("B1-", [1.0])],
+            density=density,
+            T1=_parse_prop(config.get("T1", float("inf"))),
+            T2=_parse_prop(config.get("T2", float("inf"))),
+            T2dash=_parse_prop(config.get("T2'", float("inf"))),
+            ADC=_parse_prop(config.get("ADC", 0.0)),
+            dB0=_parse_prop(config.get("dB0", 0.0)),
+            B1_tx=[_parse_prop(ch) for ch in config.get("B1+", [1.0])],
+            B1_rx=[_parse_prop(ch) for ch in config.get("B1-", [1.0])],
         )
 
     def to_dict(self) -> dict:
-        def serialize_prop(prop):
-            if isinstance(prop, (float, int)):
-                return prop
-            elif isinstance(prop, NiftiRef):
-                return prop.to_str()
-            elif isinstance(prop, NiftiMapping):
-                return prop.to_dict()
-            else:
-                raise ValueError("Unsupported property type", type(prop))
-
         # Omit writing defaults (impossible for infinity)
         def is_default(prop, default):
             return isinstance(prop, (float, int)) and prop == default
 
-        config: dict[str, Any] = {"density": self.density.to_str()}
+        config: dict[str, Any] = {"density": _serialize_prop(self.density)}
         for key, prop, default in (
             ("T1", self.T1, float("inf")),
             ("T2", self.T2, float("inf")),
@@ -223,11 +236,11 @@ class BiftiTissue:
             ("dB0", self.dB0, 0.0),
         ):
             if not is_default(prop, default):
-                config[key] = serialize_prop(prop)
+                config[key] = _serialize_prop(prop)
 
         for key, channels in (("B1+", self.B1_tx), ("B1-", self.B1_rx)):
             if not (len(channels) == 1 and is_default(channels[0], 1.0)):
-                config[key] = [serialize_prop(ch) for ch in channels]
+                config[key] = [_serialize_prop(ch) for ch in channels]
 
         return config
 
@@ -392,10 +405,18 @@ class BiftiPhantom:
     def from_dict(cls, config: dict):
         import re
 
-        schema = config["$schema"]
-        assert re.search(
-            r"(nifti|bifti)-phantom-v1(\.[^/]*)?$", schema
-        ), f"Unsupported $schema: {schema!r}"
+        if "$schema" in config:
+            schema = config["$schema"]
+            assert re.search(
+                r"(nifti|bifti)-phantom-v1(\.[^/]*)?$", schema
+            ), f"Unsupported $schema: {schema!r}"
+        else:
+            # Older phantoms have no $schema: assume v1 and say so.
+            warnings.warn(
+                "Phantom has no '$schema'; assuming bifti-phantom-v1",
+                stacklevel=2,
+            )
+            schema = cls.DEFAULT_SCHEMA
 
         warn_unknown_fields(
             "the phantom",

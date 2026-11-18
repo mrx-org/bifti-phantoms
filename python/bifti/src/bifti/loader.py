@@ -333,7 +333,8 @@ def load_tissue(
 
     # The density map defines the source grid *and* supplies the resampling weight, so it
     # is loaded natively first and resampled separately from everything else.
-    density_src, src_affine = load_file_ref_noreslice(base_dir, tissue.density)
+    # density may be a plain NIfTI reference or a {file, func} mapping.
+    density_src, src_affine = load_density_noreslice(base_dir, tissue.density)
     _real_valued(density_src, "density")
     src_shape = tuple(density_src.shape)
 
@@ -451,6 +452,22 @@ def load_file_ref_noreslice(
     """
     data, affine = _load_nifti(base_dir, ref.file_name)
     return data[:, :, :, ref.tissue_index], affine
+
+
+def load_density_noreslice(
+    base_dir: Path, config: NiftiRef | NiftiMapping
+) -> tuple[np.ndarray, list[list[float]]]:
+    """Load a tissue's density on its native grid, applying ``func`` if it has one.
+
+    Unlike the other properties, density is never resampled before its ``func`` is
+    applied: it defines the source grid and the resampling weight, so it has to be
+    final (``func`` applied) at native resolution. ``x_min``/``x_max``/``x_mean``/
+    ``x_std`` in a density ``func`` therefore refer to the native volume.
+    """
+    if isinstance(config, NiftiMapping):
+        data, affine = load_file_ref_noreslice(base_dir, config.file)
+        return eval_expr(config.func, data), affine
+    return load_file_ref_noreslice(base_dir, config)
 
 
 def _real_valued(data: np.ndarray, name: str) -> np.ndarray:
