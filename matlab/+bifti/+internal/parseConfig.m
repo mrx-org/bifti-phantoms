@@ -33,10 +33,21 @@ function config = parseConfig(json)
     config.resliceTo = [];
     reslice = field(json, 'reslice_to', []);
     if ~isempty(reslice)
-        warnUnknown('reslice_to', reslice, {'affine', 'resolution'});
-        rows = field(reslice, 'affine');
-        config.resliceTo = struct('affine', cell2mat(cellfun(@(r) cell2mat(r), rows(:), 'UniformOutput', false)), ...
-            'resolution', cell2mat(field(reslice, 'resolution')));
+        warnUnknown('reslice_to', reslice, {'affine', 'resolution', 'move_to'});
+        asMatrix = @(rows) cell2mat(cellfun(@(r) cell2mat(r), rows(:), 'UniformOutput', false));
+        moveTo = field(reslice, 'move_to', []);
+        if iscell(moveTo)
+            moveTo = asMatrix(moveTo);
+        end
+        config.resliceTo = struct('affine', asMatrix(field(reslice, 'affine')), ...
+            'resolution', cell2mat(field(reslice, 'resolution')), 'moveTo', moveTo);
+        if ~isempty(moveTo)
+            % Validates move_to; a stretching move_to only warns when loaded.
+            state = warning('off', 'bifti:moveToStretches');
+            restore = onCleanup(@() warning(state));
+            bifti.placedAffine(config.resliceTo);
+            clear restore
+        end
     end
 
     tissues = field(json, 'tissues');

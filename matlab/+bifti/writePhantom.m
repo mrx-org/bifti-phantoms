@@ -12,8 +12,15 @@ function writePhantom(path, config)
     end
     if ~isempty(config.resliceTo)
         rows = num2cell(config.resliceTo.affine, 2)';
-        json = addMember(json, 'reslice_to', bifti.internal.jsonObject( ...
-            'affine', rows, 'resolution', config.resliceTo.resolution(:)'));
+        reslice = bifti.internal.jsonObject('affine', rows, 'resolution', config.resliceTo.resolution(:)');
+        if isfield(config.resliceTo, 'moveTo') && ~isempty(config.resliceTo.moveTo)
+            moveTo = config.resliceTo.moveTo;
+            if isnumeric(moveTo)
+                moveTo = num2cell(moveTo(1:3, :), 2)';
+            end
+            reslice = addMember(reslice, 'move_to', moveTo);
+        end
+        json = addMember(json, 'reslice_to', reslice);
     end
     tissues = bifti.internal.jsonObject();
     for t = config.tissues(:)'

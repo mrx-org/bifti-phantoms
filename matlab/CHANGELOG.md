@@ -6,6 +6,18 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package
 package is not published anywhere; the version is recorded in `+bifti/Contents.m`, so
 `ver bifti` reports it.
 
+## [0.4.0] - 2026-11-18
+
+### Added
+
+- `reslice_to.move_to`: place the resampled grid independently of where it was sampled -
+  `'center'` (voxel `floor(resolution / 2)` at the origin) or an explicit 3x4 affine.
+  `bifti.readPhantom` / `bifti.writePhantom` read and write it as `resliceTo.moveTo`, the
+  new `bifti.placedAffine(resliceTo)` returns the resulting affine, and every tissue's
+  `affine` from `bifti.loadPhantom` is that placed affine (unchanged without `move_to`). A
+  `move_to` affine with a different voxel size than `affine` warns
+  (`bifti:moveToStretches`) that the phantom is stretched.
+
 ## [0.3.0] - 2026-10-28
 
 ### Added
