@@ -4,6 +4,16 @@ All notable changes to the `bifti` Python package are documented here. The forma
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/) (independent of the BIfTI format version).
 
+## [Unreleased]
+
+### Added
+
+- `ResliceTo.move_to` (`reslice_to.move_to` in the JSON): place the resampled grid
+  independently of where it was sampled - `"center"` (voxel `resolution // 2` at the
+  origin) or an explicit 3x4 affine. `ResliceTo.placed_affine()` returns the resulting
+  affine, and `NumpyTissue.affine` is now that placed affine (unchanged without
+  `move_to`).
+
 ## [0.3.1] - 2026-11-11
 
 ### Changed
