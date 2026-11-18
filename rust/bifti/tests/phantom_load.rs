@@ -89,6 +89,7 @@ fn max_substeps_controls_the_oblique_quadrature() {
             [0.0, 0.0, 5.0, -10.0],
         ],
         resolution: [3, 3, 4],
+        move_to: None,
     });
     let density = |max_substeps| {
         let phantom = Phantom::load_from_config(config.clone(), data_dir(), max_substeps).unwrap();

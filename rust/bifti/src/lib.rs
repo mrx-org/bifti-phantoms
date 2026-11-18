@@ -8,8 +8,8 @@ mod volume;
 
 pub use loader::{DEFAULT_MAX_SUBSTEPS, Phantom, Tissue};
 pub use phantom::{
-    BiftiPhantom, BiftiTissue, NiftiMapping, NiftiRef, Patient, PatientPosition, PhantomSystem,
-    PhantomUnits, ResliceTo, TissueProperties, TissueProperty,
+    BiftiPhantom, BiftiTissue, MoveTo, NiftiMapping, NiftiRef, Patient, PatientPosition,
+    PhantomSystem, PhantomUnits, ResliceTo, TissueProperties, TissueProperty,
 };
 pub use registry::{Author, Catalog, Collection, PhantomEntry, PhantomGroup, Registry};
 pub use volume::{Volume, VolumeData, VolumeDataElement};

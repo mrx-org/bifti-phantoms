@@ -52,6 +52,9 @@ impl Phantom {
         // A phantom's NIfTIs are shared between tissues (one file, one sub-volume per
         // tissue), and every tissue needs its density twice - as a map and as the
         // resampling weight. Cache the native sub-volumes so each is read exactly once.
+        if let Some(reslice_to) = &config.reslice_to {
+            reslice_to.warn_if_stretched();
+        }
         let mut cache = NiftiCache::default();
         let mut tissues = HashMap::new();
         for (name, tissue) in &config.tissues {
@@ -412,7 +415,7 @@ impl Volume {
     fn expand_to(self, reslice_to: ResliceTo) -> Self {
         let res = reslice_to.resolution;
         Self {
-            affine: reslice_to.affine,
+            affine: reslice_to.placed_affine(),
             shape: res,
             data: self.data.expand(res[0] * res[1] * res[2]),
         }
@@ -482,7 +485,7 @@ impl TissueGrid {
             map_variant!(&native.data, |v| resampler.resample_plain(v, native.shape))
         };
         Volume {
-            affine: self.reslice_to.affine,
+            affine: self.reslice_to.placed_affine(),
             shape: self.reslice_to.resolution,
             data,
         }
@@ -529,7 +532,7 @@ impl Tissue {
         // Weighting it by itself would renormalise away exactly the partial-volume
         // information the resampling is meant to produce.
         let density = Volume {
-            affine: reslice_to.affine,
+            affine: reslice_to.placed_affine(),
             shape: reslice_to.resolution,
             data: map_variant!(&density_src.data, |v| grid
                 .resampler

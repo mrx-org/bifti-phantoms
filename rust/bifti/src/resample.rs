@@ -501,6 +501,7 @@ mod tests {
             ResliceTo {
                 affine: affine([factor; 3], [shift, shift, shift]),
                 resolution: [out; 3],
+                move_to: None,
             },
         )
     }
@@ -596,6 +597,7 @@ mod tests {
         let dst = ResliceTo {
             affine: affine([4.0, 4.0, 4.0], [-2.0, -2.0, -2.0]),
             resolution: [4, 4, 4],
+            move_to: None,
         };
         let r = Resampler::build(src_affine, src_shape, dst, 8);
 
@@ -651,6 +653,7 @@ mod tests {
         let dst = ResliceTo {
             affine: affine([1.0, 1.0, 1.0], [0.0, 0.0, 0.0]),
             resolution: [7, 7, 7],
+            move_to: None,
         };
         let r = Resampler::build(src_affine, src_shape, dst, 8);
         let out = weighted(&r, &data, src_shape);
@@ -692,6 +695,7 @@ mod tests {
             ResliceTo {
                 affine: a,
                 resolution: shape,
+                move_to: None,
             },
             8,
         );
@@ -712,6 +716,7 @@ mod tests {
                 [0.0, 0.0, 2.0, 0.5],
             ],
             resolution: [4, 4, 4],
+            move_to: None,
         };
         let r = Resampler::build(src_affine, src_shape, dst, 8);
         assert!(matches!(r, Resampler::Oblique { .. }));
@@ -811,6 +816,7 @@ mod boundary_tests {
                 [0., 0., 10.0, -12.5],
             ],
             resolution: [16, 12, 3],
+            move_to: None,
         };
         let r = Resampler::build(src_affine, [40, 32, 4], dst, 8);
 
