@@ -1697,5 +1697,15 @@
         ]
       }
     ]
+  }, 
+  "tachenne-abdomen-001": {
+  "description": "Abdominal phantom of one healthy volunteer at 3T (MRSegmentator segmentation of a Dixon VIBE, 47 tissues with the six-peak fat spectrum), ideal and with model B0 and B1+ maps; respiratory motion (forward displacement and B0 per phase) as an extension with an MRzero loader.",
+  "keywords": [ "abdomen", "liver", "pancreas", "fat", "breathing", "motion", "3T", "3d" ],
+  "authors": [
+    { "name": "Tachenne, Florent", "orcid": "0009-0002-9491-610X", "affiliation": "Montpellier Cancer Research Institute, Montpellier, France" }
+  ],
+  "license": "CC-BY-4.0",
+  "doi": "10.5281/zenodo.24398210",
+  "phantoms": [ "abdomen_3T.json", "abdomen_3T_fields.json" ]
   }
 }
